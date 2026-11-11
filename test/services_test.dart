@@ -45,7 +45,7 @@ void main() {
  network: '192.168.1.0/24',
  hostCounts: [50, 20],
 );
- expect(vlsm, isNull);
+ expect(vlsm, isNotNull);
 });
 
  test('IP/进制转换', () async {
@@ -88,4 +88,45 @@ void main() {
  expect(check.compatibility, 'ok');
  expect(check.force, isFalse);
 });
+
+  group('VLSM planVlsm（T6a 真实算法）', () {
+    test('192.168.1.0/24 拆 50/20/10 台主机', () async {
+      final plan = await LocalSubnetCalcService().planVlsm(
+        network: '192.168.1.0/24',
+        hostCounts: [50, 20, 10],
+      );
+      expect(plan, isNotNull);
+      expect(plan!.network, '192.168.1.0/24');
+      expect(plan.subnets.length, 3);
+      expect(plan.subnets[0]['network'], '192.168.1.0');
+      expect(plan.subnets[0]['prefix'], 26);
+      expect(plan.subnets[0]['hosts'], 62);
+      expect(plan.subnets[1]['network'], '192.168.1.64');
+      expect(plan.subnets[1]['prefix'], 27);
+      expect(plan.subnets[1]['hosts'], 30);
+      expect(plan.subnets[2]['network'], '192.168.1.96');
+      expect(plan.subnets[2]['prefix'], 28);
+      expect(plan.subnets[2]['hosts'], 14);
+    });
+
+    test('需求超出母网容量时抛 FormatException', () async {
+      expect(
+        () => LocalSubnetCalcService().planVlsm(
+          network: '192.168.1.0/30',
+          hostCounts: [10],
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('母网无前缀时抛 FormatException', () async {
+      expect(
+        () => LocalSubnetCalcService().planVlsm(
+          network: '192.168.1.0',
+          hostCounts: [10],
+        ),
+        throwsFormatException,
+      );
+    });
+  });
 }
