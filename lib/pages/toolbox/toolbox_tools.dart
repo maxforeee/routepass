@@ -136,7 +136,7 @@ const List<ToolboxTool> toolboxTools = <ToolboxTool>[
 /// 各工具页进页时在 initState 里调用，不论从 grid、首页还是最近使用进入都覆盖。
 void recordRecentTool(String toolId) {
   final kv = ServiceLocator.kvStore;
-  final recent = kv.getStringList(KvStore.keyToolboxRecent) ?? <String>[];
+  final recent = <String>[...?kv.getStringList(KvStore.keyToolboxRecent)];
   recent.remove(toolId);
   recent.insert(0, toolId);
   kv.setStringList(KvStore.keyToolboxRecent, recent.take(5).toList());
