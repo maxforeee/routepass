@@ -15,8 +15,8 @@ class Flags {
   /// V3 知识库模块。已装配（T5c），底栏知识库目的地进知识库页。
   static const bool MODULE_KNOWLEDGE = true;
 
-  /// V4 工具箱模块。当前未装配，底栏对应目的地显示“暂未开放”占位。
-  static const bool MODULE_TOOLBOX = false;
+  /// V4 工具箱模块。当前已装配（T6h），底栏对应目的地显示“暂未开放”占位。
+  static const bool MODULE_TOOLBOX = true;
 
   /// MODULE_BANK 开关序号（§4.10.2：功能开关序号）。
   static const int MODULE_BANK_ORDER = 10;

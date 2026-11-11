@@ -55,7 +55,7 @@ const List<ToolboxTool> toolboxTools = <ToolboxTool>[
     desc: 'IP ↔ 十/十六/二进制',
     icon: Icons.swap_horiz_outlined,
     category: ToolCategory.calc,
-    route: '/toolbox/ipconvert',
+    route: AppRoutes.toolboxIpConvert,
     slot: 20,
   ),
   ToolboxTool(
@@ -64,7 +64,7 @@ const List<ToolboxTool> toolboxTools = <ToolboxTool>[
     desc: '/24 ↔ 255.255.255.0',
     icon: Icons.compare_arrows_outlined,
     category: ToolCategory.calc,
-    route: '/toolbox/cidr',
+    route: AppRoutes.toolboxCidr,
     slot: 30,
   ),
   ToolboxTool(
@@ -73,7 +73,7 @@ const List<ToolboxTool> toolboxTools = <ToolboxTool>[
     desc: '按主机数拆分子网',
     icon: Icons.account_tree_outlined,
     category: ToolCategory.calc,
-    route: '/toolbox/vlsm',
+    route: AppRoutes.toolboxVlsm,
     slot: 40,
   ),
   ToolboxTool(
@@ -91,7 +91,7 @@ const List<ToolboxTool> toolboxTools = <ToolboxTool>[
     desc: '速率/容量单位互转',
     icon: Icons.straighten_outlined,
     category: ToolCategory.calc,
-    route: '/toolbox/units',
+    route: AppRoutes.toolboxUnits,
     slot: 60,
   ),
   ToolboxTool(
@@ -100,7 +100,7 @@ const List<ToolboxTool> toolboxTools = <ToolboxTool>[
     desc: '七层模型与协议对照',
     icon: Icons.layers_outlined,
     category: ToolCategory.reference,
-    route: '/toolbox/osi',
+    route: AppRoutes.toolboxOsi,
     slot: 70,
   ),
   ToolboxTool(
@@ -109,7 +109,7 @@ const List<ToolboxTool> toolboxTools = <ToolboxTool>[
     desc: '常用端口与服务',
     icon: Icons.dns_outlined,
     category: ToolCategory.query,
-    route: '/toolbox/ports',
+    route: AppRoutes.toolboxPorts,
     slot: 80,
   ),
   ToolboxTool(

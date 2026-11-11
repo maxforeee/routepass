@@ -35,6 +35,14 @@ class AppRoutes {
   static const String toolboxPing = '/toolbox/ping';
   static const String toolboxPortscan = '/toolbox/portscan';
   static const String toolboxCli = '/toolbox/cli';
+  // 6 张新增工具卡的路由（T6h）：文档 24 路由表里没有它们（附录 B 出入，用户已批准纳入 V4）。
+  // 为使 T-06 全屏 sheet 能隐藏底栏，它们以命名路由注册；原 24 条路由一字未动。
+  static const String toolboxIpConvert = '/toolbox/ipconvert';
+  static const String toolboxCidr = '/toolbox/cidr';
+  static const String toolboxVlsm = '/toolbox/vlsm';
+  static const String toolboxUnits = '/toolbox/units';
+  static const String toolboxOsi = '/toolbox/osi';
+  static const String toolboxPorts = '/toolbox/ports';
 }
 
 class AppRouter {

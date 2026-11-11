@@ -25,7 +25,17 @@ import '../home/home_content.dart';
 import '../knowledge/knowledge_detail_page.dart';
 import '../knowledge/knowledge_home_page.dart';
 import '../knowledge/knowledge_search_page.dart';
+import '../toolbox/cidr_page.dart';
+import '../toolbox/cli_page.dart';
+import '../toolbox/ip_convert_page.dart';
+import '../toolbox/osi_page.dart';
+import '../toolbox/ping_page.dart';
+import '../toolbox/ports_page.dart';
+import '../toolbox/portscan_page.dart';
+import '../toolbox/subnet_page.dart';
 import '../toolbox/toolbox_home_page.dart';
+import '../toolbox/units_page.dart';
+import '../toolbox/vlsm_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -122,6 +132,12 @@ class _AppShellState extends State<AppShell> {
       AppRoutes.bankExam ||
       AppRoutes.bankExamResult ||
       AppRoutes.toolboxSubnet ||
+      AppRoutes.toolboxIpConvert ||
+      AppRoutes.toolboxCidr ||
+      AppRoutes.toolboxVlsm ||
+      AppRoutes.toolboxUnits ||
+      AppRoutes.toolboxOsi ||
+      AppRoutes.toolboxPorts ||
       AppRoutes.toolboxPing ||
       AppRoutes.toolboxPortscan ||
       AppRoutes.toolboxCli => true,
@@ -212,6 +228,26 @@ class _AppShellState extends State<AppShell> {
         page = KnowledgeSearchPage(args: _routeArgs(settings));
       case AppRoutes.toolbox:
         page = const ToolboxHomePage();
+      case AppRoutes.toolboxSubnet:
+        page = const SubnetPage();
+      case AppRoutes.toolboxIpConvert:
+        page = const IpConvertPage();
+      case AppRoutes.toolboxCidr:
+        page = const CidrPage();
+      case AppRoutes.toolboxVlsm:
+        page = const VlsmPage();
+      case AppRoutes.toolboxUnits:
+        page = const UnitsPage();
+      case AppRoutes.toolboxOsi:
+        page = const OsiPage();
+      case AppRoutes.toolboxPorts:
+        page = const PortsPage();
+      case AppRoutes.toolboxPing:
+        page = const PingPage();
+      case AppRoutes.toolboxPortscan:
+        page = const PortScanPage();
+      case AppRoutes.toolboxCli:
+        page = const CliPage();
       default:
         page = _tabHome(index);
     }

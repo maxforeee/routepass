@@ -36,8 +36,11 @@ class _ToolboxHomePageState extends State<ToolboxHomePage> {
     return [for (final id in ids) if (byId.containsKey(id)) byId[id]!];
   }
 
-  void _openTool(ToolboxTool tool) {
-    Navigator.of(context).pushNamed(tool.route);
+  // 打开工具页；返回后重读 kv 刷新最近使用行（Tab Navigator 保留路由，
+  // AppShell 的 setState 不会重建本页，只能在 await 返回后自己刷新）。
+  Future<void> _openTool(ToolboxTool tool) async {
+    await Navigator.of(context).pushNamed(tool.route);
+    if (mounted) setState(() {});
   }
 
   @override
