@@ -29,9 +29,9 @@ class _SplashPageState extends State<SplashPage> {
     // 启动判定总耗时 ≤2.0 秒：两项 Mock 检查各设 1.5 秒超时，超时直接放行。
     bool loggedIn = false;
     try {
-      final user = await ServiceLocator.authService
-          .getCurrentUser()
-          .timeout(const Duration(milliseconds: 1500));
+      final user = await ServiceLocator.authService.getCurrentUser().timeout(
+        const Duration(milliseconds: 1500),
+      );
       loggedIn = user != null;
     } catch (_) {
       loggedIn = false;
@@ -47,15 +47,12 @@ class _SplashPageState extends State<SplashPage> {
     if (!mounted) return;
     // hard 升级：dialog 已弹出，只停在启动页，不自动跳转。
     if (hardUpgrade) return;
-    Navigator.of(context).pushReplacementNamed(
-      loggedIn ? AppRoutes.home : AppRoutes.login,
-    );
+    Navigator.of(context)
+        .pushReplacementNamed(loggedIn ? AppRoutes.home : AppRoutes.login);
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

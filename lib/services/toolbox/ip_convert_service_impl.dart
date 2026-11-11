@@ -84,10 +84,7 @@ class LocalIpConvertService implements IpConvertService {
   }
 
   int _toInt(List<int> octets) {
-    return (octets[0] << 24) |
-        (octets[1] << 16) |
-        (octets[2] << 8) |
-        octets[3];
+    return (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
   }
 
   int _mask(int prefix) {

@@ -30,12 +30,7 @@ class MockStatsService implements StatsService {
   Future<List<ModuleStat>> getByModule() async {
     return _modules
         .map(
-          (m) => ModuleStat(
-            module: m,
-            total: 0,
-            answered: 0,
-            correctRate: 0.0,
-          ),
+          (m) => ModuleStat(module: m, total: 0, answered: 0, correctRate: 0.0),
         )
         .toList();
   }

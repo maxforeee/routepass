@@ -102,8 +102,9 @@ class _SubnetPageState extends State<SubnetPage> {
         break;
       }
     }
-    final expected =
-        prefix == 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF;
+    final expected = prefix == 0
+        ? 0
+        : (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF;
     if (value != expected) {
       throw const FormatException('掩码不是合法的子网掩码');
     }
@@ -185,18 +186,46 @@ class _SubnetPageState extends State<SubnetPage> {
               Card(
                 child: Column(
                   children: [
-                    _ResultRow(label: '网络地址', value: result.network, onCopy: _copy),
-                    _ResultRow(label: '广播地址', value: result.broadcast, onCopy: _copy),
+                    _ResultRow(
+                      label: '网络地址',
+                      value: result.network,
+                      onCopy: _copy,
+                    ),
+                    _ResultRow(
+                      label: '广播地址',
+                      value: result.broadcast,
+                      onCopy: _copy,
+                    ),
                     _ResultRow(
                       label: '可用范围',
                       value: '${result.firstHost} - ${result.lastHost}',
                       onCopy: _copy,
                     ),
-                    _ResultRow(label: '可用主机数', value: '${result.hostCount}', onCopy: _copy),
-                    _ResultRow(label: '子网掩码', value: result.netmask, onCopy: _copy),
-                    _ResultRow(label: '反掩码', value: result.wildcard, onCopy: _copy),
-                    _ResultRow(label: '网络二进制', value: result.binaryNetwork, onCopy: _copy),
-                    _ResultRow(label: '掩码二进制', value: result.binaryNetmask, onCopy: _copy),
+                    _ResultRow(
+                      label: '可用主机数',
+                      value: '${result.hostCount}',
+                      onCopy: _copy,
+                    ),
+                    _ResultRow(
+                      label: '子网掩码',
+                      value: result.netmask,
+                      onCopy: _copy,
+                    ),
+                    _ResultRow(
+                      label: '反掩码',
+                      value: result.wildcard,
+                      onCopy: _copy,
+                    ),
+                    _ResultRow(
+                      label: '网络二进制',
+                      value: result.binaryNetwork,
+                      onCopy: _copy,
+                    ),
+                    _ResultRow(
+                      label: '掩码二进制',
+                      value: result.binaryNetmask,
+                      onCopy: _copy,
+                    ),
                   ],
                 ),
               ),

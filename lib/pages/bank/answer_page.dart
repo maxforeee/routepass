@@ -95,8 +95,9 @@ class _AnswerPageState extends State<AnswerPage> {
       bool isExam = false;
       int startIndex = 0;
       if (mode == 'exam') {
-        final session =
-            await ServiceLocator.examService.startExam(drawCount: drawCount);
+        final session = await ServiceLocator.examService.startExam(
+          drawCount: drawCount,
+        );
         // 考试快照没有 id/module/type，就地转成 Question（合成 id，type 默认为 single）。
         questions = session.snapshot.asMap().entries.map((e) {
           final s = e.value;
@@ -117,8 +118,9 @@ class _AnswerPageState extends State<AnswerPage> {
         examId = session.id;
         isExam = true;
       } else if (mode == 'single' && questionId != null) {
-        final q =
-            await ServiceLocator.questionRepository.getQuestionById(questionId);
+        final q = await ServiceLocator.questionRepository.getQuestionById(
+          questionId,
+        );
         questions = q == null ? const <Question>[] : <Question>[q];
         final s = await ServiceLocator.practiceService.startSession(
           questions: questions,
@@ -128,13 +130,12 @@ class _AnswerPageState extends State<AnswerPage> {
       } else if (mode == 'wrong' || mode == 'favorite') {
         final ids = mode == 'wrong'
             ? (await ServiceLocator.wrongService.getWrongBook())
-                .map((w) => w.question_id)
-                .toList()
+                  .map((w) => w.question_id)
+                  .toList()
             : await ServiceLocator.favoriteService.getFavoriteIds();
         final list = <Question>[];
         for (final id in ids) {
-          final q =
-              await ServiceLocator.questionRepository.getQuestionById(id);
+          final q = await ServiceLocator.questionRepository.getQuestionById(id);
           if (q != null) list.add(q);
         }
         questions = list;
@@ -146,8 +147,7 @@ class _AnswerPageState extends State<AnswerPage> {
       } else if (questionIds != null && questionIds.isNotEmpty) {
         final list = <Question>[];
         for (final id in questionIds) {
-          final q =
-              await ServiceLocator.questionRepository.getQuestionById(id);
+          final q = await ServiceLocator.questionRepository.getQuestionById(id);
           if (q != null) list.add(q);
         }
         questions = list;
@@ -172,8 +172,7 @@ class _AnswerPageState extends State<AnswerPage> {
           if (idx >= 0) startIndex = idx;
         }
       }
-      final favorites =
-          await ServiceLocator.favoriteService.getFavoriteIds();
+      final favorites = await ServiceLocator.favoriteService.getFavoriteIds();
       if (!mounted) return;
       setState(() {
         _mode = mode;
@@ -209,8 +208,7 @@ class _AnswerPageState extends State<AnswerPage> {
     return '$m:$s';
   }
 
-  int get _answeredCount =>
-      _answers.values.where((a) => a.isNotEmpty).length;
+  int get _answeredCount => _answers.values.where((a) => a.isNotEmpty).length;
 
   void _selectOption(String key) {
     final q = _current;
@@ -254,8 +252,9 @@ class _AnswerPageState extends State<AnswerPage> {
         : List<String>.from(_answers[q.id] ?? const <String>[]);
     if (!_isExam && chosen.any((c) => c.isNotEmpty)) {
       // 练习模式：点“下一题”时提交本题（Mock 不判对错，解析卡只显示占位文案）。
-      final durationMs =
-          DateTime.now().difference(_questionStartTime).inMilliseconds;
+      final durationMs = DateTime.now()
+          .difference(_questionStartTime)
+          .inMilliseconds;
       try {
         final result = await ServiceLocator.practiceService.submitAnswer(
           sessionId: _sessionId,
@@ -284,8 +283,7 @@ class _AnswerPageState extends State<AnswerPage> {
 
   Future<void> _submit() async {
     final unanswered = _questions.length - _answeredCount;
-    final confirmed =
-        await showSubmitDialog(context, unanswered: unanswered);
+    final confirmed = await showSubmitDialog(context, unanswered: unanswered);
     if (!confirmed || !mounted) return;
     int? score;
     String detail = '';
@@ -326,9 +324,8 @@ class _AnswerPageState extends State<AnswerPage> {
           },
           onRetryWrong: () {
             Navigator.of(sheetContext).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('暂无错题')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('暂无错题')));
           },
           onClose: () {
             Navigator.of(sheetContext).pop();
@@ -450,9 +447,7 @@ class _AnswerPageState extends State<AnswerPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_error != null || _questions.isEmpty) {
       return Scaffold(
@@ -519,9 +514,7 @@ class _AnswerPageState extends State<AnswerPage> {
               },
             ),
             IconButton(
-              icon: Icon(
-                isFavorite ? Icons.bookmark : Icons.bookmark_border,
-              ),
+              icon: Icon(isFavorite ? Icons.bookmark : Icons.bookmark_border),
               tooltip: isFavorite ? '取消收藏' : '收藏',
               onPressed: _toggleFavorite,
             ),
@@ -553,9 +546,7 @@ class _AnswerPageState extends State<AnswerPage> {
                     const SizedBox(height: 8),
                     SelectableText(
                       q.stem,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        height: 1.6,
-                      ),
+                      style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
                     ),
                     const SizedBox(height: 16),
                     _buildOptions(q),

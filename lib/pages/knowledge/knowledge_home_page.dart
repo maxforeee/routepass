@@ -64,8 +64,9 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     for (final chapter in chapters) {
       var chapterSections = <Section>[];
       try {
-        chapterSections = await ServiceLocator.knowledgeRepository
-            .getSections(chapter.id);
+        chapterSections = await ServiceLocator.knowledgeRepository.getSections(
+          chapter.id,
+        );
       } catch (_) {}
       sections[chapter.id] = chapterSections;
       for (final section in chapterSections) {
@@ -225,23 +226,23 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _chapters.isEmpty
-              ? const Center(child: Text('暂无知识点，请更新'))
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  children: [
-                    _buildSearch(),
-                    const SizedBox(height: 12),
-                    _buildProgress(),
-                    const SizedBox(height: 8),
-                    if (_searching && _visibleTotal == 0)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 48),
-                        child: Center(child: Text('没有找到相关知识点')),
-                      )
-                    else
-                      ..._chapters.map(_buildChapter),
-                  ],
-                ),
+          ? const Center(child: Text('暂无知识点，请更新'))
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              children: [
+                _buildSearch(),
+                const SizedBox(height: 12),
+                _buildProgress(),
+                const SizedBox(height: 8),
+                if (_searching && _visibleTotal == 0)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 48),
+                    child: Center(child: Text('没有找到相关知识点')),
+                  )
+                else
+                  ..._chapters.map(_buildChapter),
+              ],
+            ),
     );
   }
 
@@ -286,10 +287,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '已掌握 $done/$total',
-          style: theme.textTheme.labelMedium,
-        ),
+        Text('已掌握 $done/$total', style: theme.textTheme.labelMedium),
         const SizedBox(height: 4),
         LinearProgressIndicator(value: total == 0 ? 0 : done / total),
       ],
@@ -302,8 +300,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     final sections = _sections[chapter.id] ?? <Section>[];
     final collapsed = _collapsedChapters.contains(chapter.id);
     if (_searching) {
-      final hasMatch =
-          sections.any((s) => _visiblePoints(s.id).isNotEmpty);
+      final hasMatch = sections.any((s) => _visiblePoints(s.id).isNotEmpty);
       if (!hasMatch) return const SizedBox.shrink();
     }
     var pointCount = 0;
@@ -360,8 +357,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
   Widget _buildSection(Chapter chapter, Section section) {
     final theme = Theme.of(context);
     final points = _visiblePoints(section.id);
-    final collapsed =
-        _collapsedSections.contains(section.id) && !_searching;
+    final collapsed = _collapsedSections.contains(section.id) && !_searching;
     if (_searching && points.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,11 +478,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
 
   /// K-08 展开面板：背景 `surfaceVariant@50%`；内边距 16；摘要 2 行 + 要点 ≤3；
   /// K-10 练一练（左下）→ V2 按 `kp_id` 抽题；K-09 查看详情（右下）→ 详情页。
-  Widget _buildPanel(
-    Chapter chapter,
-    Section section,
-    KnowledgePoint point,
-  ) {
+  Widget _buildPanel(Chapter chapter, Section section, KnowledgePoint point) {
     final theme = Theme.of(context);
     final keyPoints = (point.key_points ?? <String>[]).take(3).toList();
     return Container(
@@ -511,9 +503,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('•  '),
-                    Expanded(
-                      child: Text(k, style: theme.textTheme.bodyMedium),
-                    ),
+                    Expanded(child: Text(k, style: theme.textTheme.bodyMedium)),
                   ],
                 ),
               ),

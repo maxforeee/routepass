@@ -39,11 +39,7 @@ class MockExamService implements ExamService {
     required int durationMs,
   }) async {
     // Mock 不判真分：score 一律为 null，绝不许用假答案算出假分数。
-    return ExamResult(
-      score: null,
-      passed: null,
-      detail: '样例考试，不计分',
-    );
+    return ExamResult(score: null, passed: null, detail: '样例考试，不计分');
   }
 
   @override

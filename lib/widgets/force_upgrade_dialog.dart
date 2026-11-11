@@ -41,9 +41,7 @@ Future<void> showForceUpgradeDialog(
         canPop: false,
         child: AlertDialog(
           title: const Text('需要更新 App'),
-          content: Text(
-            '当前版本过旧，请更新到 $latestVersion 后继续使用。更新前答题入口已禁用。',
-          ),
+          content: Text('当前版本过旧，请更新到 $latestVersion 后继续使用。更新前答题入口已禁用。'),
           actions: [
             TextButton(
               onPressed: () {

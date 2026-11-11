@@ -83,9 +83,7 @@ class OptionTile extends StatelessWidget {
               ),
               if (multiple)
                 Icon(
-                  selected
-                      ? Icons.check_box
-                      : Icons.check_box_outline_blank,
+                  selected ? Icons.check_box : Icons.check_box_outline_blank,
                   color: selected
                       ? theme.colorScheme.primary
                       : theme.colorScheme.onSurfaceVariant,
@@ -162,10 +160,7 @@ class AnswerSheetContent extends StatelessWidget {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Text(
-                          '${index + 1}',
-                          style: theme.textTheme.bodyMedium,
-                        ),
+                        Text('${index + 1}', style: theme.textTheme.bodyMedium),
                         if (isMarked)
                           Positioned(
                             right: 0,
@@ -214,13 +209,10 @@ class _AnalysisCardState extends State<AnalysisCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final q = widget.question;
-    final correctText =
-        q.answer.isEmpty ? '样例数据，无答案' : q.answer.join('、');
+    final correctText = q.answer.isEmpty ? '样例数据，无答案' : q.answer.join('、');
     return Card(
       margin: const EdgeInsets.only(top: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -228,25 +220,20 @@ class _AnalysisCardState extends State<AnalysisCard> {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text('解析', style: theme.textTheme.titleMedium),
-                ),
+                Expanded(child: Text('解析', style: theme.textTheme.titleMedium)),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    '样例数据',
-                    style: theme.textTheme.labelMedium,
-                  ),
+                  child: Text('样例数据', style: theme.textTheme.labelMedium),
                 ),
                 IconButton(
-                  icon: Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                  ),
+                  icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
                   tooltip: _expanded ? '收起解析' : '展开解析',
                   onPressed: () => setState(() => _expanded = !_expanded),
                 ),
@@ -259,10 +246,7 @@ class _AnalysisCardState extends State<AnalysisCard> {
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 4),
-              Text(
-                '正确答案：$correctText',
-                style: theme.textTheme.bodyMedium,
-              ),
+              Text('正确答案：$correctText', style: theme.textTheme.bodyMedium),
               const SizedBox(height: 4),
               Text(
                 widget.result.explanation,
@@ -287,9 +271,7 @@ Future<bool> showSubmitDialog(
     context: context,
     builder: (context) {
       return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('确认交卷'),
         content: Text(
           unanswered > 0 ? '还有 $unanswered 题未答，确认交卷？' : '全部已答，确认交卷？',
@@ -316,9 +298,7 @@ Future<bool> showExitConfirmDialog(BuildContext context) async {
     context: context,
     builder: (context) {
       return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('退出答题'),
         content: const Text('退出后可在首页“继续学习”恢复作答。'),
         actions: [

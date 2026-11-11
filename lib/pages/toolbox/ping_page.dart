@@ -115,7 +115,10 @@ class _PingPageState extends State<PingPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('状态：${result.message}', style: theme.textTheme.titleMedium),
+                      Text(
+                        '状态：${result.message}',
+                        style: theme.textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 4),
                       const Text('本地 TCP 探测暂未接入执行，不会假装跑出时延。'),
                       const SizedBox(height: 4),

@@ -163,7 +163,11 @@ class IpConvertResult {
 
 /// Ping 模拟结果。
 class PingResult {
-  const PingResult({required this.state, required this.message, this.latencyMs});
+  const PingResult({
+    required this.state,
+    required this.message,
+    this.latencyMs,
+  });
 
   /// 结果状态：`ok` / `timeout` / `unreachable` / `error` 等。
   final String state;
@@ -196,7 +200,11 @@ class PingResult {
 
 /// 端口扫描结果。
 class PortScanResult {
-  const PortScanResult({required this.state, required this.message, required this.openPorts});
+  const PortScanResult({
+    required this.state,
+    required this.message,
+    required this.openPorts,
+  });
 
   /// 结果状态：`ok` / `error` 等。
   final String state;

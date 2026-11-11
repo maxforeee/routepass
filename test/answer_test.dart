@@ -76,8 +76,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _initServices();
 
-  testWidgets('快速 10 题加载与作答：选中选项、解析卡占位、答题卡跳题',
-      (tester) async {
+  testWidgets('快速 10 题加载与作答：选中选项、解析卡占位、答题卡跳题', (tester) async {
     await _ensureLoggedIn();
     await _pumpAnswerPage(tester);
 
@@ -109,8 +108,7 @@ void main() {
     expect(find.text('第 3/3 题'), findsOneWidget);
   });
 
-  testWidgets('交卷与结果：答题卡到第 3 题交卷，确认 dialog 后结果 sheet，返回关闭',
-      (tester) async {
+  testWidgets('交卷与结果：答题卡到第 3 题交卷，确认 dialog 后结果 sheet，返回关闭', (tester) async {
     await _ensureLoggedIn();
     await _pumpAnswerPage(tester);
     expect(find.text('第 1/3 题'), findsOneWidget);

@@ -42,9 +42,7 @@ void _initServices() {
 }
 
 Future<void> _pumpPage(WidgetTester tester) async {
-  await tester.pumpWidget(
-    const MaterialApp(home: KnowledgeHomePage()),
-  );
+  await tester.pumpWidget(const MaterialApp(home: KnowledgeHomePage()));
   await tester.pumpAndSettle();
 }
 
@@ -76,19 +74,13 @@ void main() {
     // 点行展开面板，摘要出现。
     await tester.tap(find.text('样例知识点：VLAN 是什么'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('这是一条样例知识点摘要，仅用于界面展示。'),
-      findsOneWidget,
-    );
+    expect(find.text('这是一条样例知识点摘要，仅用于界面展示。'), findsOneWidget);
     expect(find.text('练一练'), findsOneWidget);
     expect(find.text('查看详情'), findsOneWidget);
     // 再点行收起面板。
     await tester.tap(find.text('样例知识点：VLAN 是什么'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('这是一条样例知识点摘要，仅用于界面展示。'),
-      findsNothing,
-    );
+    expect(find.text('这是一条样例知识点摘要，仅用于界面展示。'), findsNothing);
   });
 
   testWidgets('掌握切换更新进度', (tester) async {
@@ -123,15 +115,9 @@ void main() {
 
     await tester.tap(find.text('样例知识点：VLAN 是什么'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('这是一条样例知识点摘要，仅用于界面展示。'),
-      findsOneWidget,
-    );
+    expect(find.text('这是一条样例知识点摘要，仅用于界面展示。'), findsOneWidget);
     // 重建页面（kv 里的展开态应恢复）。
     await _pumpPage(tester);
-    expect(
-      find.text('这是一条样例知识点摘要，仅用于界面展示。'),
-      findsOneWidget,
-    );
+    expect(find.text('这是一条样例知识点摘要，仅用于界面展示。'), findsOneWidget);
   });
 }

@@ -44,10 +44,7 @@ void main() {
     await tester.pumpAndSettle();
     // '3389' 同时是搜索框里的文字，用 ListTile 限定只找结果行。
     expect(
-      find.descendant(
-        of: find.byType(ListTile),
-        matching: find.text('3389'),
-      ),
+      find.descendant(of: find.byType(ListTile), matching: find.text('3389')),
       findsOneWidget,
     );
     expect(find.text('RDP'), findsOneWidget);

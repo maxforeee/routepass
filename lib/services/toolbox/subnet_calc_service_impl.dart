@@ -85,7 +85,9 @@ class LocalSubnetCalcService implements SubnetCalcService {
       }
       final prefix = 32 - bits;
       if (prefix < parentPrefix) {
-        throw FormatException('需求超出母网容量：$hosts 台主机需要 /$prefix，母网为 /$parentPrefix');
+        throw FormatException(
+          '需求超出母网容量：$hosts 台主机需要 /$prefix，母网为 /$parentPrefix',
+        );
       }
       final size = 1 << bits;
       if (cursor + size > base + parentSize) {
@@ -107,7 +109,10 @@ class LocalSubnetCalcService implements SubnetCalcService {
       });
       cursor += size;
     }
-    return VlsmPlan(network: '${_dotted(base)}/$parentPrefix', subnets: subnets);
+    return VlsmPlan(
+      network: '${_dotted(base)}/$parentPrefix',
+      subnets: subnets,
+    );
   }
 
   List<int> _parseIp(String ip) {

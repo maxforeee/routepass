@@ -128,8 +128,9 @@ class _UnitsPageState extends State<UnitsPage> {
                 border: OutlineInputBorder(),
               ),
               style: monoTextStyle(context, fontSize: 15),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -142,8 +143,7 @@ class _UnitsPageState extends State<UnitsPage> {
                       for (final u in _units)
                         DropdownMenuItem(value: u, child: Text(u)),
                     ],
-                    onChanged: (v) =>
-                        setState(() => _from = v ?? _from),
+                    onChanged: (v) => setState(() => _from = v ?? _from),
                   ),
                 ),
                 const Padding(

@@ -54,10 +54,7 @@ void main() {
     // 登录页：'登录' 同时出现在 AppBar 标题与按钮上，用 findsWidgets。
     expect(find.text('登录'), findsWidgets);
 
-    await tester.enterText(
-      find.widgetWithText(TextField, '用户名'),
-      'demo_user1',
-    );
+    await tester.enterText(find.widgetWithText(TextField, '用户名'), 'demo_user1');
     await tester.enterText(find.widgetWithText(TextField, '密码'), 'Demo1234');
     await tester.tap(find.widgetWithText(FilledButton, '登录'));
     await tester.pumpAndSettle();

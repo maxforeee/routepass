@@ -123,7 +123,8 @@ class KnowledgePoint {
       'summary': summary,
       'content_md': content_md,
       if (key_points != null) 'key_points': key_points,
-      if (commands != null) 'commands': commands!.map((e) => e.toJson()).toList(),
+      if (commands != null)
+        'commands': commands!.map((e) => e.toJson()).toList(),
       if (pitfalls != null) 'pitfalls': pitfalls,
       if (tags != null) 'tags': tags,
       if (status != null) 'status': status,

@@ -14,9 +14,6 @@ class MockPingService implements PingService {
     required int port,
     int timeoutMs = 3000,
   }) async {
-    return PingResult(
-      state: 'not_connected',
-      message: '待接本地服务',
-    );
+    return PingResult(state: 'not_connected', message: '待接本地服务');
   }
 }

@@ -157,7 +157,10 @@ class _OsiPageState extends State<OsiPage> {
                 for (final (name, osi) in _tcpipMapping)
                   ListTile(
                     title: Text(name),
-                    subtitle: Text(osi, style: monoTextStyle(context, fontSize: 13)),
+                    subtitle: Text(
+                      osi,
+                      style: monoTextStyle(context, fontSize: 13),
+                    ),
                   ),
               ],
             ),

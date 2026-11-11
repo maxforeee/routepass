@@ -51,10 +51,8 @@ void _initServices() {
 }
 
 /// 首页快捷入口也有同名文字，切 tab 必须把 finder 限定在胶囊导航里。
-Finder _navTab(String label) => find.descendant(
-      of: find.byType(CapsuleNavBar),
-      matching: find.text(label),
-    );
+Finder _navTab(String label) =>
+    find.descendant(of: find.byType(CapsuleNavBar), matching: find.text(label));
 
 /// 登录并进入外壳首页（登录流程同 shell_test.dart）。
 /// 同文件里 MockAuthService 的登录态跨用例保留，已登录时直接进外壳。
@@ -63,10 +61,7 @@ Future<void> _loginToHome(WidgetTester tester) async {
   await tester.pumpAndSettle();
 
   if (find.widgetWithText(TextField, '用户名').tryEvaluate()) {
-    await tester.enterText(
-      find.widgetWithText(TextField, '用户名'),
-      'demo_user1',
-    );
+    await tester.enterText(find.widgetWithText(TextField, '用户名'), 'demo_user1');
     await tester.enterText(find.widgetWithText(TextField, '密码'), 'Demo1234');
     await tester.tap(find.widgetWithText(FilledButton, '登录'));
     await tester.pumpAndSettle();
@@ -158,9 +153,7 @@ void main() {
         ).toJson(),
       ),
     );
-    addTearDown(
-      () => ServiceLocator.kvStore.remove(KvStore.keyHomeContinue),
-    );
+    addTearDown(() => ServiceLocator.kvStore.remove(KvStore.keyHomeContinue));
 
     await _loginToHome(tester);
     expect(find.text('继续学习'), findsOneWidget);

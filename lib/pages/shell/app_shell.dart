@@ -54,9 +54,9 @@ class _AppShellState extends State<AppShell> {
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
       List<GlobalKey<NavigatorState>>.generate(
-    4,
-    (_) => GlobalKey<NavigatorState>(),
-  );
+        4,
+        (_) => GlobalKey<NavigatorState>(),
+      );
 
   int _currentIndex = 0;
   bool _navVisible = true;
@@ -100,8 +100,7 @@ class _AppShellState extends State<AppShell> {
       _navVisible = true;
       // tab 切换淡入淡出（200ms）：IndexedStack 本身不换 key（保栈），
       // 只做透明度起伏。减少动效时直接切，不做动画。
-      _tabOpacity =
-          MediaQuery.of(context).disableAnimations ? 1.0 : 0.0;
+      _tabOpacity = MediaQuery.of(context).disableAnimations ? 1.0 : 0.0;
     });
     if (!MediaQuery.of(context).disableAnimations) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -109,10 +108,7 @@ class _AppShellState extends State<AppShell> {
         setState(() => _tabOpacity = 1.0);
       });
     }
-    ServiceLocator.kvStore.setString(
-      KvStore.keyUiLastTab,
-      _tabNames[index],
-    );
+    ServiceLocator.kvStore.setString(KvStore.keyUiLastTab, _tabNames[index]);
   }
 
   void _onTabRouteChanged(String? routeName) {
@@ -175,14 +171,14 @@ class _AppShellState extends State<AppShell> {
   Widget _comingSoonFor(int index) {
     return switch (index) {
       1 => const Scaffold(
-          body: ComingSoonView(title: '题库', subtitle: 'V2 题库模块暂未开放'),
-        ),
+        body: ComingSoonView(title: '题库', subtitle: 'V2 题库模块暂未开放'),
+      ),
       2 => const Scaffold(
-          body: ComingSoonView(title: '知识库', subtitle: 'V3 知识库模块暂未开放'),
-        ),
+        body: ComingSoonView(title: '知识库', subtitle: 'V3 知识库模块暂未开放'),
+      ),
       _ => const Scaffold(
-          body: ComingSoonView(title: '工具箱', subtitle: 'V4 工具箱模块暂未开放'),
-        ),
+        body: ComingSoonView(title: '工具箱', subtitle: 'V4 工具箱模块暂未开放'),
+      ),
     };
   }
 
@@ -255,8 +251,9 @@ class _AppShellState extends State<AppShell> {
     return SharedAxisPageRoute<void>(
       builder: (_) => page,
       settings: settings,
-      transitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 260),
+      transitionDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 260),
     );
   }
 
@@ -308,10 +305,7 @@ class _AppShellState extends State<AppShell> {
           ],
         ),
         bottomNavigationBar: showNav
-            ? CapsuleNavBar(
-                currentIndex: _currentIndex,
-                onSelect: _selectTab,
-              )
+            ? CapsuleNavBar(currentIndex: _currentIndex, onSelect: _selectTab)
             : null,
       ),
     );

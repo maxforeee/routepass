@@ -121,7 +121,10 @@ class _VlsmPageState extends State<VlsmPage> {
             ],
             if (plan != null) ...[
               const SizedBox(height: 16),
-              Text('母网 ${plan.network} 拆分结果', style: theme.textTheme.titleMedium),
+              Text(
+                '母网 ${plan.network} 拆分结果',
+                style: theme.textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               for (final s in plan.subnets)
                 Card(
@@ -130,7 +133,10 @@ class _VlsmPageState extends State<VlsmPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${s['name']}', style: theme.textTheme.titleMedium),
+                        Text(
+                          '${s['name']}',
+                          style: theme.textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '${s['network']}/${s['prefix']}',

@@ -9,10 +9,7 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
-      body: const ComingSoonView(
-        title: '设置',
-        subtitle: 'V1 设置功能即将上线',
-      ),
+      body: const ComingSoonView(title: '设置', subtitle: 'V1 设置功能即将上线'),
     );
   }
 }

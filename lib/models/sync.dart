@@ -42,7 +42,8 @@ class SyncOp {
       owner_user_id: json['owner_user_id'] as String,
       device_id: json['device_id'] as String,
       op_type: json['op_type'] as String,
-      payload: (json['payload'] as Map<dynamic, dynamic>).cast<String, dynamic>(),
+      payload: (json['payload'] as Map<dynamic, dynamic>)
+          .cast<String, dynamic>(),
       created_at: json['created_at'] as int,
     );
   }

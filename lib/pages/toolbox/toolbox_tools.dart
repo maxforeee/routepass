@@ -9,10 +9,10 @@ enum ToolCategory { calc, query, reference }
 
 extension ToolCategoryLabel on ToolCategory {
   String get label => switch (this) {
-        ToolCategory.calc => '计算',
-        ToolCategory.query => '查询',
-        ToolCategory.reference => '对照',
-      };
+    ToolCategory.calc => '计算',
+    ToolCategory.query => '查询',
+    ToolCategory.reference => '对照',
+  };
 }
 
 /// 工具箱工具注册表（T-05 grid 的数据源）。

@@ -33,10 +33,7 @@ class MockPracticeService implements PracticeService {
     required int durationMs,
   }) async {
     // Mock 不判对错：correct 恒为 null，解析卡只显示占位文案，不编造解析内容。
-    return AnswerResult(
-      correct: null,
-      explanation: '样例数据，解析待后端接入',
-    );
+    return AnswerResult(correct: null, explanation: '样例数据，解析待后端接入');
   }
 
   @override

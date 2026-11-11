@@ -131,7 +131,9 @@ class _AccountSheetState extends State<AccountSheet> {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('清除本机数据'),
-          content: const Text('将清除本机保存的界面状态（展开态、最近使用、继续学习进度、上次停留的 tab），账号数据不受影响。确定清除吗？'),
+          content: const Text(
+            '将清除本机保存的界面状态（展开态、最近使用、继续学习进度、上次停留的 tab），账号数据不受影响。确定清除吗？',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -182,9 +184,7 @@ class _AccountSheetState extends State<AccountSheet> {
                 ),
               ),
               title: Text(user?.nickname ?? '未登录'),
-              subtitle: Text(
-                user == null ? '登录后同步学习进度' : user.username,
-              ),
+              subtitle: Text(user == null ? '登录后同步学习进度' : user.username),
             ),
             const Divider(height: 1),
             if (_loading)
@@ -218,10 +218,7 @@ class _AccountSheetState extends State<AccountSheet> {
                 icon: Icons.cloud_sync_outlined,
                 title: '同步状态',
                 subtitle: _syncText(),
-                onTap: () => showAppSnackBar(
-                  context,
-                  '同步状态：${_syncText()}',
-                ),
+                onTap: () => showAppSnackBar(context, '同步状态：${_syncText()}'),
               ),
               _item(
                 context,

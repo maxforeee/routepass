@@ -53,9 +53,7 @@ Future<void> _pumpDetail(
   WidgetTester tester, [
   Map<String, Object?> args = _args,
 ]) async {
-  await tester.pumpWidget(
-    MaterialApp(home: KnowledgeDetailPage(args: args)),
-  );
+  await tester.pumpWidget(MaterialApp(home: KnowledgeDetailPage(args: args)));
   await tester.pumpAndSettle();
 }
 
@@ -88,10 +86,12 @@ void main() {
   testWidgets('上一/下一：同节只有 1 点时均禁用', (tester) async {
     await _pumpDetail(tester);
 
-    final prev =
-        tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '上一知识点'));
-    final next =
-        tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '下一知识点'));
+    final prev = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '上一知识点'),
+    );
+    final next = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '下一知识点'),
+    );
     expect(prev.onPressed, isNull);
     expect(next.onPressed, isNull);
   });
@@ -113,10 +113,10 @@ void main() {
   });
 
   testWidgets('无 sectionId 时关联区与上一下一隐藏', (tester) async {
-    await _pumpDetail(
-      tester,
-      const <String, Object?>{'kpId': 'KP-VLAN-01-01', 'returnTo': 'home'},
-    );
+    await _pumpDetail(tester, const <String, Object?>{
+      'kpId': 'KP-VLAN-01-01',
+      'returnTo': 'home',
+    });
 
     expect(find.text('返回首页'), findsOneWidget);
     expect(find.text('关联知识点'), findsNothing);

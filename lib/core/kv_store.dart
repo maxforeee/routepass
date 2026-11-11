@@ -52,10 +52,9 @@ class InMemoryKvStore implements KvStore {
   }
 
   @override
-  List<String>? getStringList(String key) =>
-      _stringLists[key] == null ? null : List<String>.unmodifiable(
-        _stringLists[key]!,
-      );
+  List<String>? getStringList(String key) => _stringLists[key] == null
+      ? null
+      : List<String>.unmodifiable(_stringLists[key]!);
 
   @override
   void setStringList(String key, List<String> value) {

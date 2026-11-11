@@ -25,10 +25,14 @@ class CapsuleNavBar extends StatelessWidget {
   final void Function(int index) onSelect;
 
   static const List<({IconData icon, IconData selectedIcon, String label})>
-      _destinations = [
+  _destinations = [
     (icon: Icons.home_outlined, selectedIcon: Icons.home, label: '首页'),
     (icon: Icons.quiz_outlined, selectedIcon: Icons.quiz, label: '题库'),
-    (icon: Icons.menu_book_outlined, selectedIcon: Icons.menu_book, label: '知识库'),
+    (
+      icon: Icons.menu_book_outlined,
+      selectedIcon: Icons.menu_book,
+      label: '知识库',
+    ),
     (icon: Icons.build_outlined, selectedIcon: Icons.build, label: '工具箱'),
   ];
 
@@ -50,9 +54,7 @@ class CapsuleNavBar extends StatelessWidget {
           child: Container(
             height: 64,
             decoration: BoxDecoration(
-              color: scheme.surface.withValues(
-                alpha: isDark ? 0.62 : 0.72,
-              ),
+              color: scheme.surface.withValues(alpha: isDark ? 0.62 : 0.72),
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
                 color: scheme.outlineVariant.withValues(alpha: 0.4),
@@ -143,11 +145,8 @@ class _CapsuleNavItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   height: 1.4,
-                  color: selected
-                      ? scheme.onSurface
-                      : scheme.onSurfaceVariant,
-                  fontWeight:
-                      selected ? FontWeight.w600 : FontWeight.normal,
+                  color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],

@@ -45,9 +45,7 @@ Future<void> _pumpSearch(
   WidgetTester tester, [
   Map<String, Object?> args = const <String, Object?>{},
 ]) async {
-  await tester.pumpWidget(
-    MaterialApp(home: KnowledgeSearchPage(args: args)),
-  );
+  await tester.pumpWidget(MaterialApp(home: KnowledgeSearchPage(args: args)));
   await tester.pumpAndSettle();
 }
 

@@ -20,25 +20,25 @@ import 'services/toolbox/ip_convert_service_impl.dart';
 import 'services/toolbox/subnet_calc_service_impl.dart';
 
 void main() {
- // 现在全部是 Mock / 本地实现；以后接后端时只改这里的装配与
- // config.dart 的 baseUrl，UI 文件不动。
- ServiceLocator.init(
- questionRepository: MockQuestionRepository(),
- practiceService: MockPracticeService(),
- examService: MockExamService(),
- wrongService: MockWrongService(),
- favoriteService: MockFavoriteService(),
- statsService: MockStatsService(),
- knowledgeRepository: MockKnowledgeRepository(),
- searchService: MockSearchService(),
- subnetCalcService: LocalSubnetCalcService(),
- ipConvertService: LocalIpConvertService(),
- pingService: MockPingService(),
- portScanService: MockPortScanService(),
- cliService: MockCliService(),
- authService: MockAuthService(),
- syncService: MockSyncService(),
- contentService: MockContentService(),
-);
- runApp(const RoutePassApp());
+  // 现在全部是 Mock / 本地实现；以后接后端时只改这里的装配与
+  // config.dart 的 baseUrl，UI 文件不动。
+  ServiceLocator.init(
+    questionRepository: MockQuestionRepository(),
+    practiceService: MockPracticeService(),
+    examService: MockExamService(),
+    wrongService: MockWrongService(),
+    favoriteService: MockFavoriteService(),
+    statsService: MockStatsService(),
+    knowledgeRepository: MockKnowledgeRepository(),
+    searchService: MockSearchService(),
+    subnetCalcService: LocalSubnetCalcService(),
+    ipConvertService: LocalIpConvertService(),
+    pingService: MockPingService(),
+    portScanService: MockPortScanService(),
+    cliService: MockCliService(),
+    authService: MockAuthService(),
+    syncService: MockSyncService(),
+    contentService: MockContentService(),
+  );
+  runApp(const RoutePassApp());
 }

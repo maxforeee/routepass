@@ -136,7 +136,8 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => Navigator.of(context).pushNamed(AppRoutes.register),
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.register),
                 child: const Text('没有账号？去注册'),
               ),
               const SizedBox(height: 16),

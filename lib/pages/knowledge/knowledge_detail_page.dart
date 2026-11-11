@@ -70,15 +70,15 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
     var siblings = <KnowledgePoint>[];
     if (point != null && _sectionId != null) {
       try {
-        siblings = await ServiceLocator.knowledgeRepository
-            .getPointsBySection(_sectionId!);
+        siblings = await ServiceLocator.knowledgeRepository.getPointsBySection(
+          _sectionId!,
+        );
       } catch (_) {}
     }
     var related = <Question>[];
     if (point != null) {
       try {
-        related =
-            await ServiceLocator.questionRepository.drawQuestions(
+        related = await ServiceLocator.questionRepository.drawQuestions(
           mode: 'practice',
           drawCount: 3,
           knowledgePointId: point.id,
@@ -153,9 +153,7 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_notFound || _point == null) {
       return Scaffold(
@@ -219,8 +217,8 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
                       ? '本地样例内容'
                       : '内容版本 $_knowledgeVersion',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -293,10 +291,7 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
               ),
             ),
             const Text('已掌握'),
-            Switch(
-              value: _mastered,
-              onChanged: _toggleMastered,
-            ),
+            Switch(value: _mastered, onChanged: _toggleMastered),
           ],
         ),
       ],
@@ -392,10 +387,7 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
                         const Icon(Icons.warning_amber, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            p,
-                            style: theme.textTheme.bodyMedium,
-                          ),
+                          child: Text(p, style: theme.textTheme.bodyMedium),
                         ),
                       ],
                     ),
@@ -412,8 +404,7 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
   /// D-10 关联知识点 chips：同节其他点；没有 sectionId 或无同节他点时隐藏。
   Widget _buildRelatedPoints(KnowledgePoint point) {
     final theme = Theme.of(context);
-    final related =
-        _siblings.where((p) => p.id != point.id).toList();
+    final related = _siblings.where((p) => p.id != point.id).toList();
     if (_sectionId == null || related.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -504,10 +495,9 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
     }
     final index = _siblings.indexWhere((p) => p.id == point.id);
     final prev = index > 0 ? _siblings[index - 1] : null;
-    final next =
-        index >= 0 && index < _siblings.length - 1
-            ? _siblings[index + 1]
-            : null;
+    final next = index >= 0 && index < _siblings.length - 1
+        ? _siblings[index + 1]
+        : null;
     return Row(
       children: [
         Expanded(
@@ -596,9 +586,7 @@ class _MarkdownBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('•  '),
-                Expanded(
-                  child: Text(line.substring(2), style: bodyStyle),
-                ),
+                Expanded(child: Text(line.substring(2), style: bodyStyle)),
               ],
             ),
           ),

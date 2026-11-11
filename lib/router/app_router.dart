@@ -67,13 +67,17 @@ class AppRouter {
         // 未装配的深链/未知路由一律回首页外壳（§4.9.3），不报错。
         page = const AppShell();
     }
-    final reduceMotion = WidgetsBinding.instance.platformDispatcher
-        .accessibilityFeatures.disableAnimations;
+    final reduceMotion = WidgetsBinding
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
     return SharedAxisPageRoute<void>(
       builder: (_) => page,
       settings: settings,
-      transitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 260),
+      transitionDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 260),
     );
   }
 }

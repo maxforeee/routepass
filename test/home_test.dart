@@ -48,10 +48,7 @@ Future<void> _loginToHome(WidgetTester tester) async {
   await tester.pumpAndSettle();
 
   if (find.widgetWithText(TextField, '用户名').tryEvaluate()) {
-    await tester.enterText(
-      find.widgetWithText(TextField, '用户名'),
-      'demo_user1',
-    );
+    await tester.enterText(find.widgetWithText(TextField, '用户名'), 'demo_user1');
     await tester.enterText(find.widgetWithText(TextField, '密码'), 'Demo1234');
     await tester.tap(find.widgetWithText(FilledButton, '登录'));
     await tester.pumpAndSettle();
@@ -67,8 +64,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _initServices();
 
-  testWidgets('首页 12 方块瀑布流：关键方块齐全，继续学习（H-B1）隐藏',
-      (tester) async {
+  testWidgets('首页 12 方块瀑布流：关键方块齐全，继续学习（H-B1）隐藏', (tester) async {
     await _loginToHome(tester);
 
     expect(find.text('快速 10 题'), findsOneWidget);

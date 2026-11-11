@@ -25,10 +25,7 @@ class RoutePassApp extends StatelessWidget {
       onGenerateRoute: AppRouter.onGenerateRoute,
       onUnknownRoute: (settings) {
         return AppRouter.onGenerateRoute(
-          RouteSettings(
-            name: AppRoutes.home,
-            arguments: settings.arguments,
-          ),
+          RouteSettings(name: AppRoutes.home, arguments: settings.arguments),
         );
       },
     );

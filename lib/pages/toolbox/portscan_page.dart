@@ -66,9 +66,7 @@ class _PortScanPageState extends State<PortScanPage> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('合规确认'),
-        content: const Text(
-          '端口扫描仅可用于你拥有或已获授权的设备。扫描他人设备可能违反法律法规。',
-        ),
+        content: const Text('端口扫描仅可用于你拥有或已获授权的设备。扫描他人设备可能违反法律法规。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -143,7 +141,12 @@ class _PortScanPageState extends State<PortScanPage> {
               runSpacing: 8,
               children: [
                 for (final p in _commonPorts)
-                  Chip(label: Text('$p', style: monoTextStyle(context, fontSize: 13))),
+                  Chip(
+                    label: Text(
+                      '$p',
+                      style: monoTextStyle(context, fontSize: 13),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -166,7 +169,10 @@ class _PortScanPageState extends State<PortScanPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('状态：${result.message}', style: theme.textTheme.titleMedium),
+                      Text(
+                        '状态：${result.message}',
+                        style: theme.textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 4),
                       const Text('开放端口：—'),
                     ],

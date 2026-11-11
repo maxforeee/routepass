@@ -140,9 +140,8 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
                     child: FilterChip(
                       label: Text(_moduleLabel(m)),
                       selected: _moduleFilter == m,
-                      onSelected: (v) => setState(
-                        () => _moduleFilter = v ? m : null,
-                      ),
+                      onSelected: (v) =>
+                          setState(() => _moduleFilter = v ? m : null),
                     ),
                   ),
                 ),
@@ -151,9 +150,8 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
                   child: FilterChip(
                     label: const Text('单选'),
                     selected: _typeFilter == 'single',
-                    onSelected: (v) => setState(
-                      () => _typeFilter = v ? 'single' : null,
-                    ),
+                    onSelected: (v) =>
+                        setState(() => _typeFilter = v ? 'single' : null),
                   ),
                 ),
                 Padding(
@@ -161,9 +159,8 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
                   child: FilterChip(
                     label: const Text('多选'),
                     selected: _typeFilter == 'multiple',
-                    onSelected: (v) => setState(
-                      () => _typeFilter = v ? 'multiple' : null,
-                    ),
+                    onSelected: (v) =>
+                        setState(() => _typeFilter = v ? 'multiple' : null),
                   ),
                 ),
                 Padding(
@@ -206,7 +203,9 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           count: 100,
           minutes: '约 50 分钟',
           height: 112,
-          modules: _modules.isEmpty ? _moduleNames : _modules.map((m) => m.module).toList(),
+          modules: _modules.isEmpty
+              ? _moduleNames
+              : _modules.map((m) => m.module).toList(),
           onTap: () => _openQuiz('exam', 100),
         ),
         const SizedBox(height: 12),
@@ -214,7 +213,9 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           count: 200,
           minutes: '约 100 分钟',
           height: 112,
-          modules: _modules.isEmpty ? _moduleNames : _modules.map((m) => m.module).toList(),
+          modules: _modules.isEmpty
+              ? _moduleNames
+              : _modules.map((m) => m.module).toList(),
           onTap: () => _openQuiz('exam', 200),
         ),
         const SizedBox(height: 12),
@@ -222,7 +223,9 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           count: 50,
           minutes: '约 25 分钟',
           height: 104,
-          modules: _modules.isEmpty ? _moduleNames : _modules.map((m) => m.module).toList(),
+          modules: _modules.isEmpty
+              ? _moduleNames
+              : _modules.map((m) => m.module).toList(),
           onTap: () => _openQuiz('exam', 50),
         ),
         const SizedBox(height: 12),
@@ -231,7 +234,9 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           minutes: '约 5 分钟',
           height: 96,
           showProgress: false,
-          modules: _modules.isEmpty ? _moduleNames : _modules.map((m) => m.module).toList(),
+          modules: _modules.isEmpty
+              ? _moduleNames
+              : _modules.map((m) => m.module).toList(),
           onTap: () => _openQuiz('quick', 10),
         ),
         const SizedBox(height: 12),
@@ -239,16 +244,14 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           icon: Icons.error_outline,
           title: '错题本',
           badge: _wrongCount > 0 ? '$_wrongCount 道' : null,
-          onTap: () =>
-              Navigator.of(context).pushNamed(AppRoutes.bankWrong),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankWrong),
         ),
         const SizedBox(height: 12),
         _EntryRow(
           icon: Icons.bookmark_border,
           title: '收藏',
           badge: _favoriteCount > 0 ? '$_favoriteCount 道' : null,
-          onTap: () =>
-              Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
         ),
       ],
     );
@@ -281,11 +284,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
-            title: Text(
-              q.stem,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
+            title: Text(q.stem, maxLines: 2, overflow: TextOverflow.ellipsis),
             subtitle: Text('${_moduleLabel(q.module)} · ${_typeLabel(q.type)}'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).pushNamed(
@@ -342,9 +341,7 @@ class _SetCard extends StatelessWidget {
       height: height,
       child: Card(
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -453,9 +450,7 @@ class _EntryRow extends StatelessWidget {
       height: 56,
       child: Card(
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,

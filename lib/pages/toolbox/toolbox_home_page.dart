@@ -29,11 +29,12 @@ class _ToolboxHomePageState extends State<ToolboxHomePage> {
   List<ToolboxTool> get _recent {
     final ids =
         ServiceLocator.kvStore.getStringList(KvStore.keyToolboxRecent) ??
-            const <String>[];
-    final byId = <String, ToolboxTool>{
-      for (final t in toolboxTools) t.id: t,
-    };
-    return [for (final id in ids) if (byId.containsKey(id)) byId[id]!];
+        const <String>[];
+    final byId = <String, ToolboxTool>{for (final t in toolboxTools) t.id: t};
+    return [
+      for (final id in ids)
+        if (byId.containsKey(id)) byId[id]!,
+    ];
   }
 
   // 打开工具页；返回后重读 kv 刷新最近使用行（Tab Navigator 保留路由，
@@ -65,8 +66,10 @@ class _ToolboxHomePageState extends State<ToolboxHomePage> {
                 hintText: '搜索工具',
                 prefixIcon: Icon(Icons.search),
                 isDense: true,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(12)),
                 ),
@@ -135,11 +138,11 @@ class _ToolboxHomePageState extends State<ToolboxHomePage> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      mainAxisExtent: 112,
-                    ),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          mainAxisExtent: 112,
+                        ),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final tool = filtered[index];

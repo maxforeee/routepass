@@ -41,8 +41,8 @@ class _HomeContentPageState extends State<HomeContentPage> {
   Future<void> _load() async {
     ContinueSession? continueSession;
     try {
-      continueSession =
-          await ServiceLocator.practiceService.getContinueSession();
+      continueSession = await ServiceLocator.practiceService
+          .getContinueSession();
     } catch (_) {
       continueSession = null;
     }
@@ -79,8 +79,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
     }
     ContentVersion? contentVersion;
     try {
-      contentVersion =
-          await ServiceLocator.contentService.getContentVersion();
+      contentVersion = await ServiceLocator.contentService.getContentVersion();
     } catch (_) {
       contentVersion = null;
     }
@@ -122,8 +121,8 @@ class _HomeContentPageState extends State<HomeContentPage> {
     final lastSyncText = sync?.lastSyncAt == null
         ? '从未同步'
         : DateTime.fromMillisecondsSinceEpoch(sync!.lastSyncAt!)
-            .toLocal()
-            .toString();
+              .toLocal()
+              .toString();
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -136,10 +135,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '同步诊断',
-                style: Theme.of(sheetContext).textTheme.titleLarge,
-              ),
+              Text('同步诊断', style: Theme.of(sheetContext).textTheme.titleLarge),
               const SizedBox(height: 16),
               _SyncRow(label: '状态', value: sync?.state ?? '未知'),
               _SyncRow(label: '待同步', value: '${sync?.pendingCount ?? 0} 条'),
@@ -254,8 +250,9 @@ class _HomeContentPageState extends State<HomeContentPage> {
                       const SizedBox(height: 12),
                       _HomeBlock(
                         height: 140,
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(AppRoutes.bankWrong),
+                        onTap: () =>
+                            Navigator.of(context)
+                                .pushNamed(AppRoutes.bankWrong),
                         child: _BlockTitleBadge(
                           title: '错题本',
                           badge: '$_wrongCount 道',
@@ -299,19 +296,20 @@ class _HomeContentPageState extends State<HomeContentPage> {
                         onTap: dailyPoint == null
                             ? null
                             : () => Navigator.of(context).pushNamed(
-                                  AppRoutes.knowledgePoint,
-                                  arguments: <String, Object?>{
-                                    'kpId': dailyPoint.id,
-                                    'returnTo': 'home',
-                                  },
-                                ),
+                                AppRoutes.knowledgePoint,
+                                arguments: <String, Object?>{
+                                  'kpId': dailyPoint.id,
+                                  'returnTo': 'home',
+                                },
+                              ),
                         child: _DailyPointContent(point: dailyPoint),
                       ),
                       const SizedBox(height: 12),
                       _HomeBlock(
                         height: 130,
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(AppRoutes.toolboxSubnet),
+                        onTap: () =>
+                            Navigator.of(context)
+                                .pushNamed(AppRoutes.toolboxSubnet),
                         child: const _BlockIconText(
                           icon: Icons.calculate_outlined,
                           title: '子网计算器',
@@ -320,8 +318,9 @@ class _HomeContentPageState extends State<HomeContentPage> {
                       const SizedBox(height: 12),
                       _HomeBlock(
                         height: 120,
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(AppRoutes.bankStats),
+                        onTap: () =>
+                            Navigator.of(context)
+                                .pushNamed(AppRoutes.bankStats),
                         child: _StatsContent(overview: _overview),
                       ),
                     ],
@@ -347,11 +346,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
 
 /// 方块通用容器：固定高、圆角 16、内边距 16，点按有涟漪。
 class _HomeBlock extends StatelessWidget {
-  const _HomeBlock({
-    required this.height,
-    required this.child,
-    this.onTap,
-  });
+  const _HomeBlock({required this.height, required this.child, this.onTap});
 
   final double height;
   final Widget child;
@@ -363,16 +358,11 @@ class _HomeBlock extends StatelessWidget {
       height: height,
       child: Card(
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
+          child: Padding(padding: const EdgeInsets.all(16), child: child),
         ),
       ),
     );
@@ -381,7 +371,11 @@ class _HomeBlock extends StatelessWidget {
 
 /// 图标 + 标题（+副标）型方块内容。
 class _BlockIconText extends StatelessWidget {
-  const _BlockIconText({required this.icon, required this.title, this.subtitle});
+  const _BlockIconText({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+  });
 
   final IconData icon;
   final String title;
@@ -445,7 +439,11 @@ class _BlockTitleBadge extends StatelessWidget {
 
 /// 套卷方块：标题 + 进度环（右）+ 覆盖模块小 chips。
 class _ExamBlock extends StatelessWidget {
-  const _ExamBlock({required this.title, required this.onTap, this.height = 170});
+  const _ExamBlock({
+    required this.title,
+    required this.onTap,
+    this.height = 170,
+  });
 
   final String title;
   final VoidCallback onTap;
@@ -470,9 +468,7 @@ class _ExamBlock extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(title, style: theme.textTheme.titleMedium),
-              ),
+              Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
               const SizedBox(
                 width: 48,
                 height: 48,
@@ -486,8 +482,7 @@ class _ExamBlock extends StatelessWidget {
             runSpacing: 4,
             children: _modules.map((m) {
               return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
@@ -525,9 +520,7 @@ class _ContinueHero extends StatelessWidget {
       child: Card(
         margin: EdgeInsets.zero,
         color: theme.colorScheme.primaryContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -684,10 +677,7 @@ class _StatsContent extends StatelessWidget {
       children: [
         Text('学习统计', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
-        Text(
-          '连续 ${ov?.streakDays ?? 0} 天',
-          style: theme.textTheme.bodyMedium,
-        ),
+        Text('连续 ${ov?.streakDays ?? 0} 天', style: theme.textTheme.bodyMedium),
         const SizedBox(height: 4),
         Text(
           ov == null || ov.answeredTotal == 0
@@ -717,9 +707,7 @@ class _SyncCardContent extends StatelessWidget {
         Text('同步/版本', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
-          sync.pendingCount > 0
-              ? '待同步 ${sync.pendingCount} 条'
-              : '离线，未同步',
+          sync.pendingCount > 0 ? '待同步 ${sync.pendingCount} 条' : '离线，未同步',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -752,9 +740,7 @@ class _SyncRow extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(
-            child: Text(value, style: theme.textTheme.bodyMedium),
-          ),
+          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
       ),
     );
@@ -808,7 +794,10 @@ class _SyncChip extends StatelessWidget {
           children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
-            Text(label, style: theme.textTheme.labelMedium?.copyWith(color: color)),
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(color: color),
+            ),
           ],
         ),
       ),

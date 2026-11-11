@@ -121,48 +121,41 @@ class _CliPageState extends State<CliPage> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _commands.isEmpty
-                    ? const Center(child: Text('没有找到相关命令'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        itemCount: _commands.length,
-                        itemBuilder: (context, index) {
-                          final command = _commands[index];
-                          return Card(
-                            child: InkWell(
-                              onTap: () => _copy(command),
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      command.command,
-                                      style: monoTextStyle(
-                                        context,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(command.desc_cn),
-                                    if (command.example != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '示例：${command.example}',
-                                        style: monoTextStyle(
-                                          context,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
+                ? const Center(child: Text('没有找到相关命令'))
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    itemCount: _commands.length,
+                    itemBuilder: (context, index) {
+                      final command = _commands[index];
+                      return Card(
+                        child: InkWell(
+                          onTap: () => _copy(command),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  command.command,
+                                  style: monoTextStyle(context, fontSize: 14),
                                 ),
-                              ),
+                                const SizedBox(height: 4),
+                                Text(command.desc_cn),
+                                if (command.example != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '示例：${command.example}',
+                                    style: monoTextStyle(context, fontSize: 13),
+                                  ),
+                                ],
+                              ],
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

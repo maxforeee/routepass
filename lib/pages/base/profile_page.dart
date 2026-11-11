@@ -9,10 +9,7 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('个人中心')),
-      body: const ComingSoonView(
-        title: '个人中心',
-        subtitle: 'V1 账号功能即将上线',
-      ),
+      body: const ComingSoonView(title: '个人中心', subtitle: 'V1 账号功能即将上线'),
     );
   }
 }

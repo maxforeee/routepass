@@ -10,9 +10,7 @@ void main() {
     tester.view.physicalSize = const Size(800, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
-    await tester.pumpWidget(
-      const MaterialApp(home: ToolboxHomePage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: ToolboxHomePage()));
     await tester.pumpAndSettle();
     for (final name in [
       '子网划分',
@@ -31,9 +29,7 @@ void main() {
   });
 
   testWidgets('搜索“子网”只剩子网划分', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: ToolboxHomePage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: ToolboxHomePage()));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '子网');
     await tester.pumpAndSettle();
@@ -44,9 +40,7 @@ void main() {
   });
 
   testWidgets('分类“对照”只剩 OSI 卡', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: ToolboxHomePage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: ToolboxHomePage()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('对照'));
     await tester.pumpAndSettle();
@@ -56,13 +50,11 @@ void main() {
   });
 
   testWidgets('最近使用行显示 kv 里的工具', (tester) async {
-    ServiceLocator.kvStore.setStringList(
-      KvStore.keyToolboxRecent,
-      ['ping', 'subnet'],
-    );
-    await tester.pumpWidget(
-      const MaterialApp(home: ToolboxHomePage()),
-    );
+    ServiceLocator.kvStore.setStringList(KvStore.keyToolboxRecent, [
+      'ping',
+      'subnet',
+    ]);
+    await tester.pumpWidget(const MaterialApp(home: ToolboxHomePage()));
     await tester.pumpAndSettle();
     expect(find.text('最近使用'), findsOneWidget);
     expect(find.text('Ping'), findsWidgets);

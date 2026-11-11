@@ -48,9 +48,7 @@ class MockKnowledgeRepository implements KnowledgeRepository {
   }
 
   @override
-  Future<List<KnowledgePoint>> getPointsByQuestion(
-    String questionId,
-  ) async {
+  Future<List<KnowledgePoint>> getPointsByQuestion(String questionId) async {
     // Mock：返回空列表，答题页 chips 区域隐藏。
     return <KnowledgePoint>[];
   }

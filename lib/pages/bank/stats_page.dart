@@ -102,8 +102,7 @@ class _StatsPageState extends State<StatsPage> {
                   )
                 else
                   ..._byModule.map((m) {
-                    final progress =
-                        m.total == 0 ? 0.0 : m.answered / m.total;
+                    final progress = m.total == 0 ? 0.0 : m.answered / m.total;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: Padding(
@@ -191,9 +190,7 @@ class _StatRow extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(
-            child: Text(value, style: theme.textTheme.bodyMedium),
-          ),
+          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
       ),
     );

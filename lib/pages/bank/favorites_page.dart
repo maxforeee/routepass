@@ -31,8 +31,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
       final ids = await ServiceLocator.favoriteService.getFavoriteIds();
       final list = <Question>[];
       for (final id in ids) {
-        final q =
-            await ServiceLocator.questionRepository.getQuestionById(id);
+        final q = await ServiceLocator.questionRepository.getQuestionById(id);
         if (q != null) list.add(q);
       }
       if (!mounted) return;
@@ -61,78 +60,75 @@ class _FavoritesPageState extends State<FavoritesPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _questions.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.bookmark_border, size: 48),
-                      const SizedBox(height: 12),
-                      Text(
-                        '暂无收藏',
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '答题页点收藏图标可收藏题目',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.bookmark_border, size: 48),
+                  const SizedBox(height: 12),
+                  Text('暂无收藏', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    '答题页点收藏图标可收藏题目',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                )
-              : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: FilledButton(
-                        onPressed: _openFavoritePractice,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                        ),
-                        child: const Text('开始收藏练习'),
-                      ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: FilledButton(
+                    onPressed: _openFavoritePractice,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
                     ),
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                        itemCount: _questions.length,
-                        itemBuilder: (context, index) {
-                          final q = _questions[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              title: Text(
-                                q.stem,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(q.module),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.bookmark),
-                                tooltip: '取消收藏',
-                                onPressed: () async {
-                                  try {
-                                    await ServiceLocator.favoriteService
-                                        .toggleFavorite(q.id, false);
-                                  } catch (_) {}
-                                  await _load();
-                                },
-                              ),
-                              onTap: () => Navigator.of(context).pushNamed(
-                                AppRoutes.bankQuiz,
-                                arguments: <String, Object?>{
-                                  'mode': 'single',
-                                  'questionId': q.id,
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                    child: const Text('开始收藏练习'),
+                  ),
                 ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                    itemCount: _questions.length,
+                    itemBuilder: (context, index) {
+                      final q = _questions[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          title: Text(
+                            q.stem,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(q.module),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.bookmark),
+                            tooltip: '取消收藏',
+                            onPressed: () async {
+                              try {
+                                await ServiceLocator.favoriteService
+                                    .toggleFavorite(q.id, false);
+                              } catch (_) {}
+                              await _load();
+                            },
+                          ),
+                          onTap: () => Navigator.of(context).pushNamed(
+                            AppRoutes.bankQuiz,
+                            arguments: <String, Object?>{
+                              'mode': 'single',
+                              'questionId': q.id,
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

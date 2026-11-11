@@ -18,13 +18,9 @@ class MockSearchService implements SearchService {
     final questions = await SampleData.loadSampleQuestions();
     return SearchResult(
       knowledgePoints: data.points
-          .where(
-            (p) => p.title.contains(key) || p.summary.contains(key),
-          )
+          .where((p) => p.title.contains(key) || p.summary.contains(key))
           .toList(),
-      questions: questions
-          .where((q) => q.stem.contains(key))
-          .toList(),
+      questions: questions.where((q) => q.stem.contains(key)).toList(),
     );
   }
 }

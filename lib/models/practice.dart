@@ -174,8 +174,7 @@ class ContinueSession {
   }
 
   @override
-  String toString() =>
-      'ContinueSession($mode, $answeredCount/$totalCount)';
+  String toString() => 'ContinueSession($mode, $answeredCount/$totalCount)';
 }
 
 /// 单题作答结果（§4.4.2 `PracticeService.submitAnswer` 返回）。

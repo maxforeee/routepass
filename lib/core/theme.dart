@@ -118,8 +118,9 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor:
-          isDark ? const Color(0xFF0B1220) : const Color(0xFFF7F8FA),
+      scaffoldBackgroundColor: isDark
+          ? const Color(0xFF0B1220)
+          : const Color(0xFFF7F8FA),
       textTheme: TextTheme(
         headlineLarge: TextStyle(
           fontSize: 24,
@@ -178,9 +179,7 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         margin: EdgeInsets.zero,
       ),
       bottomSheetTheme: const BottomSheetThemeData(
@@ -189,16 +188,12 @@ class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: scheme.inverseSurface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -209,9 +204,7 @@ class AppTheme {
         ),
       ),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }

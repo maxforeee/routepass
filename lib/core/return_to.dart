@@ -76,9 +76,6 @@ Future<T?> pushCrossModule<T extends Object?>(
 }) {
   return Navigator.of(context, rootNavigator: true).pushNamed<T>(
     route,
-    arguments: <String, dynamic>{
-      'returnTo': returnTo.toArgs(),
-      ...?extraArgs,
-    },
+    arguments: <String, dynamic>{'returnTo': returnTo.toArgs(), ...?extraArgs},
   );
 }

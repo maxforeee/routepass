@@ -85,9 +85,7 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('演示注册，后端未接入')),
-      );
+      ..showSnackBar(const SnackBar(content: Text('演示注册，后端未接入')));
     Navigator.of(context).pushReplacementNamed(AppRoutes.home);
   }
 
