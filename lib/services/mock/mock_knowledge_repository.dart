@@ -15,6 +15,12 @@ class MockKnowledgeRepository implements KnowledgeRepository {
   }
 
   @override
+  Future<List<Section>> getSections(String chapterId) async {
+    final data = await SampleData.loadSampleKnowledge();
+    return data.sections.where((s) => s.chapterId == chapterId).toList();
+  }
+
+  @override
   Future<List<KnowledgePoint>> getPointsBySection(String sectionId) async {
     final data = await SampleData.loadSampleKnowledge();
     Section? section;

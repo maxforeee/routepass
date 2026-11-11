@@ -13,6 +13,10 @@ abstract class KnowledgeRepository {
   /// Mock：返回 2 个样例章节。以后：GET /knowledge/manifest + 本地 knowledge_points 聚合。
   Future<List<Chapter>> getChapters();
 
+  /// 一章下的节列表。调用时机：进知识库页加载章节后，每章 1 次。
+  /// Mock：返回该章的样例节。以后：GET /knowledge/manifest 的节分组。
+  Future<List<Section>> getSections(String chapterId);
+
   /// 取一节下的知识点行。调用时机：用户点倒三角展开某一节时（同节单开手风琴，见第 3 章 §22.7）。
   /// Mock：返回该节的样例知识点。以后：GET /knowledge/points（按模块/章节分页）。
   Future<List<KnowledgePoint>> getPointsBySection(String sectionId);
