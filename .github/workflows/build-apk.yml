@@ -11,13 +11,14 @@ on:
   workflow_dispatch:
     inputs:
       build_mode:
-        description: 'Build mode (debug or profile; release not available yet, no keystore)'
+        description: 'Build mode (debug, profile or release)'
         required: false
         default: 'debug'
         type: choice
         options:
           - debug
           - profile
+          - release
 
 jobs:
   build:
@@ -49,6 +50,18 @@ jobs:
 
       - name: Run tests (fails on any failure)
         run: flutter test
+
+      - name: Restore release keystore (release only)
+        if: ${{ (github.event.inputs.build_mode || 'debug') == 'release' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/routepass-release.jks
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" "$GITHUB_WORKSPACE/android/app/routepass-release.jks" > android/key.properties
+          ls -l android/app/routepass-release.jks android/key.properties
 
       - name: Build APK
         run: flutter build apk --${{ github.event.inputs.build_mode || 'debug' }} --split-per-abi
