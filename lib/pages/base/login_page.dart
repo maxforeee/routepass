@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/app_snackbar.dart';
+import '../../core/service_locator.dart';
 import '../../router/app_router.dart';
 
 class LoginPage extends StatefulWidget {
@@ -51,7 +53,7 @@ class _LoginPageState extends State<LoginPage> {
     return null;
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final usernameError = _validateUsername(_usernameController.text.trim());
     final passwordError = _validatePassword(_passwordController.text);
     setState(() {
@@ -61,11 +63,17 @@ class _LoginPageState extends State<LoginPage> {
     if (usernameError != null || passwordError != null) {
       return;
     }
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('演示登录，后端未接入')),
-      );
+    final result = await ServiceLocator.authService.login(
+      username: _usernameController.text.trim(),
+      password: _passwordController.text,
+    );
+    if (!mounted) return;
+    if (!result.success) {
+      showAppSnackBar(context, result.message ?? '登录失败');
+      return;
+    }
+    showAppSnackBar(context, '演示登录，后端未接入', aboveNav: false);
+    if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(AppRoutes.home);
   }
 

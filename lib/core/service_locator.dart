@@ -21,65 +21,70 @@ import '../services/toolbox/ip_convert_service.dart';
 import '../services/toolbox/ping_service.dart';
 import '../services/toolbox/port_scan_service.dart';
 import '../services/toolbox/subnet_calc_service.dart';
+import 'kv_store.dart';
 
 class ServiceLocator {
- ServiceLocator._();
+  ServiceLocator._();
 
- static bool _initialized = false;
+  static bool _initialized = false;
 
- static late final QuestionRepository questionRepository;
- static late final PracticeService practiceService;
- static late final ExamService examService;
- static late final WrongService wrongService;
- static late final FavoriteService favoriteService;
- static late final StatsService statsService;
- static late final KnowledgeRepository knowledgeRepository;
- static late final SearchService searchService;
- static late final SubnetCalcService subnetCalcService;
- static late final IpConvertService ipConvertService;
- static late final PingService pingService;
- static late final PortScanService portScanService;
- static late final CliService cliService;
- static late final AuthService authService;
- static late final SyncService syncService;
- static late final ContentService contentService;
+  static late final QuestionRepository questionRepository;
+  static late final PracticeService practiceService;
+  static late final ExamService examService;
+  static late final WrongService wrongService;
+  static late final FavoriteService favoriteService;
+  static late final StatsService statsService;
+  static late final KnowledgeRepository knowledgeRepository;
+  static late final SearchService searchService;
+  static late final SubnetCalcService subnetCalcService;
+  static late final IpConvertService ipConvertService;
+  static late final PingService pingService;
+  static late final PortScanService portScanService;
+  static late final CliService cliService;
+  static late final AuthService authService;
+  static late final SyncService syncService;
+  static late final ContentService contentService;
 
- /// 由 main.dart 在 runApp 之前调用一次；重复调用直接返回，不重复装配。
- static void init({
- required QuestionRepository questionRepository,
- required PracticeService practiceService,
- required ExamService examService,
- required WrongService wrongService,
- required FavoriteService favoriteService,
- required StatsService statsService,
- required KnowledgeRepository knowledgeRepository,
- required SearchService searchService,
- required SubnetCalcService subnetCalcService,
- required IpConvertService ipConvertService,
- required PingService pingService,
- required PortScanService portScanService,
- required CliService cliService,
- required AuthService authService,
- required SyncService syncService,
- required ContentService contentService,
-}) {
- if (_initialized) return;
- ServiceLocator.questionRepository = questionRepository;
- ServiceLocator.practiceService = practiceService;
- ServiceLocator.examService = examService;
- ServiceLocator.wrongService = wrongService;
- ServiceLocator.favoriteService = favoriteService;
- ServiceLocator.statsService = statsService;
- ServiceLocator.knowledgeRepository = knowledgeRepository;
- ServiceLocator.searchService = searchService;
- ServiceLocator.subnetCalcService = subnetCalcService;
- ServiceLocator.ipConvertService = ipConvertService;
- ServiceLocator.pingService = pingService;
- ServiceLocator.portScanService = portScanService;
- ServiceLocator.cliService = cliService;
- ServiceLocator.authService = authService;
- ServiceLocator.syncService = syncService;
- ServiceLocator.contentService = contentService;
- _initialized = true;
-}
+  /// 本地 kv（设备本地 UI 状态，见规格文档 §4.9.1；不是 16 个后端服务接口之一）。
+  /// 现在用内存实现；以后接 SQLite kv 表时只换这里，调用方不动。
+  static final KvStore kvStore = InMemoryKvStore();
+
+  /// 由 main.dart 在 runApp 之前调用一次；重复调用直接返回，不重复装配。
+  static void init({
+    required QuestionRepository questionRepository,
+    required PracticeService practiceService,
+    required ExamService examService,
+    required WrongService wrongService,
+    required FavoriteService favoriteService,
+    required StatsService statsService,
+    required KnowledgeRepository knowledgeRepository,
+    required SearchService searchService,
+    required SubnetCalcService subnetCalcService,
+    required IpConvertService ipConvertService,
+    required PingService pingService,
+    required PortScanService portScanService,
+    required CliService cliService,
+    required AuthService authService,
+    required SyncService syncService,
+    required ContentService contentService,
+  }) {
+    if (_initialized) return;
+    ServiceLocator.questionRepository = questionRepository;
+    ServiceLocator.practiceService = practiceService;
+    ServiceLocator.examService = examService;
+    ServiceLocator.wrongService = wrongService;
+    ServiceLocator.favoriteService = favoriteService;
+    ServiceLocator.statsService = statsService;
+    ServiceLocator.knowledgeRepository = knowledgeRepository;
+    ServiceLocator.searchService = searchService;
+    ServiceLocator.subnetCalcService = subnetCalcService;
+    ServiceLocator.ipConvertService = ipConvertService;
+    ServiceLocator.pingService = pingService;
+    ServiceLocator.portScanService = portScanService;
+    ServiceLocator.cliService = cliService;
+    ServiceLocator.authService = authService;
+    ServiceLocator.syncService = syncService;
+    ServiceLocator.contentService = contentService;
+    _initialized = true;
+  }
 }

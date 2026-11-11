@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../pages/bank/module_list_page.dart';
+import '../core/page_transition.dart';
 import '../pages/base/login_page.dart';
 import '../pages/base/profile_page.dart';
 import '../pages/base/register_page.dart';
 import '../pages/base/settings_page.dart';
 import '../pages/base/splash_page.dart';
-import '../pages/home/home_page.dart';
-import '../pages/knowledge/knowledge_home_page.dart';
-import '../pages/toolbox/toolbox_home_page.dart';
+import '../pages/shell/app_shell.dart';
 
 class AppRoutes {
   const AppRoutes._();
@@ -22,63 +20,52 @@ class AppRoutes {
   static const String toolbox = '/toolbox';
   static const String profile = '/profile';
   static const String settings = '/settings';
+  static const String profileDevices = '/profile/devices';
+  static const String bankQuiz = '/bank/quiz';
+  static const String bankExam = '/bank/exam';
+  static const String bankExamResult = '/bank/exam/result';
+  static const String bankWrong = '/bank/wrong';
+  static const String bankFavorites = '/bank/favorites';
+  static const String bankDaily = '/bank/daily';
+  static const String bankStats = '/bank/stats';
+  static const String knowledgeList = '/knowledge/list';
+  static const String knowledgePoint = '/knowledge/point';
+  static const String knowledgeSearch = '/knowledge/search';
+  static const String toolboxSubnet = '/toolbox/subnet';
+  static const String toolboxPing = '/toolbox/ping';
+  static const String toolboxPortscan = '/toolbox/portscan';
+  static const String toolboxCli = '/toolbox/cli';
 }
 
 class AppRouter {
-  const AppRouter._();
+  static const String initialRoute = AppRoutes.splash;
 
-  static Route<void> onGenerateRoute(RouteSettings settings) {
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    final Widget page;
     switch (settings.name) {
       case AppRoutes.splash:
-        return MaterialPageRoute<void>(
-          builder: (_) => const SplashPage(),
-          settings: settings,
-        );
+        page = const SplashPage();
       case AppRoutes.login:
-        return MaterialPageRoute<void>(
-          builder: (_) => const LoginPage(),
-          settings: settings,
-        );
+        page = const LoginPage();
       case AppRoutes.register:
-        return MaterialPageRoute<void>(
-          builder: (_) => const RegisterPage(),
-          settings: settings,
-        );
+        page = const RegisterPage();
       case AppRoutes.home:
-        return MaterialPageRoute<void>(
-          builder: (_) => const HomePage(),
-          settings: settings,
-        );
-      case AppRoutes.bankModules:
-        return MaterialPageRoute<void>(
-          builder: (_) => const BankModuleListPage(),
-          settings: settings,
-        );
-      case AppRoutes.knowledge:
-        return MaterialPageRoute<void>(
-          builder: (_) => const KnowledgeHomePage(),
-          settings: settings,
-        );
-      case AppRoutes.toolbox:
-        return MaterialPageRoute<void>(
-          builder: (_) => const ToolboxHomePage(),
-          settings: settings,
-        );
+        page = const AppShell();
       case AppRoutes.profile:
-        return MaterialPageRoute<void>(
-          builder: (_) => const ProfilePage(),
-          settings: settings,
-        );
+        page = const ProfilePage();
       case AppRoutes.settings:
-        return MaterialPageRoute<void>(
-          builder: (_) => const SettingsPage(),
-          settings: settings,
-        );
+        page = const SettingsPage();
       default:
-        return MaterialPageRoute<void>(
-          builder: (_) => const HomePage(),
-          settings: settings,
-        );
+        // 未装配的深链/未知路由一律回首页外壳（§4.9.3），不报错。
+        page = const AppShell();
     }
+    final reduceMotion = WidgetsBinding.instance.platformDispatcher
+        .accessibilityFeatures.disableAnimations;
+    return SharedAxisPageRoute<void>(
+      builder: (_) => page,
+      settings: settings,
+      transitionDuration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 260),
+    );
   }
 }

@@ -1,108 +1,16 @@
+/// 首页 tab 内容（从 M0 的 HomePage 里抽出的 _HomeContentPage，T3 将按 §22.4 重做为 12 方块瀑布流）。
+library;
+
 import 'package:flutter/material.dart';
 
+import '../../core/app_snackbar.dart';
 import '../../core/config.dart';
-import '../../router/app_router.dart';
-import '../bank/module_list_page.dart';
-import '../knowledge/knowledge_home_page.dart';
-import '../toolbox/toolbox_home_page.dart';
+import '../../widgets/account_sheet.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class HomeContentPage extends StatelessWidget {
+  const HomeContentPage({super.key, required this.onSelectTab});
 
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0;
-
-  static const List<Widget> _tabs = <Widget>[
-    _HomeContentPage(),
-    BankModuleListPage(),
-    KnowledgeHomePage(),
-    ToolboxHomePage(),
-  ];
-
-  void _selectTab(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
-  }
-
-  void _openAccountSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.settings_outlined),
-                title: const Text('设置'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushNamed(AppRoutes.settings);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.cloud_sync_outlined),
-                title: const Text('账户与同步'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushNamed(AppRoutes.profile);
-                },
-              ),
-              ListTile(
-                enabled: false,
-                leading: const Icon(Icons.info_outline),
-                title: Text(AppConfig.versionLabel),
-                subtitle: const Text('演示版本'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _tabs),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: _selectTab,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '首页',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.quiz_outlined),
-            selectedIcon: Icon(Icons.quiz),
-            label: '题库',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: '知识库',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.build_outlined),
-            selectedIcon: Icon(Icons.build),
-            label: '工具箱',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeContentPage extends StatelessWidget {
-  const _HomeContentPage();
+  final void Function(int index) onSelectTab;
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +22,7 @@ class _HomeContentPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: IconButton(
-              onPressed: () => _HomeContentPage.openAccountSheet(context),
+              onPressed: () => showAccountSheet(context),
               icon: const CircleAvatar(
                 radius: 16,
                 child: Icon(Icons.person, size: 18),
@@ -149,7 +57,7 @@ class _HomeContentPage extends StatelessWidget {
             icon: Icons.quiz_outlined,
             title: '题库',
             subtitle: '章节练习、真题与错题，V2 上线',
-            onTap: () => _switchTab(context, 1),
+            onTap: () => onSelectTab(1),
           ),
           _buildEntryCard(
             context,
@@ -157,7 +65,7 @@ class _HomeContentPage extends StatelessWidget {
             icon: Icons.menu_book_outlined,
             title: '知识库',
             subtitle: '网络工程知识点速查，V3 上线',
-            onTap: () => _switchTab(context, 2),
+            onTap: () => onSelectTab(2),
           ),
           _buildEntryCard(
             context,
@@ -165,7 +73,7 @@ class _HomeContentPage extends StatelessWidget {
             icon: Icons.build_outlined,
             title: '工具箱',
             subtitle: '子网计算等常用小工具，V4 上线',
-            onTap: () => _switchTab(context, 3),
+            onTap: () => onSelectTab(3),
           ),
           _buildEntryCard(
             context,
@@ -262,20 +170,8 @@ class _HomeContentPage extends StatelessWidget {
     );
   }
 
-  void _switchTab(BuildContext context, int index) {
-    final state = context.findAncestorStateOfType<_HomePageState>();
-    state?._selectTab(index);
-  }
-
   void _showComingSoonSnack(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('该功能随 V2 题库一起上线')));
-  }
-
-  static void openAccountSheet(BuildContext context) {
-    final state = context.findAncestorStateOfType<_HomePageState>();
-    state?._openAccountSheet();
+    showAppSnackBar(context, '该功能随 V2 题库一起上线');
   }
 }
 
