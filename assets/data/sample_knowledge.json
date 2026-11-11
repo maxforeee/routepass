@@ -1,0 +1,42 @@
+{
+ "chapters": [
+  {"id": "VLAN-01", "module": "VLAN", "title": "样例章节：VLAN 基础", "order": 10},
+  {"id": "SUBNET-01", "module": "SUBNET", "title": "样例章节：子网划分基础", "order": 20}
+ ],
+ "sections": [
+  {"id": "VLAN-01-01", "chapterId": "VLAN-01", "title": "样例小节：VLAN 概念", "order": 10},
+  {"id": "SUBNET-01-01", "chapterId": "SUBNET-01", "title": "样例小节：子网掩码", "order": 10}
+ ],
+ "points": [
+  {
+   "id": "KP-VLAN-01-01",
+   "module": "VLAN",
+   "topic": "样例专题",
+   "code": "1.1",
+   "title": "样例知识点：VLAN 是什么",
+   "summary": "这是一条样例知识点摘要，仅用于界面展示。",
+   "content_md": "# 样例知识点\n\n这是一段样例正文，仅用于界面展示。\n",
+   "key_points": ["样例要点一"],
+   "commands": [{"cmd": "display vlan", "desc": "样例命令说明"}],
+   "pitfalls": ["样例易错点"],
+   "tags": ["样例"],
+   "status": "active",
+   "row_version": 1
+ },
+  {
+   "id": "KP-SUBNET-01-01",
+   "module": "SUBNET",
+   "topic": "样例专题",
+   "code": "1.1",
+   "title": "样例知识点：子网掩码",
+   "summary": "这是一条样例知识点摘要，仅用于界面展示。",
+   "content_md": "# 样例知识点\n\n这是一段样例正文，仅用于界面展示。\n",
+   "key_points": ["样例要点一"],
+   "commands": [],
+   "pitfalls": [],
+   "tags": ["样例"],
+   "status": "active",
+   "row_version": 1
+ }
+ ]
+}

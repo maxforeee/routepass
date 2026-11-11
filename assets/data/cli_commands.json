@@ -1,0 +1,34 @@
+[
+ {
+  "id": "CLI-10",
+  "category": "VLAN",
+  "command": "display vlan",
+  "desc_cn": "样例：查看 VLAN 信息",
+  "example": "display vlan 10",
+  "keywords": "vlan 查看"
+ },
+ {
+  "id": "CLI-20",
+  "category": "VLAN",
+  "command": "vlan 10",
+  "desc_cn": "样例：创建 VLAN 10",
+  "example": "vlan 10",
+  "keywords": "vlan 创建"
+ },
+ {
+  "id": "CLI-30",
+  "category": "OSPF",
+  "command": "display ospf peer",
+  "desc_cn": "样例：查看 OSPF 邻居",
+  "example": "display ospf peer",
+  "keywords": "ospf 邻居"
+ },
+ {
+  "id": "CLI-40",
+  "category": "SUBNET",
+  "command": "ip address 192.168.1.1 24",
+  "desc_cn": "样例：配置 IP 地址",
+  "example": "ip address 192.168.1.1 255.255.255.0",
+  "keywords": "ip 地址 子网"
+ }
+]

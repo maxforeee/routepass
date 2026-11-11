@@ -1,0 +1,59 @@
+[
+ {
+  "id": "SAMPLE-10",
+  "module": "VLAN",
+  "type": "single",
+  "stem": "以下哪一项是对样例题目的正确描述？（本题为界面展示用样例，不计分）",
+  "options": [
+   {"key": "A", "text": "这是一道样例题"},
+   {"key": "B", "text": "这是一道正式考试题"},
+   {"key": "C", "text": "这道题会计入分数"},
+   {"key": "D", "text": "这道题有标准答案"}
+ ],
+  "answer": [],
+  "explanation": "",
+  "knowledge_point_id": "KP-VLAN-01-01",
+  "difficulty": 1,
+  "set_no": 1,
+  "row_version": 1,
+  "status": "active"
+ },
+ {
+  "id": "SAMPLE-20",
+  "module": "VLAN",
+  "type": "multiple",
+  "stem": "以下哪些描述符合样例题？（多选，本题为界面展示用样例，不计分）",
+  "options": [
+   {"key": "A", "text": "题干以开头"},
+   {"key": "B", "text": "answer 为空数组"},
+   {"key": "C", "text": "explanation 为空字符串"},
+   {"key": "D", "text": "会计入考试分数"}
+ ],
+  "answer": [],
+  "explanation": "",
+  "knowledge_point_id": "KP-VLAN-01-01",
+  "difficulty": 1,
+  "set_no": 1,
+  "row_version": 1,
+  "status": "active"
+ },
+ {
+  "id": "SAMPLE-30",
+  "module": "SUBNET",
+  "type": "single",
+  "stem": "以下哪一项是样例子网题的占位描述？（本题为界面展示用样例，不计分）",
+  "options": [
+   {"key": "A", "text": "样例占位选项一"},
+   {"key": "B", "text": "样例占位选项二"},
+   {"key": "C", "text": "样例占位选项三"},
+   {"key": "D", "text": "样例占位选项四"}
+ ],
+  "answer": [],
+  "explanation": "",
+  "knowledge_point_id": "KP-SUBNET-01-01",
+  "difficulty": 1,
+  "set_no": 1,
+  "row_version": 1,
+  "status": "active"
+ }
+]
