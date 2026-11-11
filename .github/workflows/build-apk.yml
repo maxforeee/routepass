@@ -9,6 +9,15 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      build_mode:
+        description: 'Build mode (debug or profile; release not available yet, no keystore)'
+        required: false
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - profile
 
 jobs:
   build:
@@ -41,19 +50,19 @@ jobs:
       - name: Run tests (fails on any failure)
         run: flutter test
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build APK
+        run: flutter build apk --${{ github.event.inputs.build_mode || 'debug' }} --split-per-abi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: routepass-apk-debug
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: routepass-apk-${{ github.event.inputs.build_mode || 'debug' }}
+          path: build/app/outputs/flutter-apk/
           retention-days: 7
 
       - name: Build summary
         run: |
-          SIZE=$(du -h build/app/outputs/flutter-apk/app-debug.apk | cut -f1)
           echo "### APK build finished" >> $GITHUB_STEP_SUMMARY
-          echo "- APK size: $SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- Mode: ${{ github.event.inputs.build_mode || 'debug' }}" >> $GITHUB_STEP_SUMMARY
+          du -h build/app/outputs/flutter-apk/*.apk | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
           echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
