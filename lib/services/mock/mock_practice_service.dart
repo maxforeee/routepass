@@ -3,6 +3,10 @@
 /// 本地建会话、本地记一笔，不判对错；解析卡显示占位文案。
 library;
 
+import 'dart:convert';
+
+import '../../core/kv_store.dart';
+import '../../core/service_locator.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
 import '../bank/practice_service.dart';
@@ -37,7 +41,14 @@ class MockPracticeService implements PracticeService {
 
   @override
   Future<ContinueSession?> getContinueSession() async {
-    // Mock 无未完成会话，首页 H-B1 继续学习方块隐藏。
-    return null;
+    // 读答题页退出时写进 kv（home.continue）的进度指针；没有或解析失败返回 null，首页 H-B1 隐藏。
+    final raw = ServiceLocator.kvStore.getString(KvStore.keyHomeContinue);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      return ContinueSession.fromJson(json);
+    } catch (_) {
+      return null;
+    }
   }
 }

@@ -16,7 +16,11 @@ import '../../router/app_router.dart';
 import '../../widgets/capsule_nav_bar.dart';
 import '../../widgets/coming_soon_view.dart';
 import '../../widgets/version_banner.dart';
+import '../bank/answer_page.dart';
+import '../bank/favorites_page.dart';
 import '../bank/module_list_page.dart';
+import '../bank/stats_page.dart';
+import '../bank/wrong_page.dart';
 import '../home/home_content.dart';
 import '../knowledge/knowledge_home_page.dart';
 import '../toolbox/toolbox_home_page.dart';
@@ -164,6 +168,13 @@ class _AppShellState extends State<AppShell> {
     };
   }
 
+  /// 从 RouteSettings.arguments 取 AnswerPage 的 `Map<String, Object?>` 参数；没有或类型不对返回空 Map。
+  Map<String, Object?> _routeArgs(RouteSettings settings) {
+    final args = settings.arguments;
+    if (args is Map<String, Object?>) return args;
+    return const <String, Object?>{};
+  }
+
   Route<void>? _tabRoute(int index, RouteSettings settings) {
     final Widget page;
     switch (settings.name) {
@@ -171,6 +182,24 @@ class _AppShellState extends State<AppShell> {
         page = HomeContentPage(onSelectTab: _selectTab);
       case AppRoutes.bankModules:
         page = const BankModuleListPage();
+      case AppRoutes.bankQuiz:
+        page = AnswerPage(args: _routeArgs(settings));
+      case AppRoutes.bankExam:
+        page = AnswerPage(args: _routeArgs(settings));
+      case AppRoutes.bankDaily:
+        page = AnswerPage(
+          args: <String, Object?>{
+            'mode': 'daily',
+            'drawCount': 10,
+            ..._routeArgs(settings),
+          },
+        );
+      case AppRoutes.bankWrong:
+        page = const WrongPage();
+      case AppRoutes.bankFavorites:
+        page = const FavoritesPage();
+      case AppRoutes.bankStats:
+        page = const StatsPage();
       case AppRoutes.knowledge:
         page = const KnowledgeHomePage();
       case AppRoutes.toolbox:

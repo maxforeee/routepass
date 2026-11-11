@@ -335,6 +335,9 @@ class _SetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 横向布局（文档 §22.5.2：左题量 display 28，右覆盖模块 + 预计时长 + 进度条，
+    // 按钮高 40）：内容最高约 60dp，112/104/96 三档卡高都放得下。
+    // 旧版单列布局内容约 119dp，连 112 的卡都溢出 7dp。
     return SizedBox(
       height: height,
       child: Card(
@@ -347,74 +350,79 @@ class _SetCard extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Text(
-                      '$count',
-                      style: theme.textTheme.displaySmall,
-                    ),
-                    const SizedBox(width: 4),
-                    Text('题套卷', style: theme.textTheme.titleMedium),
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: onTap,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(72, 40),
-                      ),
-                      child: const Text('开始'),
-                    ),
-                  ],
+                Text(
+                  '$count',
+                  style: theme.textTheme.displaySmall?.copyWith(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 4,
-                  children: modules.map((m) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _moduleLabel(m),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                if (showProgress) ...[
-                  const SizedBox(height: 4),
-                  Row(
+                const SizedBox(width: 4),
+                Text('题套卷', style: theme.textTheme.titleMedium),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        minutes,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: modules.map((m) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _moduleLabel(m),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 4),
+                      if (showProgress)
+                        Row(
+                          children: [
+                            Text(
+                              minutes,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: LinearProgressIndicator(value: 0),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          minutes,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: LinearProgressIndicator(value: 0),
-                      ),
                     ],
                   ),
-                ] else ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    minutes,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: onTap,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(72, 40),
                   ),
-                ],
+                  child: const Text('开始'),
+                ),
               ],
             ),
           ),

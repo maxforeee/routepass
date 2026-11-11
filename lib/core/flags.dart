@@ -9,8 +9,8 @@
 class Flags {
   const Flags._();
 
-  /// V2 题库模块。当前未装配，底栏对应目的地显示“暂未开放”占位。
-  static const bool MODULE_BANK = false;
+  /// V2 题库模块。已装配（T4c），底栏题库目的地进题库页。
+  static const bool MODULE_BANK = true;
 
   /// V3 知识库模块。当前未装配，底栏对应目的地显示“暂未开放”占位。
   static const bool MODULE_KNOWLEDGE = false;

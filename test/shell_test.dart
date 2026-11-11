@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/app.dart';
 import 'package:routepass/core/service_locator.dart';
+import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 import 'package:routepass/services/mock/mock_cli_service.dart';
 import 'package:routepass/services/mock/mock_content_service.dart';
@@ -97,11 +98,13 @@ void main() {
     expect(find.textContaining('欢迎回来'), findsOneWidget);
   });
 
-  testWidgets('题库 tab 同样显示“暂未开放”占位', (tester) async {
+  testWidgets('题库 tab 已装配：进题库页，不再显示“暂未开放”', (tester) async {
     await _loginToHome(tester);
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('暂未开放'), findsWidgets);
+    expect(find.byType(BankModuleListPage), findsOneWidget);
+    expect(find.text('套卷'), findsOneWidget);
+    expect(find.textContaining('暂未开放'), findsNothing);
   });
 }
