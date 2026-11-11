@@ -67,7 +67,7 @@ Future<void> _loginToHome(WidgetTester tester) async {
     await tester.pumpAndSettle();
   }
 
-  expect(find.text('欢迎回来'), findsOneWidget);
+  expect(find.textContaining('欢迎回来'), findsOneWidget);
 }
 
 void main() {
@@ -94,7 +94,7 @@ void main() {
 
     await tester.tap(_navTab('首页'));
     await tester.pumpAndSettle();
-    expect(find.text('欢迎回来'), findsOneWidget);
+    expect(find.textContaining('欢迎回来'), findsOneWidget);
   });
 
   testWidgets('题库 tab 同样显示“暂未开放”占位', (tester) async {

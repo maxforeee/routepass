@@ -66,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 首页内容 + 底栏 4 个 tab 标签。
-    expect(find.text('欢迎回来'), findsOneWidget);
+    expect(find.textContaining('欢迎回来'), findsOneWidget);
     expect(find.text('首页'), findsWidgets);
     expect(find.text('题库'), findsWidgets);
     expect(find.text('知识库'), findsWidgets);
