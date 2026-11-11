@@ -22,7 +22,9 @@ import '../bank/module_list_page.dart';
 import '../bank/stats_page.dart';
 import '../bank/wrong_page.dart';
 import '../home/home_content.dart';
+import '../knowledge/knowledge_detail_page.dart';
 import '../knowledge/knowledge_home_page.dart';
+import '../knowledge/knowledge_search_page.dart';
 import '../toolbox/toolbox_home_page.dart';
 
 class AppShell extends StatefulWidget {
@@ -202,6 +204,12 @@ class _AppShellState extends State<AppShell> {
         page = const StatsPage();
       case AppRoutes.knowledge:
         page = const KnowledgeHomePage();
+      case AppRoutes.knowledgeList:
+        page = const KnowledgeHomePage();
+      case AppRoutes.knowledgePoint:
+        page = KnowledgeDetailPage(args: _routeArgs(settings));
+      case AppRoutes.knowledgeSearch:
+        page = KnowledgeSearchPage(args: _routeArgs(settings));
       case AppRoutes.toolbox:
         page = const ToolboxHomePage();
       default:

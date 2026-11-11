@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/app.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
+import 'package:routepass/pages/knowledge/knowledge_home_page.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 import 'package:routepass/services/mock/mock_cli_service.dart';
 import 'package:routepass/services/mock/mock_content_service.dart';
@@ -75,7 +76,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _initServices();
 
-  testWidgets('tab 切换：知识库/工具箱显示“暂未开放”占位，切回首页内容正常',
+  testWidgets('tab 切换：知识库已装配进列表页，工具箱仍显示“暂未开放”，切回首页正常',
       (tester) async {
     await _loginToHome(tester);
 
@@ -87,7 +88,9 @@ void main() {
 
     await tester.tap(_navTab('知识库'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('暂未开放'), findsWidgets);
+    expect(find.byType(KnowledgeHomePage), findsOneWidget);
+    expect(find.text('样例章节：VLAN 基础'), findsOneWidget);
+    expect(find.textContaining('暂未开放'), findsNothing);
 
     await tester.tap(_navTab('工具箱'));
     await tester.pumpAndSettle();
