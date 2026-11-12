@@ -82,7 +82,7 @@ void main() {
 
     await tester.tap(_navTab('工具'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('子网划分'));
+    await tester.tap(find.text('子网计算器'));
     await tester.pumpAndSettle();
     expect(find.byType(SubnetPage), findsOneWidget);
     expect(find.byType(CapsuleNavBar), findsNothing);
@@ -91,7 +91,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ToolboxHomePage), findsOneWidget);
     expect(find.text('最近使用'), findsOneWidget);
-    expect(find.text('子网划分'), findsWidgets);
+    expect(find.text('子网计算器'), findsWidgets);
   });
 
   testWidgets('点 Ping 卡进 Ping 页', (tester) async {

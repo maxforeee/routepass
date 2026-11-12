@@ -126,6 +126,12 @@ class AppSizes {
 
   /// 题库页套卷卡“开始”按钮高（逻辑像素）。
   static const double setStartButtonHeight = 36;
+
+  /// 工具箱页工具卡高度（逻辑像素）。
+  static const double toolboxCardHeight = 104;
+
+  /// 工具箱页工具卡图标尺寸（逻辑像素）。
+  static const double toolIconSize = 22;
 }
 
 /// 品牌页圆角（逻辑像素）。
@@ -164,6 +170,22 @@ class AppFontSizes {
 
   /// 错题本/收藏入口行标题。
   static const double entryTitle = 15;
+
+  /// 工具箱页工具卡标题。
+  static const double toolCardTitle = 15;
+}
+
+/// 工具箱工具卡图标色调（蓝/绿/橙，见 §4.10 T-B 卡片）。
+enum ToolIconTone { blue, green, orange }
+
+/// 工具箱工具卡图标色：蓝用主色，绿用成功色，橙用警告色（均随深浅色模式）。
+Color toolIconColor(ToolIconTone tone, BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  return switch (tone) {
+    ToolIconTone.blue => scheme.primary,
+    ToolIconTone.green => AppColors.success(context),
+    ToolIconTone.orange => AppColors.warning(context),
+  };
 }
 
 class AppTheme {

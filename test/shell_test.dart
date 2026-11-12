@@ -90,7 +90,7 @@ void main() {
     await tester.tap(_navTab('工具'));
     await tester.pumpAndSettle();
     expect(find.byType(ToolboxHomePage), findsOneWidget);
-    expect(find.text('子网划分'), findsOneWidget);
+    expect(find.text('子网计算器'), findsOneWidget);
     expect(find.textContaining('暂未开放'), findsNothing);
 
     await tester.tap(_navTab('首页'));
