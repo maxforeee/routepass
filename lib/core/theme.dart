@@ -127,6 +127,15 @@ class AppSizes {
   /// 题库页套卷卡“开始”按钮高（逻辑像素）。
   static const double setStartButtonHeight = 36;
 
+  /// 套卷详情页模块进度条高（逻辑像素）。
+  static const double setDetailProgressBarHeight = 6;
+
+  /// 套卷详情页预留容器高（逻辑像素）。
+  static const double setDetailReservedSlotHeight = 64;
+
+  /// 套卷详情页答题说明卡高（逻辑像素）。
+  static const double setDetailInstructionsHeight = 108;
+
   /// 工具箱页工具卡高度（逻辑像素）。
   static const double toolboxCardHeight = 104;
 
@@ -153,6 +162,12 @@ class AppRadii {
 
   /// 题库页套卷卡“开始”按钮圆角（逻辑像素）。
   static const double setStartButton = 18;
+
+  /// 套卷详情页“开始答题”按钮圆角（逻辑像素）。
+  static const double setDetailStartButton = 13;
+
+  /// 套卷详情页模块进度条圆角（逻辑像素）。
+  static const double setDetailProgressBar = 3;
 
   /// 胶囊导航整体圆角（约 999 = 全胶囊形）。
   static const double navCapsule = 999;

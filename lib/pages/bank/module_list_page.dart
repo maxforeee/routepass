@@ -103,6 +103,13 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
     );
   }
 
+  void _openSetDetail(int drawCount) {
+    Navigator.of(context).pushNamed(
+      AppRoutes.bankSetDetail,
+      arguments: <String, Object?>{'mode': 'exam', 'drawCount': drawCount},
+    );
+  }
+
   String _typeLabel(String type) {
     return switch (type) {
       'single' => '单选',
@@ -270,21 +277,21 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           title: '100 题套卷',
           subtitle: '100 题 · 5 个模块 · 含解析',
           modules: modules,
-          onTap: () => _openQuiz('exam', 100),
+          onTap: () => _openSetDetail(100),
         ),
         const SizedBox(height: AppSpacing.cardGap),
         _SetCard(
           title: '200 题套卷',
           subtitle: '200 题 · 5 个模块 · 含解析',
           modules: modules,
-          onTap: () => _openQuiz('exam', 200),
+          onTap: () => _openSetDetail(200),
         ),
         const SizedBox(height: AppSpacing.cardGap),
         _SetCard(
           title: '50 题套卷',
           subtitle: '50 题 · 5 个模块 · 含解析',
           modules: modules,
-          onTap: () => _openQuiz('exam', 50),
+          onTap: () => _openSetDetail(50),
         ),
         const SizedBox(height: AppSpacing.cardGap),
         _SetCard(

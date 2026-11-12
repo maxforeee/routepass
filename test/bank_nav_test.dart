@@ -8,6 +8,7 @@ import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/models/practice.dart';
 import 'package:routepass/pages/bank/favorites_page.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
+import 'package:routepass/pages/bank/set_detail_page.dart';
 import 'package:routepass/pages/bank/stats_page.dart';
 import 'package:routepass/pages/bank/wrong_page.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
@@ -90,14 +91,15 @@ void main() {
     expect(find.text('100 题套卷'), findsOneWidget);
   });
 
-  testWidgets('点套卷卡开始进答题页', (tester) async {
+  testWidgets('点套卷卡开始进套卷详情页', (tester) async {
     await _loginToHome(tester);
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '开始').first);
     await tester.pumpAndSettle();
-    expect(find.text('第 1/3 题'), findsOneWidget);
+    expect(find.byType(SetDetailPage), findsOneWidget);
+    expect(find.text('100 题套卷'), findsOneWidget);
   });
 
   testWidgets('错题本入口进错题本页（空态）', (tester) async {

@@ -185,6 +185,13 @@ class _HomeContentPageState extends State<HomeContentPage> {
     );
   }
 
+  void _openSetDetail(int drawCount) {
+    Navigator.of(context).pushNamed(
+      AppRoutes.bankSetDetail,
+      arguments: <String, Object?>{'mode': 'exam', 'drawCount': drawCount},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -248,7 +255,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
                       const SizedBox(height: AppSpacing.sm),
                       _ExamSetCard(
                         count: 200,
-                        onTap: () => _openQuiz('exam', 200),
+                        onTap: () => _openSetDetail(200),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       _IconCard(
@@ -282,13 +289,10 @@ class _HomeContentPageState extends State<HomeContentPage> {
                     children: [
                       _ExamSetCard(
                         count: 100,
-                        onTap: () => _openQuiz('exam', 100),
+                        onTap: () => _openSetDetail(100),
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      _ExamSetCard(
-                        count: 50,
-                        onTap: () => _openQuiz('exam', 50),
-                      ),
+                      _ExamSetCard(count: 50, onTap: () => _openSetDetail(50)),
                       const SizedBox(height: AppSpacing.sm),
                       _DailyPointCard(
                         point: dailyPoint,
