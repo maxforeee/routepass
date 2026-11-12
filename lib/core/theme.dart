@@ -62,6 +62,13 @@ class AppColors {
         ? warningContainerDark
         : warningContainerLight;
   }
+
+  /// 页面次级标签色（浅色 #334155，深色浅灰保证可读）。
+  static Color label(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF94A3B8)
+        : brandLabel;
+  }
 }
 
 /// 品牌页间距（逻辑像素）。
@@ -85,6 +92,9 @@ class AppSpacing {
 
   /// 题库页卡片/入口行之间的间距（逻辑像素）。
   static const double cardGap = 14;
+
+  /// 套卷详情页模块行之间的间距（逻辑像素）。
+  static const double setDetailModuleGap = 20;
 
   /// 知识库页章卡片 / 知识点行之间的间距（逻辑像素）。
   static const double chapterGap = 10;
@@ -141,6 +151,15 @@ class AppSizes {
 
   /// 工具箱页工具卡图标尺寸（逻辑像素）。
   static const double toolIconSize = 22;
+
+  /// 小图标尺寸（逻辑像素）。
+  static const double iconSmall = 16;
+
+  /// 大图标尺寸（逻辑像素）。
+  static const double iconLarge = 24;
+
+  /// 分隔线高度（逻辑像素）。
+  static const double divider = 1;
 }
 
 /// 品牌页圆角（逻辑像素）。
@@ -188,6 +207,21 @@ class AppFontSizes {
 
   /// 工具箱页工具卡标题。
   static const double toolCardTitle = 15;
+
+  /// 套卷详情页大标题。
+  static const double detailTitle = 28;
+
+  /// 套卷详情页小节标题。
+  static const double detailSectionTitle = 20;
+
+  /// 套卷详情页正文。
+  static const double detailBody = 14;
+
+  /// 套卷详情页统计/说明文字。
+  static const double detailStat = 13;
+
+  /// 套卷详情页“开始答题”按钮文字。
+  static const double detailButton = 16;
 }
 
 /// 工具箱工具卡图标色调（蓝/绿/橙，见 §4.10 T-B 卡片）。
@@ -352,8 +386,8 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: isDark
-          ? const Color(0xFF0B1220)
-          : const Color(0xFFF7F8FA),
+          ? AppColors.pageBackgroundDark
+          : AppColors.pageBackgroundLight,
       textTheme: TextTheme(
         headlineLarge: TextStyle(
           fontSize: 24,

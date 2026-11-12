@@ -170,4 +170,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('第 1/3 题'), findsOneWidget);
   });
+
+  testWidgets('410×890 视口无溢出且开始答题按钮可见', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(410, 890));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _loginToHome(tester);
+
+    await tester.tap(_navTab('题库'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '开始').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SetDetailPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    final buttonRect = tester.getRect(find.text('开始答题'));
+    final screenRect = tester.getRect(find.byType(SetDetailPage));
+    expect(screenRect.overlaps(buttonRect), isTrue);
+    expect(buttonRect.bottom, lessThanOrEqualTo(screenRect.bottom));
+  });
+
+  testWidgets('深色模式下统计文字使用深色标签色', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: SetDetailPage(
+          args: <String, Object?>{'mode': 'exam', 'drawCount': 100},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final statText = tester.widget<Text>(find.text('100 题'));
+    final statColor = statText.style?.color;
+    expect(statColor, isNotNull);
+    expect(statColor, isNot(const Color(0xFF334155)));
+    expect(statColor, const Color(0xFF94A3B8));
+  });
 }

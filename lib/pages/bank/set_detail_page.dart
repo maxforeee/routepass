@@ -100,7 +100,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
     return Scaffold(
       backgroundColor: AppColors.pageBackground(context),
       body: SafeArea(
-        bottom: false,
+        bottom: true,
         child: Column(
           children: [
             Align(
@@ -108,7 +108,10 @@ class _SetDetailPageState extends State<SetDetailPage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: IconButton(
-                  icon: const Icon(Icons.chevron_left, size: 24),
+                  icon: const Icon(
+                    Icons.chevron_left,
+                    size: AppSizes.iconLarge,
+                  ),
                   tooltip: '返回',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
@@ -128,7 +131,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                     Text(
                       '$_drawCount 题套卷',
                       style: theme.textTheme.headlineLarge?.copyWith(
-                        fontSize: 28,
+                        fontSize: AppFontSizes.detailTitle,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -136,7 +139,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                     Text(
                       'H3CNE 模拟套卷 · 每题含解析',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 14,
+                        fontSize: AppFontSizes.detailBody,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -149,7 +152,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Container(
-                      height: 1,
+                      height: AppSizes.divider,
                       color: theme.colorScheme.outlineVariant,
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -158,7 +161,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                     Text(
                       '知识点考察',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: 20,
+                        fontSize: AppFontSizes.detailSectionTitle,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -170,7 +173,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                         progress: _moduleProgress(module),
                       ),
                       if (module != modules.last)
-                        const SizedBox(height: AppSpacing.cardGap),
+                        const SizedBox(height: AppSpacing.setDetailModuleGap),
                     ],
                     const SizedBox(height: AppSpacing.lg),
                     _InstructionsCard(minutes: _minutes),
@@ -199,7 +202,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                       ),
                     ),
                     textStyle: theme.textTheme.bodyLarge?.copyWith(
-                      fontSize: 16,
+                      fontSize: AppFontSizes.detailButton,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -233,19 +236,19 @@ class _StatsRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Expanded(child: _stat(theme, '$drawCount 题')),
-        Expanded(child: _stat(theme, '单选 $single · 多选 $multiple')),
-        Expanded(child: _stat(theme, '约 $minutes 分钟')),
+        Expanded(child: _stat(context, theme, '$drawCount 题')),
+        Expanded(child: _stat(context, theme, '单选 $single · 多选 $multiple')),
+        Expanded(child: _stat(context, theme, '约 $minutes 分钟')),
       ],
     );
   }
 
-  Widget _stat(ThemeData theme, String text) {
+  Widget _stat(BuildContext context, ThemeData theme, String text) {
     return Text(
       text,
       style: theme.textTheme.bodyMedium?.copyWith(
-        fontSize: 13,
-        color: AppColors.brandLabel,
+        fontSize: AppFontSizes.detailStat,
+        color: AppColors.label(context),
       ),
     );
   }
@@ -351,7 +354,7 @@ class _InstructionsCard extends StatelessWidget {
               children: [
                 Icon(
                   Icons.check_circle,
-                  size: 16,
+                  size: AppSizes.iconSmall,
                   color: AppColors.success(context),
                 ),
                 const SizedBox(width: AppSpacing.xs),
@@ -359,8 +362,8 @@ class _InstructionsCard extends StatelessWidget {
                   child: Text(
                     line,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      fontSize: 13,
-                      color: AppColors.brandLabel,
+                      fontSize: AppFontSizes.detailStat,
+                      color: AppColors.label(context),
                     ),
                   ),
                 ),
