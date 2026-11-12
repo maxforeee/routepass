@@ -40,6 +40,7 @@ class AppColors {
   static const Color brandOnPrimary = Color(0xFFFFFFFF);
   static const Color brandTitle = Color(0xFF0F172A);
   static const Color brandCaption = Color(0xFF94A3B8);
+  static const Color brandSecondaryText = Color(0xFF64748B);
   static const Color brandSurface = Color(0xFFFFFFFF);
   static const Color brandBorder = Color(0xFFE2E8F0);
   static const Color brandLabel = Color(0xFF334155);
@@ -177,6 +178,18 @@ class AppSizes {
   /// 大图标尺寸（逻辑像素）。
   static const double iconXLarge = 32;
 
+  /// 首页问候区顶部预留高度（逻辑像素，为钉住头像留空）。
+  static const double homeTopPad = 68;
+
+  /// 首页及各 tab 滚动内容底部预留高度（逻辑像素，防止内容被浮动胶囊遮住）。
+  static const double homeBottomPad = 100;
+
+  /// 首页工具箱网格图标尺寸（逻辑像素）。
+  static const double toolGridIconSize = 30;
+
+  /// 套卷行卡片最小高度（逻辑像素）。
+  static const double setRowMinHeight = 76;
+
   /// 首页横幅“开始”按钮宽（逻辑像素）。
   static const double bannerButtonWidth = 64;
 
@@ -283,6 +296,9 @@ class AppFontSizes {
 
   /// 套卷详情页“开始答题”按钮文字。
   static const double detailButton = 16;
+
+  /// 首页问候区昵称字号（逻辑像素，28 特粗）。
+  static const double homeGreetingName = 28;
 }
 
 /// 品牌动画时长。
