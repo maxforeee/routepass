@@ -45,6 +45,9 @@ class AppColors {
   static const Color brandLabel = Color(0xFF334155);
   static const Color brandTransparent = Color(0x00000000);
 
+  /// 阴影色（胶囊导航：Colors.black 8% 不透明度）。
+  static const Color shadow = Color(0x14000000);
+
   static Color success(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? successDark
@@ -75,6 +78,7 @@ class AppColors {
 class AppSpacing {
   AppSpacing._();
 
+  static const double xxxs = 2;
   static const double xxs = 4;
   static const double xs = 8;
   static const double sm = 12;
@@ -98,6 +102,12 @@ class AppSpacing {
 
   /// 知识库页章卡片 / 知识点行之间的间距（逻辑像素）。
   static const double chapterGap = 10;
+
+  /// 启动页 Logo 与应用名之间的间距（逻辑像素）。
+  static const double splashLogoGap = 28;
+
+  /// 启动页应用名与英文名之间的间距（逻辑像素）。
+  static const double splashNameGap = 14;
 }
 
 /// 品牌页尺寸（逻辑像素）。
@@ -160,6 +170,51 @@ class AppSizes {
 
   /// 分隔线高度（逻辑像素）。
   static const double divider = 1;
+
+  /// 启动页 Logo 尺寸（逻辑像素）。
+  static const double splashLogo = 72;
+
+  /// 大图标尺寸（逻辑像素）。
+  static const double iconXLarge = 32;
+
+  /// 首页横幅“开始”按钮宽（逻辑像素）。
+  static const double bannerButtonWidth = 64;
+
+  /// 首页横幅“开始”按钮高（逻辑像素）。
+  static const double bannerButtonHeight = 36;
+
+  /// 首页同步 chip 高（逻辑像素）。
+  static const double syncChipHeight = 28;
+
+  /// 同步诊断 sheet 内按钮高（逻辑像素）。
+  static const double sheetButtonHeight = 48;
+
+  /// 同步诊断行标签列宽（逻辑像素）。
+  static const double syncLabelWidth = 88;
+
+  /// 空态图标尺寸（逻辑像素）。
+  static const double emptyStateIcon = 48;
+
+  /// 空态顶部间距（逻辑像素）。
+  static const double emptyStateTop = 48;
+
+  /// 胶囊导航高（逻辑像素）。
+  static const double navBarHeight = 64;
+
+  /// 胶囊导航选中椭圆底宽（逻辑像素）。
+  static const double navSelectedWidth = 56;
+
+  /// 胶囊导航选中椭圆底高（逻辑像素）。
+  static const double navSelectedHeight = 32;
+
+  /// 胶囊导航阴影 Y 偏移（逻辑像素）。
+  static const double navShadowOffsetY = 8;
+
+  /// 胶囊导航阴影模糊半径（逻辑像素）。
+  static const double navShadowBlur = 24;
+
+  /// 进度环描边宽（逻辑像素）。
+  static const double ringStroke = 3;
 }
 
 /// 品牌页圆角（逻辑像素）。
@@ -190,6 +245,12 @@ class AppRadii {
 
   /// 胶囊导航整体圆角（约 999 = 全胶囊形）。
   static const double navCapsule = 999;
+
+  /// 同步 chip 圆角（逻辑像素）。
+  static const double syncChip = 14;
+
+  /// 底部 sheet 顶部圆角（逻辑像素）。
+  static const double bottomSheet = 24;
 }
 
 /// 品牌页字号（逻辑像素）。textTheme 未覆盖的少量字号在这里定义。
@@ -222,6 +283,14 @@ class AppFontSizes {
 
   /// 套卷详情页“开始答题”按钮文字。
   static const double detailButton = 16;
+}
+
+/// 品牌动画时长。
+class AppDurations {
+  AppDurations._();
+
+  /// 胶囊导航选中态淡入淡出（毫秒）。
+  static const Duration navFade = Duration(milliseconds: 200);
 }
 
 /// 工具箱工具卡图标色调（蓝/绿/橙，见 §4.10 T-B 卡片）。

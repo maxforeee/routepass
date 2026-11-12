@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/kv_store.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
+import '../../widgets/app_card.dart';
 import '../../widgets/page_header.dart';
 import 'toolbox_tools.dart';
 
@@ -93,54 +94,41 @@ class _ToolCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Material(
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadii.card),
-        side: BorderSide(
-          color: scheme.outlineVariant,
-          width: AppSizes.borderWidth,
-        ),
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.sm,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-            AppSpacing.sm,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            tool.icon,
+            size: AppSizes.toolIconSize,
+            color: toolIconColor(tool.iconTone, context),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                tool.icon,
-                size: AppSizes.toolIconSize,
-                color: toolIconColor(tool.iconTone, context),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                tool.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontSize: AppFontSizes.toolCardTitle,
-                  fontWeight: FontWeight.bold,
-                  color: scheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                tool.desc,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            tool.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: AppFontSizes.toolCardTitle,
+              fontWeight: FontWeight.bold,
+              color: scheme.onSurface,
+            ),
           ),
-        ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            tool.desc,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../core/app_snackbar.dart';
+import '../../core/modules.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/content.dart';
@@ -15,6 +16,9 @@ import '../../models/sync.dart';
 import '../../models/user.dart';
 import '../../router/app_router.dart';
 import '../../widgets/account_sheet.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_progress_ring.dart';
+import '../../widgets/module_tag.dart';
 import '../../widgets/user_avatar.dart';
 
 class HomeContentPage extends StatefulWidget {
@@ -213,17 +217,24 @@ class _HomeContentPageState extends State<HomeContentPage> {
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.bottomSheet),
+        ),
       ),
       builder: (sheetContext) {
         return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('同步诊断', style: Theme.of(sheetContext).textTheme.titleLarge),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               _SyncRow(label: '状态', value: sync?.state ?? '未知'),
               _SyncRow(label: '待同步', value: '${sync?.pendingCount ?? 0} 条'),
               _SyncRow(label: '上次同步', value: lastSyncText),
@@ -232,14 +243,16 @@ class _HomeContentPageState extends State<HomeContentPage> {
                 label: '知识库版本',
                 value: content?.knowledge_version ?? '—',
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               FilledButton(
                 onPressed: () {
                   Navigator.of(sheetContext).pop();
                   showAppSnackBar(context, '演示环境，同步未接入');
                 },
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
+                  minimumSize: const Size.fromHeight(
+                    AppSizes.sheetButtonHeight,
+                  ),
                 ),
                 child: const Text('同步'),
               ),
@@ -424,34 +437,6 @@ class _HomeContentPageState extends State<HomeContentPage> {
 }
 
 /// 卡片通用容器：圆角 16、浅灰边框、轻微阴影，点按有涟漪；高度随内容自适应。
-class _Card extends StatelessWidget {
-  const _Card({required this.child, this.onTap});
-
-  final Widget child;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadii.card),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
 /// 浅蓝横幅（#DBEAFE）：左文案 + 右“开始”按钮（快速 10 题）。
 class _Banner extends StatelessWidget {
   const _Banner({required this.summary, required this.onStart});
@@ -495,7 +480,10 @@ class _Banner extends StatelessWidget {
           FilledButton(
             onPressed: onStart,
             style: FilledButton.styleFrom(
-              minimumSize: const Size(64, 36),
+              minimumSize: const Size(
+                AppSizes.bannerButtonWidth,
+                AppSizes.bannerButtonHeight,
+              ),
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             ),
             child: const Text('开始'),
@@ -580,12 +568,12 @@ class _IconCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return _Card(
+    return AppCard(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 32, color: iconColor),
+          Icon(icon, size: AppSizes.iconXLarge, color: iconColor),
           const SizedBox(height: AppSpacing.xs),
           Text(title, style: _cardTitleStyle(theme)),
           const SizedBox(height: AppSpacing.xxs),
@@ -613,25 +601,17 @@ class _ExamSetCard extends StatelessWidget {
   final double progress;
   final VoidCallback onTap;
 
-  static const List<String> _modules = <String>[
-    'VLAN',
-    'OSPF',
-    'ACL',
-    'NAT',
-    '子网划分',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return _Card(
+    return AppCard(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _ProgressRing(value: progress),
+              AppProgressRing(value: progress),
               const Spacer(),
               Icon(
                 Icons.list_alt_outlined,
@@ -653,60 +633,9 @@ class _ExamSetCard extends StatelessWidget {
           Wrap(
             spacing: AppSpacing.xxs,
             runSpacing: AppSpacing.xxs,
-            children: _modules.map((module) {
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xs,
-                  vertical: AppSpacing.xxs,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(AppSpacing.xs),
-                ),
-                child: Text(
-                  module,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 灰色进度环 + 中间百分比文字（套卷卡 0%）。
-class _ProgressRing extends StatelessWidget {
-  const _ProgressRing({required this.value});
-
-  final double value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final percent = (value * 100).round();
-    return SizedBox(
-      width: AppSizes.progressRing,
-      height: AppSizes.progressRing,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CircularProgressIndicator(
-            value: value,
-            strokeWidth: 3,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          Center(
-            child: Text(
-              '$percent%',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+            children: kModuleOrder
+                .map((module) => ModuleTag(label: moduleLabel(module)))
+                .toList(),
           ),
         ],
       ),
@@ -734,7 +663,7 @@ class _ChapterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final subtitle = hasChapter ? '已掌握 $masteredCount/$totalPoints' : null;
-    return _Card(
+    return AppCard(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -772,7 +701,7 @@ class _DailyPointCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final p = point;
-    return _Card(
+    return AppCard(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -832,7 +761,7 @@ class _StatsCard extends StatelessWidget {
     final correctRate = ov == null || ov.answeredTotal == 0
         ? '–'
         : '${(ov.correctRate * 100).round()}%';
-    return _Card(
+    return AppCard(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,11 +874,11 @@ class _SyncRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       child: Row(
         children: [
           SizedBox(
-            width: 88,
+            width: AppSizes.syncLabelWidth,
             child: Text(
               label,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -998,19 +927,19 @@ class _SyncChip extends StatelessWidget {
     }
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppRadii.syncChip),
       child: Container(
-        height: 28,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: AppSizes.syncChipHeight,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
         decoration: BoxDecoration(
           border: Border.all(color: theme.colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadii.syncChip),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.xxs),
             Text(
               label,
               style: theme.textTheme.labelMedium?.copyWith(color: color),

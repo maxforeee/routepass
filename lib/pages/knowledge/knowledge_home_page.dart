@@ -239,7 +239,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
                   const SizedBox(height: AppSpacing.md),
                   if (_searching && _visibleTotal == 0)
                     const Padding(
-                      padding: EdgeInsets.only(top: 48),
+                      padding: EdgeInsets.only(top: AppSizes.emptyStateTop),
                       child: Center(child: Text('没有找到相关知识点')),
                     )
                   else
@@ -517,7 +517,10 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
                       child: AnimatedRotation(
                         turns: expanded ? 0.5 : 0,
                         duration: const Duration(milliseconds: 220),
-                        child: const Icon(Icons.expand_more, size: 24),
+                        child: Icon(
+                          Icons.expand_more,
+                          size: AppSizes.iconLarge,
+                        ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.xs),
@@ -540,7 +543,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     return Container(
       width: double.infinity,
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -551,10 +554,10 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
             overflow: TextOverflow.ellipsis,
           ),
           if (keyPoints.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             ...keyPoints.map(
               (k) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -565,7 +568,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
               ),
             ),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Row(
             children: [
               TextButton(

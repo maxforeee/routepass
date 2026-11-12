@@ -63,10 +63,10 @@ class _SplashPageState extends State<SplashPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const RoutePassLogo(size: 72),
-            const SizedBox(height: 28),
+            const RoutePassLogo(size: AppSizes.splashLogo),
+            const SizedBox(height: AppSpacing.splashLogoGap),
             Text(AppConfig.appNameCn, style: AppTheme.brandTitleStyle),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.splashNameGap),
             Text(
               AppConfig.appName.toUpperCase(),
               style: AppTheme.brandCaptionStyle,

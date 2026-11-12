@@ -47,15 +47,15 @@ class CapsuleNavBar extends StatelessWidget {
         AppSpacing.sm + MediaQuery.of(context).padding.bottom,
       ),
       child: Container(
-        height: 64,
+        height: AppSizes.navBarHeight,
         decoration: BoxDecoration(
           color: scheme.surface,
           borderRadius: BorderRadius.circular(AppRadii.navCapsule),
           boxShadow: [
             BoxShadow(
-              offset: const Offset(0, 8),
-              blurRadius: 24,
-              color: Colors.black.withValues(alpha: 0.08),
+              offset: const Offset(0, AppSizes.navShadowOffsetY),
+              blurRadius: AppSizes.navShadowBlur,
+              color: AppColors.shadow,
             ),
           ],
         ),
@@ -103,7 +103,7 @@ class _CapsuleNavItem extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadii.navCapsule),
         child: SizedBox(
-          height: 64,
+          height: AppSizes.navBarHeight,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -111,26 +111,26 @@ class _CapsuleNavItem extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: selected ? 56 : 0,
-                    height: 32,
+                    duration: AppDurations.navFade,
+                    width: selected ? AppSizes.navSelectedWidth : 0,
+                    height: AppSizes.navSelectedHeight,
                     decoration: BoxDecoration(
                       color: selected
                           ? scheme.primaryContainer
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(AppRadii.card),
                     ),
                   ),
                   Icon(
                     selected ? destination.selectedIcon : destination.icon,
-                    size: 24,
+                    size: AppSizes.iconLarge,
                     color: selected
                         ? scheme.onPrimaryContainer
                         : scheme.onSurfaceVariant,
                   ),
                 ],
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: AppSpacing.xxxs),
               Text(
                 destination.label,
                 style: theme.textTheme.labelMedium?.copyWith(

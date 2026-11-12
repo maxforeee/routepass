@@ -7,22 +7,11 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/service_locator.dart';
+import '../../core/modules.dart';
 import '../../core/theme.dart';
 import '../../models/stats.dart';
 import '../../router/app_router.dart';
 import '../../widgets/reserved_slot.dart';
-
-/// 模块代码 -> 中文展示名（与题库页套卷卡一致：SUBNET 显示“子网划分”）。
-String _moduleLabel(String module) => module == 'SUBNET' ? '子网划分' : module;
-
-/// 五个模块的展示顺序（与 Mock 题库一致）。
-const List<String> _moduleOrder = <String>[
-  'VLAN',
-  'OSPF',
-  'ACL',
-  'NAT',
-  'SUBNET',
-];
 
 class SetDetailPage extends StatefulWidget {
   const SetDetailPage({super.key, required this.args});
@@ -69,7 +58,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
     if (_modules.isNotEmpty) {
       return _modules.map((m) => m.module).toList();
     }
-    return _moduleOrder;
+    return kModuleOrder;
   }
 
   ModuleStat? _moduleStat(String module) {
@@ -168,7 +157,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                     const SizedBox(height: AppSpacing.md),
                     for (final module in modules) ...[
                       _ModuleRow(
-                        name: _moduleLabel(module),
+                        name: moduleLabel(module),
                         count: _perModuleCount,
                         progress: _moduleProgress(module),
                       ),

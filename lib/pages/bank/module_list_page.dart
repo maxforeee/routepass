@@ -8,14 +8,15 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../core/service_locator.dart';
+import '../../core/modules.dart';
 import '../../core/theme.dart';
 import '../../models/question.dart';
 import '../../models/stats.dart';
 import '../../router/app_router.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/app_progress_ring.dart';
+import '../../widgets/module_tag.dart';
 import '../../widgets/page_header.dart';
-
-/// 模块代码 -> 中文展示名（套卷卡标签用完整名“子网划分”）。
-String _moduleLabel(String module) => module == 'SUBNET' ? '子网划分' : module;
 
 class BankModuleListPage extends StatefulWidget {
   const BankModuleListPage({super.key});
@@ -38,14 +39,6 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
   String? _typeFilter;
   bool _onlyUnanswered = false;
   bool _onlyWrong = false;
-
-  static const List<String> _moduleNames = <String>[
-    'VLAN',
-    'OSPF',
-    'ACL',
-    'NAT',
-    'SUBNET',
-  ];
 
   @override
   void initState() {
@@ -186,9 +179,9 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Row(
                 children: [
-                  ..._moduleNames.map(
+                  ...kModuleOrder.map(
                     (m) => _chip(
-                      label: _moduleLabel(m),
+                      label: moduleLabel(m),
                       selected: _moduleFilter == m,
                       onSelected: (v) =>
                           setState(() => _moduleFilter = v ? m : null),
@@ -263,7 +256,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
 
   Widget _buildSets(ThemeData theme) {
     final modules = _modules.isEmpty
-        ? _moduleNames
+        ? kModuleOrder
         : _modules.map((m) => m.module).toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -335,7 +328,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           children: [
             Icon(
               Icons.search_off_outlined,
-              size: AppSizes.progressRing + AppSpacing.xs,
+              size: AppSizes.emptyStateIcon,
               color: theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -366,7 +359,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           ),
           child: ListTile(
             title: Text(q.stem, maxLines: 2, overflow: TextOverflow.ellipsis),
-            subtitle: Text('${_moduleLabel(q.module)} · ${_typeLabel(q.type)}'),
+            subtitle: Text('${moduleLabel(q.module)} · ${_typeLabel(q.type)}'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).pushNamed(
               AppRoutes.bankQuiz,
@@ -404,136 +397,68 @@ class _SetCard extends StatelessWidget {
     final theme = Theme.of(context);
     return SizedBox(
       height: AppSizes.setCardHeight,
-      child: Material(
-        color: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.card),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            child: Row(
-              children: [
-                _SetProgressRing(value: progress),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Row(
-                        children: modules.map((m) {
-                          return Flexible(
-                            child: Container(
-                              margin: const EdgeInsets.only(
-                                right: AppSpacing.xxs,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.xs,
-                                vertical: AppSpacing.xxs,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    theme.colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(
-                                  AppSpacing.xs,
-                                ),
-                              ),
-                              child: Text(
-                                _moduleLabel(m),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontSize: AppFontSizes.setCardTag,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                FilledButton(
-                  onPressed: onTap,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(
-                      AppSizes.setStartButtonWidth,
-                      AppSizes.setStartButtonHeight,
-                    ),
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppRadii.setStartButton,
-                      ),
-                    ),
-                    textStyle: theme.textTheme.labelLarge?.copyWith(
+      child: AppCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          children: [
+            AppProgressRing(value: progress, percentAbove: true),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  child: const Text('开始'),
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Row(
+                    children: modules.map((m) {
+                      return Flexible(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: AppSpacing.xxs),
+                          child: ModuleTag(label: moduleLabel(m)),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             ),
-          ),
+            const SizedBox(width: AppSpacing.sm),
+            FilledButton(
+              onPressed: onTap,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(
+                  AppSizes.setStartButtonWidth,
+                  AppSizes.setStartButtonHeight,
+                ),
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.setStartButton),
+                ),
+                textStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              child: const Text('开始'),
+            ),
+          ],
         ),
       ),
-    );
-  }
-}
-
-/// 套卷卡小进度环：灰色圆环 + 上方百分比标签（Mock 进度 0%）。
-class _SetProgressRing extends StatelessWidget {
-  const _SetProgressRing({required this.value});
-
-  final double value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final percent = (value * 100).round();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '$percent%',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        SizedBox(
-          width: AppSizes.setProgressRing,
-          height: AppSizes.setProgressRing,
-          child: CircularProgressIndicator(
-            value: value,
-            strokeWidth: 3,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -559,50 +484,40 @@ class _EntryRow extends StatelessWidget {
     final theme = Theme.of(context);
     return SizedBox(
       height: AppSizes.entryRowHeight,
-      child: Material(
-        color: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.card),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Row(
-              children: [
-                Icon(icon, color: iconColor, size: AppSizes.icon),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontSize: AppFontSizes.entryTitle,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        subtitle,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+      child: AppCard(
+        onTap: onTap,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: AppSizes.icon),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontSize: AppFontSizes.entryTitle,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            Icon(
+              Icons.chevron_right,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
         ),
       ),
     );
