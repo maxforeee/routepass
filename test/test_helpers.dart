@@ -66,5 +66,7 @@ Future<void> loginToHome(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
 
-  expect(find.textContaining('，Max'), findsOneWidget);
+  // G1b: greeting block shows time-of-day greeting + nickname, no AppBar.
+  expect(find.textContaining('好！'), findsOneWidget);
+  expect(find.text('Max'), findsOneWidget);
 }

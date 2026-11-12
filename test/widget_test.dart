@@ -29,7 +29,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // 首页内容 + 底栏 4 个 tab 标签。
-    expect(find.textContaining('，Max'), findsOneWidget);
+    expect(find.textContaining('好！'), findsOneWidget);
+    expect(find.text('Max'), findsOneWidget);
     expect(find.text('首页'), findsWidgets);
     expect(find.text('题库'), findsWidgets);
     expect(find.text('知识'), findsWidgets);

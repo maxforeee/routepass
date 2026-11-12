@@ -5,12 +5,28 @@ import 'package:routepass/pages/bank/set_detail_page.dart';
 import 'package:routepass/pages/home/home_content.dart';
 import 'package:routepass/pages/toolbox/ip_convert_page.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
+import 'package:routepass/widgets/user_avatar.dart';
 
 import 'test_helpers.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   initTestServices();
+
+  testWidgets('G1b 首页问候区：无 AppBar，问候块 + 钉住头像，无顶部同步 chip', (tester) async {
+    await loginToHome(tester);
+
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.textContaining('好！'), findsOneWidget);
+    expect(find.text('Max'), findsOneWidget);
+    expect(find.textContaining('今日已完成题目数'), findsOneWidget);
+    expect(find.byType(UserAvatar), findsOneWidget);
+    expect(find.text('本地模式'), findsNothing);
+
+    // 横幅保留。
+    expect(find.text('今天还没有完成任务'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '开始'), findsOneWidget);
+  });
 
   testWidgets('首页 10 卡片瀑布流：关键卡片齐全，继续学习（H-B1）隐藏', (tester) async {
     await loginToHome(tester);

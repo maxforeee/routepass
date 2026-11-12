@@ -148,19 +148,12 @@ class HomeContentPageState extends State<HomeContentPage> {
     }
   }
 
-  /// 时段问候：早上好 / 下午好 / 晚上好 + 当前登录用户昵称。
+  /// 时段问候：早上好 / 下午好 / 晚上好。
   String get _greetingText {
     final hour = DateTime.now().hour;
-    final String prefix;
-    if (hour < 12) {
-      prefix = '早上好';
-    } else if (hour < 18) {
-      prefix = '下午好';
-    } else {
-      prefix = '晚上好';
-    }
-    final name = _user?.nickname ?? _user?.username ?? '';
-    return name.isEmpty ? prefix : '$prefix，$name';
+    if (hour < 12) return '早上好！';
+    if (hour < 18) return '下午好！';
+    return '晚上好！';
   }
 
   String get _todaySummary {
@@ -169,12 +162,6 @@ class HomeContentPageState extends State<HomeContentPage> {
       return '今天还没有完成任务';
     }
     return '今日已完成 ${overview.todayAnswered} 题 · 答对 ${overview.todayCorrect} 题';
-  }
-
-  String get _dateLabel {
-    final now = DateTime.now();
-    const weekdays = <String>['一', '二', '三', '四', '五', '六', '日'];
-    return '${now.month}月${now.day}日星期${weekdays[now.weekday - 1]}';
   }
 
   /// 套卷进度：由各模块题量聚合得到（总题量 ≤ 0 时视为 0%）。
@@ -283,157 +270,192 @@ class HomeContentPageState extends State<HomeContentPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final syncState = _syncStatus?.state ?? 'local_only';
     final dailyPoint = _dailyPoint;
     final user = _user;
+    final nickname = user?.nickname ?? user?.username ?? '';
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _greetingText,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: const EdgeInsets.only(
+                top: AppSizes.homeTopPad,
+                left: AppSpacing.md,
+                right: AppSpacing.md,
+                bottom: AppSpacing.md,
               ),
-            ),
-            Text(
-              _dateLabel,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          _SyncChip(state: syncState, onTap: _openSyncSheet),
-          const SizedBox(width: AppSpacing.xs),
-          UserAvatar(
-            username: user?.username ?? '',
-            onTap: () => showAccountSheet(context),
-          ),
-          const SizedBox(width: AppSpacing.md),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            _Banner(
-              summary: _todaySummary,
-              onStart: () => _openQuiz('quick', 10),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _IconCard(
-                        icon: Icons.bolt,
-                        iconColor: theme.colorScheme.primary,
-                        title: '快速 10 题',
-                        subtitle: '随机 10 题 · 约 5 分钟',
-                        onTap: () => _openQuiz('quick', 10),
+                      Text(
+                        _greetingText,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.brandTitle,
+                        ),
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      _ExamSetCard(
-                        count: 200,
-                        progress: _setProgress,
-                        onTap: () => _openSetDetail(200),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        nickname,
+                        style: const TextStyle(
+                          fontSize: AppFontSizes.homeGreetingName,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.brandTitle,
+                          height: 1.2,
+                        ),
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      _IconCard(
-                        icon: Icons.menu_book_outlined,
-                        iconColor: theme.colorScheme.error,
-                        title: '错题本',
-                        subtitle: _wrongCount == 0 ? '暂无错题' : '$_wrongCount 道',
-                        onTap: () =>
-                            Navigator.of(context)
-                                .pushNamed(AppRoutes.bankWrong),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _ChapterCard(
-                        title: _chapterCardTitle,
-                        masteredCount: _masteredCount,
-                        totalPoints: _totalPoints,
-                        hasChapter: _chapters.isNotEmpty,
-                        onTap: () => widget.onSelectTab(2),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _IconCard(
-                        icon: Icons.swap_horiz,
-                        iconColor: theme.colorScheme.primary,
-                        title: 'IP/进制转换',
-                        subtitle: '二/十/十六进制',
-                        onTap: () =>
-                            Navigator.of(context)
-                                .pushNamed(AppRoutes.toolboxIpConvert),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _ExamSetCard(
-                        count: 100,
-                        progress: _setProgress,
-                        onTap: () => _openSetDetail(100),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _ExamSetCard(
-                        count: 50,
-                        progress: _setProgress,
-                        onTap: () => _openSetDetail(50),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _DailyPointCard(
-                        point: dailyPoint,
-                        onTap: dailyPoint == null
-                            ? null
-                            : () => Navigator.of(context).pushNamed(
-                                AppRoutes.knowledgePoint,
-                                arguments: <String, Object?>{
-                                  'kpId': dailyPoint.id,
-                                  'returnTo': 'home',
-                                },
+                      const SizedBox(height: AppSpacing.xs),
+                      Text.rich(
+                        TextSpan(
+                          text: '今日已完成题目数 ',
+                          children: [
+                            TextSpan(
+                              text: '${_overview?.todayAnswered ?? 0}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.brandTitle,
                               ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _IconCard(
-                        icon: Icons.calculate_outlined,
-                        iconColor: theme.colorScheme.primary,
-                        title: '子网计算器',
-                        subtitle: '网络 / 广播 / 主机数',
-                        onTap: () =>
-                            Navigator.of(context)
-                                .pushNamed(AppRoutes.toolboxSubnet),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _StatsCard(
-                        overview: _overview,
-                        onTap: () =>
-                            Navigator.of(context)
-                                .pushNamed(AppRoutes.bankStats),
+                            ),
+                          ],
+                        ),
+                        style: const TextStyle(
+                          fontSize: AppFontSizes.pageSubtitle,
+                          color: AppColors.brandSecondaryText,
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: AppSpacing.md),
+                _Banner(
+                  summary: _todaySummary,
+                  onStart: () => _openQuiz('quick', 10),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _IconCard(
+                            icon: Icons.bolt,
+                            iconColor: theme.colorScheme.primary,
+                            title: '快速 10 题',
+                            subtitle: '随机 10 题 · 约 5 分钟',
+                            onTap: () => _openQuiz('quick', 10),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _ExamSetCard(
+                            count: 200,
+                            progress: _setProgress,
+                            onTap: () => _openSetDetail(200),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _IconCard(
+                            icon: Icons.menu_book_outlined,
+                            iconColor: theme.colorScheme.error,
+                            title: '错题本',
+                            subtitle: _wrongCount == 0
+                                ? '暂无错题'
+                                : '$_wrongCount 道',
+                            onTap: () =>
+                                Navigator.of(context)
+                                    .pushNamed(AppRoutes.bankWrong),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _ChapterCard(
+                            title: _chapterCardTitle,
+                            masteredCount: _masteredCount,
+                            totalPoints: _totalPoints,
+                            hasChapter: _chapters.isNotEmpty,
+                            onTap: () => widget.onSelectTab(2),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _IconCard(
+                            icon: Icons.swap_horiz,
+                            iconColor: theme.colorScheme.primary,
+                            title: 'IP/进制转换',
+                            subtitle: '二/十/十六进制',
+                            onTap: () =>
+                                Navigator.of(context)
+                                    .pushNamed(AppRoutes.toolboxIpConvert),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _ExamSetCard(
+                            count: 100,
+                            progress: _setProgress,
+                            onTap: () => _openSetDetail(100),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _ExamSetCard(
+                            count: 50,
+                            progress: _setProgress,
+                            onTap: () => _openSetDetail(50),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _DailyPointCard(
+                            point: dailyPoint,
+                            onTap: dailyPoint == null
+                                ? null
+                                : () => Navigator.of(context).pushNamed(
+                                    AppRoutes.knowledgePoint,
+                                    arguments: <String, Object?>{
+                                      'kpId': dailyPoint.id,
+                                      'returnTo': 'home',
+                                    },
+                                  ),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _IconCard(
+                            icon: Icons.calculate_outlined,
+                            iconColor: theme.colorScheme.primary,
+                            title: '子网计算器',
+                            subtitle: '网络 / 广播 / 主机数',
+                            onTap: () =>
+                                Navigator.of(context)
+                                    .pushNamed(AppRoutes.toolboxSubnet),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _StatsCard(
+                            overview: _overview,
+                            onTap: () =>
+                                Navigator.of(context)
+                                    .pushNamed(AppRoutes.bankStats),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (_showSyncTip) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _SyncTipStrip(onTap: _openSyncSheet),
+                ],
+                const SizedBox(height: AppSpacing.md),
               ],
             ),
-            if (_showSyncTip) ...[
-              const SizedBox(height: AppSpacing.md),
-              _SyncTipStrip(onTap: _openSyncSheet),
-            ],
-            const SizedBox(height: AppSpacing.md),
-          ],
-        ),
+          ),
+          Positioned(
+            top: AppSpacing.sm,
+            right: AppSpacing.md,
+            child: UserAvatar(
+              username: user?.username ?? '',
+              onTap: () => showAccountSheet(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -891,64 +913,6 @@ class _SyncRow extends StatelessWidget {
           ),
           Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
-      ),
-    );
-  }
-}
-
-/// H-03 同步 chip（高 28，圆角 14，icon 14 + label 12）。
-class _SyncChip extends StatelessWidget {
-  const _SyncChip({required this.state, required this.onTap});
-
-  final String state;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    late final IconData icon;
-    late final String label;
-    late final Color color;
-    switch (state) {
-      case 'synced':
-        icon = Icons.check_circle_outline;
-        label = '已同步';
-        color = AppColors.success(context);
-      case 'pending':
-        icon = Icons.sync;
-        label = '同步中';
-        color = theme.colorScheme.primary;
-      case 'offline':
-        icon = Icons.cloud_off_outlined;
-        label = '离线';
-        color = theme.colorScheme.error;
-      case 'local_only':
-      default:
-        icon = Icons.cloud_off_outlined;
-        label = '本地模式';
-        color = theme.colorScheme.onSurfaceVariant;
-    }
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.syncChip),
-      child: Container(
-        height: AppSizes.syncChipHeight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(AppRadii.syncChip),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: AppSpacing.xxs),
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(color: color),
-            ),
-          ],
-        ),
       ),
     );
   }

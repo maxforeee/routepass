@@ -37,7 +37,8 @@ void main() {
 
     await tester.tap(_navTab('首页'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('，Max'), findsOneWidget);
+    expect(find.textContaining('好！'), findsOneWidget);
+    expect(find.text('Max'), findsOneWidget);
   });
 
   testWidgets('题库 tab 已装配：进题库页，不再显示“暂未开放”', (tester) async {
