@@ -29,6 +29,10 @@ class AppColors {
   static const Color brandOnPrimary = Color(0xFFFFFFFF);
   static const Color brandTitle = Color(0xFF0F172A);
   static const Color brandCaption = Color(0xFF94A3B8);
+  static const Color brandSurface = Color(0xFFFFFFFF);
+  static const Color brandBorder = Color(0xFFE2E8F0);
+  static const Color brandLabel = Color(0xFF334155);
+  static const Color brandTransparent = Color(0x00000000);
 
   static Color success(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
@@ -47,6 +51,46 @@ class AppColors {
         ? warningContainerDark
         : warningContainerLight;
   }
+}
+
+/// 品牌页间距（逻辑像素）。
+class AppSpacing {
+  AppSpacing._();
+
+  static const double xxs = 4;
+  static const double xs = 8;
+  static const double sm = 12;
+  static const double md = 16;
+  static const double lg = 24;
+  static const double xl = 32;
+  static const double xxl = 40;
+  static const double pageTop = 60;
+  static const double pageHorizontal = 24;
+  static const double pageBottom = 24;
+  static const double formBlock = 24;
+  static const double fieldLabelGap = 8;
+  static const double fieldHorizontal = 16;
+  static const double fieldVertical = 14;
+}
+
+/// 品牌页尺寸（逻辑像素）。
+class AppSizes {
+  AppSizes._();
+
+  static const double contentMaxWidth = 410;
+  static const double logo = 56;
+  static const double buttonHeight = 52;
+  static const double borderWidth = 1;
+  static const double focusedBorderWidth = 1.5;
+  static const double icon = 20;
+}
+
+/// 品牌页圆角（逻辑像素）。
+class AppRadii {
+  AppRadii._();
+
+  static const double input = 14;
+  static const double button = 14;
 }
 
 class AppTheme {
@@ -70,6 +114,60 @@ class AppTheme {
     fontWeight: FontWeight.w400,
     letterSpacing: 4,
     color: AppColors.brandCaption,
+  );
+
+  /// 品牌页说明文字（登录页副标题、辅助文案）。
+  static const TextStyle brandSubtitleStyle = TextStyle(
+    fontSize: 14,
+    height: 1.5,
+    fontWeight: FontWeight.w400,
+    color: AppColors.brandCaption,
+  );
+
+  /// 表单标签（输入框上方）。
+  static const TextStyle brandFieldLabelStyle = TextStyle(
+    fontSize: 14,
+    height: 1.4,
+    fontWeight: FontWeight.w500,
+    color: AppColors.brandLabel,
+  );
+
+  /// 表单输入文字。
+  static const TextStyle brandFieldTextStyle = TextStyle(
+    fontSize: 16,
+    height: 1.5,
+    color: AppColors.brandTitle,
+  );
+
+  /// 表单占位文字。
+  static const TextStyle brandFieldHintStyle = TextStyle(
+    fontSize: 16,
+    height: 1.5,
+    fontWeight: FontWeight.w400,
+    color: AppColors.brandCaption,
+  );
+
+  /// 品牌主按钮文字。
+  static const TextStyle brandButtonStyle = TextStyle(
+    fontSize: 16,
+    height: 1.4,
+    fontWeight: FontWeight.w600,
+    color: AppColors.brandOnPrimary,
+  );
+
+  /// 品牌页蓝色文字链接。
+  static const TextStyle brandLinkStyle = TextStyle(
+    fontSize: 14,
+    height: 1.4,
+    fontWeight: FontWeight.w500,
+    color: AppColors.brandPrimary,
+  );
+
+  /// 用于保留语义标签但不显示的内嵌标签样式。
+  static const TextStyle hiddenFieldLabelStyle = TextStyle(
+    fontSize: 0,
+    height: 0,
+    color: AppColors.brandTransparent,
   );
 
   static ThemeData get light {
