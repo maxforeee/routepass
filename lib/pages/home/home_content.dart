@@ -1,6 +1,8 @@
 /// 首页 tab 内容（R3a：问候区 + #DBEAFE 横幅 + 10 张卡片瀑布流）。
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_snackbar.dart';
@@ -32,6 +34,12 @@ class _HomeContentPageState extends State<HomeContentPage> {
   StatsOverview? _overview;
   SyncStatus? _syncStatus;
   ContentVersion? _contentVersion;
+  List<ModuleStat> _modules = const <ModuleStat>[];
+  List<String> _pointIds = const <String>[];
+  List<String> _masteredIds = const <String>[];
+
+  /// 掌握态的本地 kv 键（与知识库页共用同一派生键 `kb.masteredIds`）。
+  static const String _keyMasteredIds = 'kb.masteredIds';
 
   @override
   void initState() {
@@ -83,6 +91,31 @@ class _HomeContentPageState extends State<HomeContentPage> {
     } catch (_) {
       contentVersion = null;
     }
+    List<ModuleStat> modules = const <ModuleStat>[];
+    try {
+      modules = await ServiceLocator.questionRepository.getModules();
+    } catch (_) {
+      modules = const <ModuleStat>[];
+    }
+    final pointIds = <String>[];
+    for (final chapter in chapters) {
+      var sections = const <Section>[];
+      try {
+        sections = await ServiceLocator.knowledgeRepository.getSections(
+          chapter.id,
+        );
+      } catch (_) {
+        sections = const <Section>[];
+      }
+      for (final section in sections) {
+        try {
+          final points = await ServiceLocator.knowledgeRepository
+              .getPointsBySection(section.id);
+          pointIds.addAll(points.map((p) => p.id));
+        } catch (_) {}
+      }
+    }
+    final masteredIds = _readIdList(_keyMasteredIds);
     if (!mounted) return;
     setState(() {
       _user = user;
@@ -92,7 +125,20 @@ class _HomeContentPageState extends State<HomeContentPage> {
       _overview = overview;
       _syncStatus = syncStatus;
       _contentVersion = contentVersion;
+      _modules = modules;
+      _pointIds = pointIds;
+      _masteredIds = masteredIds;
     });
+  }
+
+  List<String> _readIdList(String key) {
+    final raw = ServiceLocator.kvStore.getString(key);
+    if (raw == null || raw.isEmpty) return <String>[];
+    try {
+      return (jsonDecode(raw) as List<dynamic>).cast<String>();
+    } catch (_) {
+      return <String>[];
+    }
   }
 
   /// 时段问候：早上好 / 下午好 / 晚上好 + 当前登录用户昵称。
@@ -123,6 +169,32 @@ class _HomeContentPageState extends State<HomeContentPage> {
     const weekdays = <String>['一', '二', '三', '四', '五', '六', '日'];
     return '${now.month}月${now.day}日星期${weekdays[now.weekday - 1]}';
   }
+
+  /// 套卷进度：由各模块题量聚合得到（总题量 ≤ 0 时视为 0%）。
+  double get _setProgress {
+    var total = 0;
+    var answered = 0;
+    for (final m in _modules) {
+      total += m.total;
+      answered += m.answered;
+    }
+    if (total <= 0) return 0.0;
+    return (answered / total).clamp(0.0, 1.0);
+  }
+
+  /// 章节卡标题：无章节回退“暂无章节”，有章节时去掉展示用的“样例章节：”前缀。
+  String get _chapterCardTitle {
+    if (_chapters.isEmpty) return '暂无章节';
+    const prefix = '样例章节：';
+    final title = _chapters.first.title;
+    return title.startsWith(prefix) ? title.substring(prefix.length) : title;
+  }
+
+  /// 已掌握知识点数 = 掌握 id 与全部知识点 id 的交集。
+  int get _masteredCount => _masteredIds.where(_pointIds.contains).length;
+
+  /// 知识点总数。
+  int get _totalPoints => _pointIds.length;
 
   /// 本地模式时显示同步提示条（未连接服务器 / 未同步）。
   bool get _showSyncTip {
@@ -238,7 +310,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
               summary: _todaySummary,
               onStart: () => _openQuiz('quick', 10),
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -252,12 +324,13 @@ class _HomeContentPageState extends State<HomeContentPage> {
                         subtitle: '随机 10 题 · 约 5 分钟',
                         onTap: () => _openQuiz('quick', 10),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
                       _ExamSetCard(
                         count: 200,
+                        progress: _setProgress,
                         onTap: () => _openSetDetail(200),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
                       _IconCard(
                         icon: Icons.menu_book_outlined,
                         iconColor: theme.colorScheme.error,
@@ -267,33 +340,43 @@ class _HomeContentPageState extends State<HomeContentPage> {
                             Navigator.of(context)
                                 .pushNamed(AppRoutes.bankWrong),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
                       _ChapterCard(
-                        chapters: _chapters,
+                        title: _chapterCardTitle,
+                        masteredCount: _masteredCount,
+                        totalPoints: _totalPoints,
+                        hasChapter: _chapters.isNotEmpty,
                         onTap: () => widget.onSelectTab(2),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
                       _IconCard(
                         icon: Icons.swap_horiz,
                         iconColor: theme.colorScheme.primary,
                         title: 'IP/进制转换',
                         subtitle: '二/十/十六进制',
-                        onTap: () => widget.onSelectTab(3),
+                        onTap: () =>
+                            Navigator.of(context)
+                                .pushNamed(AppRoutes.toolboxIpConvert),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     children: [
                       _ExamSetCard(
                         count: 100,
+                        progress: _setProgress,
                         onTap: () => _openSetDetail(100),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      _ExamSetCard(count: 50, onTap: () => _openSetDetail(50)),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
+                      _ExamSetCard(
+                        count: 50,
+                        progress: _setProgress,
+                        onTap: () => _openSetDetail(50),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
                       _DailyPointCard(
                         point: dailyPoint,
                         onTap: dailyPoint == null
@@ -306,7 +389,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
                                 },
                               ),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
                       _IconCard(
                         icon: Icons.calculate_outlined,
                         iconColor: theme.colorScheme.primary,
@@ -316,7 +399,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
                             Navigator.of(context)
                                 .pushNamed(AppRoutes.toolboxSubnet),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
                       _StatsCard(
                         overview: _overview,
                         onTap: () =>
@@ -329,7 +412,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
               ],
             ),
             if (_showSyncTip) ...[
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               _SyncTipStrip(onTap: _openSyncSheet),
             ],
             const SizedBox(height: AppSpacing.md),
@@ -518,11 +601,16 @@ class _IconCard extends StatelessWidget {
   }
 }
 
-/// 套卷卡片（100/200/50 题）：进度环 0% + 列表图标 + 标题 + 5 个模块小标签。
+/// 套卷卡片（100/200/50 题）：进度环 + 列表图标 + 标题 + 时长 + 5 个模块小标签。
 class _ExamSetCard extends StatelessWidget {
-  const _ExamSetCard({required this.count, required this.onTap});
+  const _ExamSetCard({
+    required this.count,
+    required this.progress,
+    required this.onTap,
+  });
 
   final int count;
+  final double progress;
   final VoidCallback onTap;
 
   static const List<String> _modules = <String>[
@@ -543,7 +631,7 @@ class _ExamSetCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const _ProgressRing(value: 0),
+              _ProgressRing(value: progress),
               const Spacer(),
               Icon(
                 Icons.list_alt_outlined,
@@ -554,6 +642,13 @@ class _ExamSetCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text('$count 题套卷', style: _cardTitleStyle(theme)),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            '$count 题 · 约 ${(count * 0.6).round()} 分钟',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
           Wrap(
             spacing: AppSpacing.xxs,
@@ -621,17 +716,24 @@ class _ProgressRing extends StatelessWidget {
 
 /// 章节速览卡片：图标 + 小标题 + 章节名（粗）+ 掌握进度。
 class _ChapterCard extends StatelessWidget {
-  const _ChapterCard({required this.chapters, required this.onTap});
+  const _ChapterCard({
+    required this.title,
+    required this.masteredCount,
+    required this.totalPoints,
+    required this.hasChapter,
+    required this.onTap,
+  });
 
-  final List<Chapter> chapters;
+  final String title;
+  final int masteredCount;
+  final int totalPoints;
+  final bool hasChapter;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasChapter = chapters.isNotEmpty;
-    final title = hasChapter ? chapters.first.title : '暂无章节';
-    final subtitle = hasChapter ? '已掌握 0/${chapters.length}' : null;
+    final subtitle = hasChapter ? '已掌握 $masteredCount/$totalPoints' : null;
     return _Card(
       onTap: onTap,
       child: Column(

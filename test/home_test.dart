@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/app.dart';
 import 'package:routepass/core/service_locator.dart';
+import 'package:routepass/pages/toolbox/ip_convert_page.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 import 'package:routepass/services/mock/mock_cli_service.dart';
 import 'package:routepass/services/mock/mock_content_service.dart';
@@ -18,6 +19,7 @@ import 'package:routepass/services/mock/mock_sync_service.dart';
 import 'package:routepass/services/mock/mock_wrong_service.dart';
 import 'package:routepass/services/toolbox/ip_convert_service_impl.dart';
 import 'package:routepass/services/toolbox/subnet_calc_service_impl.dart';
+import 'package:routepass/widgets/capsule_nav_bar.dart';
 
 /// 与 widget_test.dart 相同的一套 Mock/本地实现装配；重复调用直接返回。
 void _initServices() {
@@ -75,8 +77,13 @@ void main() {
     expect(find.text('100 题套卷'), findsOneWidget);
     expect(find.text('200 题套卷'), findsOneWidget);
     expect(find.text('50 题套卷'), findsOneWidget);
+    expect(find.text('100 题 · 约 60 分钟'), findsOneWidget);
+    expect(find.text('200 题 · 约 120 分钟'), findsOneWidget);
+    expect(find.text('50 题 · 约 30 分钟'), findsOneWidget);
     expect(find.text('错题本'), findsOneWidget);
     expect(find.text('章节速览'), findsOneWidget);
+    expect(find.text('VLAN 基础'), findsOneWidget);
+    expect(find.text('已掌握 0/2'), findsOneWidget);
     expect(find.text('今日知识点'), findsOneWidget);
     expect(find.text('子网计算器'), findsOneWidget);
     expect(find.text('IP/进制转换'), findsOneWidget);
@@ -108,5 +115,16 @@ void main() {
     await tester.tap(find.text('本地模式 · 未连接服务器'));
     await tester.pumpAndSettle();
     expect(find.text('同步诊断'), findsOneWidget);
+  });
+
+  testWidgets('首页 IP/进制转换方块进 IP 转换页，底栏隐藏', (tester) async {
+    await _loginToHome(tester);
+
+    await tester.ensureVisible(find.text('IP/进制转换'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('IP/进制转换'));
+    await tester.pumpAndSettle();
+    expect(find.byType(IpConvertPage), findsOneWidget);
+    expect(find.byType(CapsuleNavBar), findsNothing);
   });
 }
