@@ -104,7 +104,7 @@ void main() {
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
     expect(find.byType(BankModuleListPage), findsOneWidget);
-    expect(find.text('套卷'), findsOneWidget);
+    expect(find.text('100 题套卷'), findsOneWidget);
     expect(find.textContaining('暂未开放'), findsNothing);
   });
 }

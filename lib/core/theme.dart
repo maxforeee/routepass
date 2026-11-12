@@ -71,6 +71,9 @@ class AppSpacing {
   static const double fieldLabelGap = 8;
   static const double fieldHorizontal = 16;
   static const double fieldVertical = 14;
+
+  /// 题库页卡片/入口行之间的间距（逻辑像素）。
+  static const double cardGap = 14;
 }
 
 /// 品牌页尺寸（逻辑像素）。
@@ -85,6 +88,21 @@ class AppSizes {
   static const double icon = 20;
   static const double avatarRadius = 20;
   static const double progressRing = 40;
+
+  /// 题库页套卷卡高度（逻辑像素）。
+  static const double setCardHeight = 104;
+
+  /// 题库页错题本/收藏入口行高度（逻辑像素）。
+  static const double entryRowHeight = 64;
+
+  /// 题库页套卷卡小进度环直径（逻辑像素，半径约 16）。
+  static const double setProgressRing = 32;
+
+  /// 题库页套卷卡“开始”按钮宽（逻辑像素）。
+  static const double setStartButtonWidth = 76;
+
+  /// 题库页套卷卡“开始”按钮高（逻辑像素）。
+  static const double setStartButtonHeight = 36;
 }
 
 /// 品牌页圆角（逻辑像素）。
@@ -95,8 +113,25 @@ class AppRadii {
   static const double button = 14;
   static const double card = 16;
 
+  /// 题库页套卷卡“开始”按钮圆角（逻辑像素）。
+  static const double setStartButton = 18;
+
   /// 胶囊导航整体圆角（约 999 = 全胶囊形）。
   static const double navCapsule = 999;
+}
+
+/// 品牌页字号（逻辑像素）。textTheme 未覆盖的少量字号在这里定义。
+class AppFontSizes {
+  AppFontSizes._();
+
+  /// 页头副标题（题库页“H3CNE 300 道 · 每套含解析”）。
+  static const double pageSubtitle = 13;
+
+  /// 套卷卡模块小标签。
+  static const double setCardTag = 10;
+
+  /// 错题本/收藏入口行标题。
+  static const double entryTitle = 15;
 }
 
 class AppTheme {

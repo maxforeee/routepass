@@ -86,7 +86,8 @@ void main() {
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
     expect(find.byType(BankModuleListPage), findsOneWidget);
-    expect(find.text('套卷'), findsOneWidget);
+    expect(find.text('H3CNE 300 道 · 每套含解析'), findsOneWidget);
+    expect(find.text('100 题套卷'), findsOneWidget);
   });
 
   testWidgets('点套卷卡开始进答题页', (tester) async {

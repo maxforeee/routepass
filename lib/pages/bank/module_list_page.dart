@@ -1,15 +1,24 @@
-/// 题库页（规格文档第 3 章 §22.5：Q-01–Q-09）。
+/// 题库页（规格文档第 3 章 §22.5：Q-01–Q-09；R4 按 04_bank mockup 重绘）。
 ///
-/// 默认显示套卷卡 + 错题本/收藏入口；输入搜索或点筛选 chips 后切换为题目结果列表。
+/// 页头（题库 + 副标题）下是搜索/筛选行（mockup 未展示，属保留的既有功能，
+/// 见任务报告），默认显示 4 张套卷卡 + 错题本/收藏入口；输入搜索或点筛选
+/// chips 后切换为题目结果列表。
 library;
 
 import 'package:flutter/material.dart';
 
 import '../../core/service_locator.dart';
+import '../../core/theme.dart';
 import '../../models/question.dart';
 import '../../models/stats.dart';
 import '../../router/app_router.dart';
 import '../../widgets/account_sheet.dart';
+
+/// Mock 暂无套卷作答进度，进度环恒为 0（接后端后按练习记录计算）。
+const double _mockSetProgress = 0;
+
+/// 模块代码 -> 中文展示名（套卷卡标签用完整名“子网划分”）。
+String _moduleLabel(String module) => module == 'SUBNET' ? '子网划分' : module;
 
 class BankModuleListPage extends StatefulWidget {
   const BankModuleListPage({super.key});
@@ -94,14 +103,39 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
     );
   }
 
-  String _moduleLabel(String module) => module == 'SUBNET' ? '子网' : module;
+  String _typeLabel(String type) {
+    return switch (type) {
+      'single' => '单选',
+      'multiple' => '多选',
+      'judge' => '判断',
+      'fill' => '填空',
+      _ => type,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('题库'),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '题库',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'H3CNE 300 道 · 每套含解析',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: AppFontSizes.pageSubtitle,
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync_outlined),
@@ -113,73 +147,73 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.xs,
+              AppSpacing.md,
+              AppSpacing.xs,
+            ),
             child: TextField(
               decoration: InputDecoration(
                 hintText: '搜索题目',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest,
+                fillColor: theme.colorScheme.surface,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(AppRadii.card),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.card),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.outlineVariant,
+                  ),
                 ),
               ),
               onChanged: (v) => setState(() => _query = v.trim()),
             ),
           ),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Row(
               children: [
                 ..._moduleNames.map(
-                  (m) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(_moduleLabel(m)),
-                      selected: _moduleFilter == m,
-                      onSelected: (v) =>
-                          setState(() => _moduleFilter = v ? m : null),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: const Text('单选'),
-                    selected: _typeFilter == 'single',
+                  (m) => _chip(
+                    label: _moduleLabel(m),
+                    selected: _moduleFilter == m,
                     onSelected: (v) =>
-                        setState(() => _typeFilter = v ? 'single' : null),
+                        setState(() => _moduleFilter = v ? m : null),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: const Text('多选'),
-                    selected: _typeFilter == 'multiple',
-                    onSelected: (v) =>
-                        setState(() => _typeFilter = v ? 'multiple' : null),
-                  ),
+                _chip(
+                  label: '单选',
+                  selected: _typeFilter == 'single',
+                  onSelected: (v) =>
+                      setState(() => _typeFilter = v ? 'single' : null),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: const Text('只看未做'),
-                    selected: _onlyUnanswered,
-                    onSelected: (v) => setState(() => _onlyUnanswered = v),
-                  ),
+                _chip(
+                  label: '多选',
+                  selected: _typeFilter == 'multiple',
+                  onSelected: (v) =>
+                      setState(() => _typeFilter = v ? 'multiple' : null),
                 ),
-                FilterChip(
-                  label: const Text('只看错题'),
+                _chip(
+                  label: '只看未做',
+                  selected: _onlyUnanswered,
+                  onSelected: (v) => setState(() => _onlyUnanswered = v),
+                ),
+                _chip(
+                  label: '只看错题',
                   selected: _onlyWrong,
                   onSelected: (v) => setState(() => _onlyWrong = v),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Expanded(
             child: _filtering ? _buildResults(theme) : _buildSets(theme),
           ),
@@ -188,69 +222,93 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
     );
   }
 
-  Widget _buildSets(ThemeData theme) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-      children: [
-        Text(
-          '套卷',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required void Function(bool) onSelected,
+  }) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.xs),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: onSelected,
+        showCheckmark: false,
+        backgroundColor: theme.colorScheme.surface,
+        selectedColor: theme.colorScheme.primaryContainer,
+        side: BorderSide(
+          color: selected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outlineVariant,
         ),
-        const SizedBox(height: 8),
+        labelStyle: theme.textTheme.labelMedium?.copyWith(
+          color: selected
+              ? theme.colorScheme.onPrimaryContainer
+              : theme.colorScheme.onSurfaceVariant,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.card),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSets(ThemeData theme) {
+    final modules = _modules.isEmpty
+        ? _moduleNames
+        : _modules.map((m) => m.module).toList();
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      children: [
         _SetCard(
-          count: 100,
-          minutes: '约 50 分钟',
-          height: 112,
-          modules: _modules.isEmpty
-              ? _moduleNames
-              : _modules.map((m) => m.module).toList(),
+          title: '100 题套卷',
+          subtitle: '100 题 · 5 个模块 · 含解析',
+          modules: modules,
           onTap: () => _openQuiz('exam', 100),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.cardGap),
         _SetCard(
-          count: 200,
-          minutes: '约 100 分钟',
-          height: 112,
-          modules: _modules.isEmpty
-              ? _moduleNames
-              : _modules.map((m) => m.module).toList(),
+          title: '200 题套卷',
+          subtitle: '200 题 · 5 个模块 · 含解析',
+          modules: modules,
           onTap: () => _openQuiz('exam', 200),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.cardGap),
         _SetCard(
-          count: 50,
-          minutes: '约 25 分钟',
-          height: 104,
-          modules: _modules.isEmpty
-              ? _moduleNames
-              : _modules.map((m) => m.module).toList(),
+          title: '50 题套卷',
+          subtitle: '50 题 · 5 个模块 · 含解析',
+          modules: modules,
           onTap: () => _openQuiz('exam', 50),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.cardGap),
         _SetCard(
-          count: 10,
-          minutes: '约 5 分钟',
-          height: 96,
-          showProgress: false,
-          modules: _modules.isEmpty
-              ? _moduleNames
-              : _modules.map((m) => m.module).toList(),
+          title: '10 题速练',
+          subtitle: '10 题 · 5 个模块 · 含解析',
+          modules: modules,
           onTap: () => _openQuiz('quick', 10),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.cardGap),
         _EntryRow(
-          icon: Icons.error_outline,
+          icon: Icons.menu_book,
+          iconColor: theme.colorScheme.error,
           title: '错题本',
-          badge: _wrongCount > 0 ? '$_wrongCount 道' : null,
+          subtitle: _wrongCount == 0
+              ? '暂无错题 · 做错的题自动收录'
+              : '$_wrongCount 道 · 做错的题自动收录',
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankWrong),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.cardGap),
         _EntryRow(
-          icon: Icons.bookmark_border,
+          icon: Icons.star,
+          iconColor: AppColors.warning(context),
           title: '收藏',
-          badge: _favoriteCount > 0 ? '$_favoriteCount 道' : null,
+          subtitle: '$_favoriteCount 道已收藏',
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
         ),
       ],
@@ -264,8 +322,12 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_outlined, size: 48),
-            const SizedBox(height: 12),
+            Icon(
+              Icons.search_off_outlined,
+              size: AppSizes.progressRing + AppSpacing.xs,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               _onlyUnanswered || _onlyWrong
                   ? '暂无符合条件的题目（Mock 无作答/错题记录）'
@@ -277,12 +339,22 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
       itemCount: results.length,
       itemBuilder: (context, index) {
         final q = results[index];
         return Card(
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
           child: ListTile(
             title: Text(q.stem, maxLines: 2, overflow: TextOverflow.ellipsis),
             subtitle: Text('${_moduleLabel(q.module)} · ${_typeLabel(q.type)}'),
@@ -299,124 +371,107 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
       },
     );
   }
-
-  String _typeLabel(String type) {
-    return switch (type) {
-      'single' => '单选',
-      'multiple' => '多选',
-      'judge' => '判断',
-      'fill' => '填空',
-      _ => type,
-    };
-  }
 }
 
-/// 套卷卡：左题量 display 28，右覆盖模块 + 预计时长 + 进度条，开始按钮高 40。
+/// 套卷卡：左灰色进度环（上方百分比），中标题/副标题/5 个模块标签，
+/// 右蓝色“开始”按钮（76x36、圆角 18）。
 class _SetCard extends StatelessWidget {
   const _SetCard({
-    required this.count,
-    required this.minutes,
-    required this.height,
+    required this.title,
+    required this.subtitle,
     required this.modules,
     required this.onTap,
-    this.showProgress = true,
   });
 
-  final int count;
-  final String minutes;
-  final double height;
+  final String title;
+  final String subtitle;
   final List<String> modules;
   final VoidCallback onTap;
-  final bool showProgress;
-
-  String _moduleLabel(String module) => module == 'SUBNET' ? '子网' : module;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // 横向布局（文档 §22.5.2：左题量 display 28，右覆盖模块 + 预计时长 + 进度条，
-    // 按钮高 40）：内容最高约 60dp，112/104/96 三档卡高都放得下。
-    // 旧版单列布局内容约 119dp，连 112 的卡都溢出 7dp。
     return SizedBox(
-      height: height,
-      child: Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      height: AppSizes.setCardHeight,
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             child: Row(
               children: [
-                Text(
-                  '$count',
-                  style: theme.textTheme.displaySmall?.copyWith(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text('题套卷', style: theme.textTheme.titleMedium),
-                const SizedBox(width: 12),
+                const _SetProgressRing(value: _mockSetProgress),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
                       Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
+                        spacing: AppSpacing.xxs,
+                        runSpacing: AppSpacing.xxs,
                         children: modules.map((m) {
                           return Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
+                              horizontal: AppSpacing.xs,
+                              vertical: AppSpacing.xxs,
                             ),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(8),
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.xs,
+                              ),
                             ),
                             child: Text(
                               _moduleLabel(m),
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer,
+                                fontSize: AppFontSizes.setCardTag,
+                                color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 4),
-                      if (showProgress)
-                        Row(
-                          children: [
-                            Text(
-                              minutes,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: LinearProgressIndicator(value: 0),
-                            ),
-                          ],
-                        )
-                      else
-                        Text(
-                          minutes,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 FilledButton(
                   onPressed: onTap,
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size(72, 40),
+                    minimumSize: const Size(
+                      AppSizes.setStartButtonWidth,
+                      AppSizes.setStartButtonHeight,
+                    ),
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        AppRadii.setStartButton,
+                      ),
+                    ),
+                    textStyle: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   child: const Text('开始'),
                 ),
@@ -429,58 +484,103 @@ class _SetCard extends StatelessWidget {
   }
 }
 
-/// 错题本/收藏入口行（高 56，数量徽标）。
+/// 套卷卡小进度环：灰色圆环 + 上方百分比标签（Mock 进度 0%）。
+class _SetProgressRing extends StatelessWidget {
+  const _SetProgressRing({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final percent = (value * 100).round();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$percent%',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        SizedBox(
+          width: AppSizes.setProgressRing,
+          height: AppSizes.setProgressRing,
+          child: CircularProgressIndicator(
+            value: value,
+            strokeWidth: 3,
+            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 错题本/收藏入口行（高 64）：彩色图标 + 标题/副标题 + 右侧灰色 chevron。
 class _EntryRow extends StatelessWidget {
   const _EntryRow({
     required this.icon,
+    required this.iconColor,
     required this.title,
+    required this.subtitle,
     required this.onTap,
-    this.badge,
   });
 
   final IconData icon;
+  final Color iconColor;
   final String title;
+  final String subtitle;
   final VoidCallback onTap;
-  final String? badge;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SizedBox(
-      height: 56,
-      child: Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      height: AppSizes.entryRowHeight,
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: Row(
               children: [
-                Icon(icon, color: theme.colorScheme.primary),
-                const SizedBox(width: 12),
-                Text(title, style: theme.textTheme.titleMedium),
-                const Spacer(),
-                if (badge != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      badge!,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onErrorContainer,
+                Icon(icon, color: iconColor, size: AppSizes.icon),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontSize: AppFontSizes.entryTitle,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                const SizedBox(width: 8),
-                const Icon(Icons.chevron_right),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ],
             ),
           ),
