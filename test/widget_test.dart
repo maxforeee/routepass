@@ -66,7 +66,7 @@ void main() {
     expect(find.textContaining('，Max'), findsOneWidget);
     expect(find.text('首页'), findsWidgets);
     expect(find.text('题库'), findsWidgets);
-    expect(find.text('知识库'), findsWidgets);
-    expect(find.text('工具箱'), findsWidgets);
+    expect(find.text('知识'), findsWidgets);
+    expect(find.text('工具'), findsWidgets);
   });
 }

@@ -124,6 +124,12 @@ class _HomeContentPageState extends State<HomeContentPage> {
     return '${now.month}月${now.day}日星期${weekdays[now.weekday - 1]}';
   }
 
+  /// 本地模式时显示同步提示条（未连接服务器 / 未同步）。
+  bool get _showSyncTip {
+    final sync = _syncStatus;
+    return sync == null || sync.state == 'local_only';
+  }
+
   void _openSyncSheet() {
     final sync = _syncStatus;
     final content = _contentVersion;
@@ -318,6 +324,10 @@ class _HomeContentPageState extends State<HomeContentPage> {
                 ),
               ],
             ),
+            if (_showSyncTip) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _SyncTipStrip(onTap: _openSyncSheet),
+            ],
             const SizedBox(height: AppSpacing.md),
           ],
         ),
@@ -404,6 +414,61 @@ class _Banner extends StatelessWidget {
             child: const Text('开始'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 浅蓝同步提示条（#DBEAFE）：云同步图标 + 两行文案，点按打开同步诊断 sheet。
+class _SyncTipStrip extends StatelessWidget {
+  const _SyncTipStrip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadii.card),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.cloud_sync,
+              size: AppSizes.icon,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '本地模式 · 未连接服务器',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    '学习记录保存在本机，点击查看同步诊断',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -84,4 +84,25 @@ void main() {
     // 横幅标题（今日未完成任务）。
     expect(find.text('今天还没有完成任务'), findsOneWidget);
   });
+
+  testWidgets('本地模式同步提示条：点开同步诊断 sheet', (tester) async {
+    // 同步 sheet 内容较高，用小视口会溢出，改用高视口。
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    await _loginToHome(tester);
+
+    await tester.scrollUntilVisible(
+      find.text('本地模式 · 未连接服务器'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('本地模式 · 未连接服务器'), findsOneWidget);
+    expect(find.text('学习记录保存在本机，点击查看同步诊断'), findsOneWidget);
+
+    await tester.tap(find.text('本地模式 · 未连接服务器'));
+    await tester.pumpAndSettle();
+    expect(find.text('同步诊断'), findsOneWidget);
+  });
 }

@@ -94,6 +94,9 @@ class AppRadii {
   static const double input = 14;
   static const double button = 14;
   static const double card = 16;
+
+  /// 胶囊导航整体圆角（约 999 = 全胶囊形）。
+  static const double navCapsule = 999;
 }
 
 class AppTheme {

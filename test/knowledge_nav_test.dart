@@ -73,7 +73,7 @@ Future<void> _loginToHome(WidgetTester tester) async {
 
 /// 从知识库列表进详情页（点行展开面板，再点“查看详情”）。
 Future<void> _openDetailFromList(WidgetTester tester) async {
-  await tester.tap(_navTab('知识库'));
+  await tester.tap(_navTab('知识'));
   await tester.pumpAndSettle();
   // 展开态经 kv 持久化，跨用例可能仍是展开的；此时再点行会收起，故只在未展开时点行。
   if (find.text('查看详情').evaluate().isEmpty) {
@@ -91,7 +91,7 @@ void main() {
   testWidgets('点底栏知识库进列表页', (tester) async {
     await _loginToHome(tester);
 
-    await tester.tap(_navTab('知识库'));
+    await tester.tap(_navTab('知识'));
     await tester.pumpAndSettle();
     expect(find.byType(KnowledgeHomePage), findsOneWidget);
     expect(find.text('样例章节：VLAN 基础'), findsOneWidget);
@@ -118,7 +118,7 @@ void main() {
   testWidgets('列表页搜索框提交进搜索页', (tester) async {
     await _loginToHome(tester);
 
-    await tester.tap(_navTab('知识库'));
+    await tester.tap(_navTab('知识'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(TextField));
     await tester.enterText(find.byType(TextField), 'VLAN');

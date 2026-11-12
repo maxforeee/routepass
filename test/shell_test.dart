@@ -72,22 +72,22 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _initServices();
 
-  testWidgets('tab 切换：知识库与工具箱均已装配，切回首页正常', (tester) async {
+  testWidgets('tab 切换：知识与工具均已装配，切回首页正常', (tester) async {
     await _loginToHome(tester);
 
     // 4 个 tab 标签都在。
     expect(_navTab('首页'), findsOneWidget);
     expect(_navTab('题库'), findsOneWidget);
-    expect(_navTab('知识库'), findsOneWidget);
-    expect(_navTab('工具箱'), findsOneWidget);
+    expect(_navTab('知识'), findsOneWidget);
+    expect(_navTab('工具'), findsOneWidget);
 
-    await tester.tap(_navTab('知识库'));
+    await tester.tap(_navTab('知识'));
     await tester.pumpAndSettle();
     expect(find.byType(KnowledgeHomePage), findsOneWidget);
     expect(find.text('样例章节：VLAN 基础'), findsOneWidget);
     expect(find.textContaining('暂未开放'), findsNothing);
 
-    await tester.tap(_navTab('工具箱'));
+    await tester.tap(_navTab('工具'));
     await tester.pumpAndSettle();
     expect(find.byType(ToolboxHomePage), findsOneWidget);
     expect(find.text('子网划分'), findsOneWidget);

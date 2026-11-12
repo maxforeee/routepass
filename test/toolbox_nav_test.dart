@@ -80,7 +80,7 @@ void main() {
   testWidgets('点子网卡进子网页，底栏隐藏，返回后最近使用出现', (tester) async {
     await _loginToHome(tester);
 
-    await tester.tap(_navTab('工具箱'));
+    await tester.tap(_navTab('工具'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('子网划分'));
     await tester.pumpAndSettle();
@@ -101,7 +101,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     await _loginToHome(tester);
 
-    await tester.tap(_navTab('工具箱'));
+    await tester.tap(_navTab('工具'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ping'));
     await tester.pumpAndSettle();
@@ -116,7 +116,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     await _loginToHome(tester);
 
-    await tester.tap(_navTab('工具箱'));
+    await tester.tap(_navTab('工具'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('端口扫描'));
     await tester.pumpAndSettle();
@@ -135,7 +135,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     await _loginToHome(tester);
 
-    await tester.tap(_navTab('工具箱'));
+    await tester.tap(_navTab('工具'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('OSI/TCP-IP 对照'));
     await tester.pumpAndSettle();
