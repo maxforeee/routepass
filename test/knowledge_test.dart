@@ -96,6 +96,21 @@ void main() {
     expect(find.text('已掌握 0/1'), findsNWidgets(2));
   });
 
+  testWidgets('掌握态重建后仍保留（kv 持久化）', (tester) async {
+    await _pumpPage(tester);
+
+    await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
+    await tester.pumpAndSettle();
+    expect(find.text('已掌握 1/1'), findsOneWidget);
+    // 重建页面：新 state 从 kv 重读掌握态。
+    await _pumpPage(tester);
+    expect(find.text('已掌握 1/1'), findsOneWidget);
+    // 清理：取消掌握，避免影响后续用例。
+    await tester.tap(find.byIcon(Icons.check_circle).first);
+    await tester.pumpAndSettle();
+    expect(find.text('已掌握 0/1'), findsNWidgets(2));
+  });
+
   testWidgets('搜索过滤：只剩命中点，清空恢复', (tester) async {
     await _pumpPage(tester);
 

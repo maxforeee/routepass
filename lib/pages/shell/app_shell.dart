@@ -63,6 +63,14 @@ class _AppShellState extends State<AppShell> {
         (_) => GlobalKey<NavigatorState>(),
       );
 
+  /// 三个 tab 首页的状态 key（tab 切回时调 refresh）。
+  final GlobalKey<HomeContentPageState> _homeKey =
+      GlobalKey<HomeContentPageState>();
+  final GlobalKey<BankModuleListPageState> _bankKey =
+      GlobalKey<BankModuleListPageState>();
+  final GlobalKey<ToolboxHomePageState> _toolboxKey =
+      GlobalKey<ToolboxHomePageState>();
+
   int _currentIndex = 0;
   bool _navVisible = true;
   double _tabOpacity = 1.0;
@@ -104,6 +112,7 @@ class _AppShellState extends State<AppShell> {
     if (index == _currentIndex) {
       // 点当前 tab：回到该 tab 栈底。
       _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
+      _refreshTab(index);
       return;
     }
     HapticFeedback.selectionClick();
@@ -121,6 +130,19 @@ class _AppShellState extends State<AppShell> {
       });
     }
     ServiceLocator.kvStore.setString(KvStore.keyUiLastTab, _tabNames[index]);
+    _refreshTab(index);
+  }
+
+  /// tab 切回时让新 tab 刷新（首页/题库重拉，工具箱重读最近使用）。
+  void _refreshTab(int index) {
+    switch (index) {
+      case 0:
+        _homeKey.currentState?.refresh();
+      case 1:
+        _bankKey.currentState?.refresh();
+      case 3:
+        _toolboxKey.currentState?.refresh();
+    }
   }
 
   void _onTabRouteChanged(String? routeName) {
@@ -205,9 +227,12 @@ class _AppShellState extends State<AppShell> {
     final Widget page;
     switch (settings.name) {
       case AppRoutes.home:
-        page = HomeContentPage(onSelectTab: _selectTab);
+        page = HomeContentPage(
+          key: index == 0 ? _homeKey : null,
+          onSelectTab: _selectTab,
+        );
       case AppRoutes.bankModules:
-        page = const BankModuleListPage();
+        page = BankModuleListPage(key: index == 1 ? _bankKey : null);
       case AppRoutes.bankQuiz:
         page = AnswerPage(args: _routeArgs(settings));
       case AppRoutes.bankSetDetail:
@@ -237,7 +262,7 @@ class _AppShellState extends State<AppShell> {
       case AppRoutes.knowledgeSearch:
         page = KnowledgeSearchPage(args: _routeArgs(settings));
       case AppRoutes.toolbox:
-        page = const ToolboxHomePage();
+        page = ToolboxHomePage(key: index == 3 ? _toolboxKey : null);
       case AppRoutes.toolboxSubnet:
         page = const SubnetPage();
       case AppRoutes.toolboxIpConvert:

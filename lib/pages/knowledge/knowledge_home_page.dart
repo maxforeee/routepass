@@ -28,6 +28,10 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
   /// 与 `kb.expandedIds` 同为设备本地 UI 状态，只存本地，不走账号同步）。
   static const String _keyMasteredIds = 'kb.masteredIds';
 
+  /// 折叠态的本地 kv 键（与掌握态同为设备本地 UI 状态，只存本地）。
+  static const String _keyCollapsedChapters = 'kb.collapsedChapters';
+  static const String _keyCollapsedSections = 'kb.collapsedSections';
+
   bool _loading = true;
   List<Chapter> _chapters = <Chapter>[];
   final Map<String, List<Section>> _sections = <String, List<Section>>{};
@@ -56,6 +60,8 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
   Future<void> _load() async {
     final expanded = _readIdList(KvStore.keyKbExpandedIds);
     final mastered = _readIdList(_keyMasteredIds);
+    final collapsedChapters = _readIdList(_keyCollapsedChapters);
+    final collapsedSections = _readIdList(_keyCollapsedSections);
     var chapters = <Chapter>[];
     try {
       chapters = await ServiceLocator.knowledgeRepository.getChapters();
@@ -96,6 +102,12 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
       _mastered
         ..clear()
         ..addAll(mastered);
+      _collapsedChapters
+        ..clear()
+        ..addAll(collapsedChapters);
+      _collapsedSections
+        ..clear()
+        ..addAll(collapsedSections);
       _loading = false;
     });
   }
@@ -329,13 +341,16 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            onTap: () => setState(() {
-              if (collapsed) {
-                _collapsedChapters.remove(chapter.id);
-              } else {
-                _collapsedChapters.add(chapter.id);
-              }
-            }),
+            onTap: () {
+              setState(() {
+                if (collapsed) {
+                  _collapsedChapters.remove(chapter.id);
+                } else {
+                  _collapsedChapters.add(chapter.id);
+                }
+              });
+              _saveIdList(_keyCollapsedChapters, _collapsedChapters);
+            },
             borderRadius: BorderRadius.circular(AppRadii.chapterCard),
             child: SizedBox(
               height: AppSizes.chapterCardHeight,
@@ -390,13 +405,16 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         InkWell(
-          onTap: () => setState(() {
-            if (_collapsedSections.contains(section.id)) {
-              _collapsedSections.remove(section.id);
-            } else {
-              _collapsedSections.add(section.id);
-            }
-          }),
+          onTap: () {
+            setState(() {
+              if (_collapsedSections.contains(section.id)) {
+                _collapsedSections.remove(section.id);
+              } else {
+                _collapsedSections.add(section.id);
+              }
+            });
+            _saveIdList(_keyCollapsedSections, _collapsedSections);
+          },
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,

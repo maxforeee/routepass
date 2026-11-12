@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/app.dart';
 import 'package:routepass/core/service_locator.dart';
+import 'package:routepass/pages/bank/answer_page.dart';
+import 'package:routepass/pages/bank/set_detail_page.dart';
+import 'package:routepass/pages/home/home_content.dart';
 import 'package:routepass/pages/toolbox/ip_convert_page.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 import 'package:routepass/services/mock/mock_cli_service.dart';
@@ -101,6 +104,7 @@ void main() {
     tester.view.physicalSize = const Size(800, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await _loginToHome(tester);
 
     await tester.scrollUntilVisible(
@@ -115,6 +119,20 @@ void main() {
     await tester.tap(find.text('本地模式 · 未连接服务器'));
     await tester.pumpAndSettle();
     expect(find.text('同步诊断'), findsOneWidget);
+  });
+
+  testWidgets('首页横幅开始直达答题页，不经过套卷详情', (tester) async {
+    await _loginToHome(tester);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(HomeContentPage),
+        matching: find.widgetWithText(FilledButton, '开始'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AnswerPage), findsOneWidget);
+    expect(find.byType(SetDetailPage), findsNothing);
   });
 
   testWidgets('首页 IP/进制转换方块进 IP 转换页，底栏隐藏', (tester) async {

@@ -22,10 +22,10 @@ class BankModuleListPage extends StatefulWidget {
   const BankModuleListPage({super.key});
 
   @override
-  State<BankModuleListPage> createState() => _BankModuleListPageState();
+  State<BankModuleListPage> createState() => BankModuleListPageState();
 }
 
-class _BankModuleListPageState extends State<BankModuleListPage> {
+class BankModuleListPageState extends State<BankModuleListPage> {
   List<ModuleStat> _modules = const <ModuleStat>[];
   List<Question> _samples = const <Question>[];
   List<String> _wrongIds = const <String>[];
@@ -45,6 +45,9 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
     super.initState();
     _load();
   }
+
+  /// tab 切回时刷新（重拉模块 / 样题 / 错题 / 收藏）。
+  Future<void> refresh() => _load();
 
   Future<void> _load() async {
     try {

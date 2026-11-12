@@ -11,10 +11,15 @@ class ToolboxHomePage extends StatefulWidget {
   const ToolboxHomePage({super.key});
 
   @override
-  State<ToolboxHomePage> createState() => _ToolboxHomePageState();
+  State<ToolboxHomePage> createState() => ToolboxHomePageState();
 }
 
-class _ToolboxHomePageState extends State<ToolboxHomePage> {
+class ToolboxHomePageState extends State<ToolboxHomePage> {
+  /// tab 切回时刷新（最近使用行重读 kv）。
+  void refresh() {
+    setState(() {});
+  }
+
   List<ToolboxTool> get _recent {
     final ids =
         ServiceLocator.kvStore.getStringList(KvStore.keyToolboxRecent) ??

@@ -27,10 +27,10 @@ class HomeContentPage extends StatefulWidget {
   final void Function(int index) onSelectTab;
 
   @override
-  State<HomeContentPage> createState() => _HomeContentPageState();
+  State<HomeContentPage> createState() => HomeContentPageState();
 }
 
-class _HomeContentPageState extends State<HomeContentPage> {
+class HomeContentPageState extends State<HomeContentPage> {
   User? _user;
   int _wrongCount = 0;
   KnowledgePoint? _dailyPoint;
@@ -50,6 +50,9 @@ class _HomeContentPageState extends State<HomeContentPage> {
     super.initState();
     _load();
   }
+
+  /// tab 切回时刷新（重拉用户 / 错题 / 知识点 / 统计）。
+  Future<void> refresh() => _load();
 
   Future<void> _load() async {
     User? user;

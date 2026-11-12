@@ -174,6 +174,9 @@ void main() {
     expect(find.byType(ListTile), findsWidgets);
   });
 
+  // “快速 10 题直达答题页”已在 set_detail_test.dart（首页套卷卡进详情页，
+  // 快速 10 题直达答题页）覆盖；题库页没有“10 题速练”入口，不在此测。
+
   testWidgets('首页学习统计方块进统计页', (tester) async {
     await _loginToHome(tester);
 

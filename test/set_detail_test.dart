@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/app.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/core/theme.dart';
+import 'package:routepass/pages/bank/answer_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 import 'package:routepass/services/mock/mock_cli_service.dart';
@@ -110,11 +111,32 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '开始').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('开始答题'));
-    await tester.pumpAndSettle();
-    expect(find.text('第 1/3 题'), findsOneWidget);
+    // 三张套卷卡的“开始”依次是 100 / 200 / 50 题：进详情页点开始答题，
+    // 答题页参数必须是 exam + 对应题量。
+    for (final (count, index) in [(100, 0), (200, 1), (50, 2)]) {
+      await tester.tap(find.widgetWithText(FilledButton, '开始').at(index));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('开始答题'));
+      await tester.pumpAndSettle();
+      final answer = tester.widget<AnswerPage>(find.byType(AnswerPage));
+      expect(answer.args['mode'], 'exam');
+      expect(answer.args['drawCount'], count);
+      expect(find.text('第 1/3 题'), findsOneWidget);
+      // 返回是自定义控件，pageBack 找不到标准 BackButton：答题页点
+      // AppBar 的 arrow_back，弹退出确认后点“退出并保留进度”，再点
+      // 详情页的 chevron 回题库。
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.arrow_back),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '退出并保留进度'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('套卷详情页 200 题推导正确', (tester) async {
