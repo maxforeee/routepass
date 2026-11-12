@@ -12,44 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/pages/bank/answer_page.dart';
 import 'package:routepass/pages/bank/answer_widgets.dart';
-import 'package:routepass/services/mock/mock_auth_service.dart';
-import 'package:routepass/services/mock/mock_cli_service.dart';
-import 'package:routepass/services/mock/mock_content_service.dart';
-import 'package:routepass/services/mock/mock_exam_service.dart';
-import 'package:routepass/services/mock/mock_favorite_service.dart';
-import 'package:routepass/services/mock/mock_knowledge_repository.dart';
-import 'package:routepass/services/mock/mock_ping_service.dart';
-import 'package:routepass/services/mock/mock_port_scan_service.dart';
-import 'package:routepass/services/mock/mock_practice_service.dart';
-import 'package:routepass/services/mock/mock_question_repository.dart';
-import 'package:routepass/services/mock/mock_search_service.dart';
-import 'package:routepass/services/mock/mock_stats_service.dart';
-import 'package:routepass/services/mock/mock_sync_service.dart';
-import 'package:routepass/services/mock/mock_wrong_service.dart';
-import 'package:routepass/services/toolbox/ip_convert_service_impl.dart';
-import 'package:routepass/services/toolbox/subnet_calc_service_impl.dart';
 
-/// 与 widget_test.dart 相同的一套 Mock/本地实现装配；重复调用直接返回。
-void _initServices() {
-  ServiceLocator.init(
-    questionRepository: MockQuestionRepository(),
-    practiceService: MockPracticeService(),
-    examService: MockExamService(),
-    wrongService: MockWrongService(),
-    favoriteService: MockFavoriteService(),
-    statsService: MockStatsService(),
-    knowledgeRepository: MockKnowledgeRepository(),
-    searchService: MockSearchService(),
-    subnetCalcService: LocalSubnetCalcService(),
-    ipConvertService: LocalIpConvertService(),
-    pingService: MockPingService(),
-    portScanService: MockPortScanService(),
-    cliService: MockCliService(),
-    authService: MockAuthService(),
-    syncService: MockSyncService(),
-    contentService: MockContentService(),
-  );
-}
+import 'test_helpers.dart';
 
 /// 登录态跨用例保留：MockAuthService 已登录则直接测，未登录才演示登录。
 Future<void> _ensureLoggedIn() async {
@@ -74,7 +38,7 @@ Future<void> _pumpAnswerPage(WidgetTester tester) async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  _initServices();
+  initTestServices();
 
   testWidgets('快速 10 题加载与作答：选中选项、解析卡占位、答题卡跳题', (tester) async {
     await _ensureLoggedIn();

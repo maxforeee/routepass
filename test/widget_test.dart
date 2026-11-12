@@ -2,49 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/app.dart';
 import 'package:routepass/core/service_locator.dart';
-import 'package:routepass/services/mock/mock_auth_service.dart';
-import 'package:routepass/services/mock/mock_cli_service.dart';
-import 'package:routepass/services/mock/mock_content_service.dart';
-import 'package:routepass/services/mock/mock_exam_service.dart';
-import 'package:routepass/services/mock/mock_favorite_service.dart';
-import 'package:routepass/services/mock/mock_knowledge_repository.dart';
-import 'package:routepass/services/mock/mock_ping_service.dart';
-import 'package:routepass/services/mock/mock_port_scan_service.dart';
-import 'package:routepass/services/mock/mock_practice_service.dart';
-import 'package:routepass/services/mock/mock_question_repository.dart';
-import 'package:routepass/services/mock/mock_search_service.dart';
-import 'package:routepass/services/mock/mock_stats_service.dart';
-import 'package:routepass/services/mock/mock_sync_service.dart';
-import 'package:routepass/services/mock/mock_wrong_service.dart';
-import 'package:routepass/services/toolbox/ip_convert_service_impl.dart';
-import 'package:routepass/services/toolbox/subnet_calc_service_impl.dart';
 
-/// main() 里的 ServiceLocator.init 在测试进程不会执行，这里用与 main.dart
-/// 完全相同的一套 Mock/本地实现装配一次；ServiceLocator.init 重复调用直接返回。
-void _initServices() {
-  ServiceLocator.init(
-    questionRepository: MockQuestionRepository(),
-    practiceService: MockPracticeService(),
-    examService: MockExamService(),
-    wrongService: MockWrongService(),
-    favoriteService: MockFavoriteService(),
-    statsService: MockStatsService(),
-    knowledgeRepository: MockKnowledgeRepository(),
-    searchService: MockSearchService(),
-    subnetCalcService: LocalSubnetCalcService(),
-    ipConvertService: LocalIpConvertService(),
-    pingService: MockPingService(),
-    portScanService: MockPortScanService(),
-    cliService: MockCliService(),
-    authService: MockAuthService(),
-    syncService: MockSyncService(),
-    contentService: MockContentService(),
-  );
-}
+import 'test_helpers.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  _initServices();
+  initTestServices();
 
   testWidgets('启动判定进登录页；登录后进首页外壳与 4 个 tab', (tester) async {
     await tester.pumpWidget(const RoutePassApp());
