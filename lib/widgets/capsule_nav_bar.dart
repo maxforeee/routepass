@@ -8,7 +8,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/theme.dart';
+import '../core/theme.dart';
 
 class CapsuleNavBar extends StatelessWidget {
   const CapsuleNavBar({

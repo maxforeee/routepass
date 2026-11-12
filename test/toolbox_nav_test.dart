@@ -57,6 +57,10 @@ Finder _navTab(String label) =>
 Future<void> _loginToHome(WidgetTester tester) async {
   await tester.pumpWidget(const RoutePassApp());
   await tester.pumpAndSettle();
+  // Splash dwells ~2s: pumpAndSettle stops while the dwell timer is pending
+  // (no frame scheduled), so advance fake time past it explicitly.
+  await tester.pump(const Duration(seconds: 2));
+  await tester.pumpAndSettle();
 
   if (find.widgetWithText(TextField, '用户名').tryEvaluate()) {
     await tester.enterText(find.widgetWithText(TextField, '用户名'), 'demo_user1');

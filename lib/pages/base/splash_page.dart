@@ -29,23 +29,24 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _decide() async {
-    // 启动判定总耗时 ≤2.0 秒：两项 Mock 检查各设 1.5 秒超时，超时直接放行。
-    bool loggedIn = false;
-    try {
-      final user = await ServiceLocator.authService.getCurrentUser().timeout(
-        const Duration(milliseconds: 1500),
-      );
-      loggedIn = user != null;
-    } catch (_) {
-      loggedIn = false;
-    }
+    // 两项 Mock 检查并行执行（各设 1.5 秒超时，超时/失败直接放行），最坏 1.5 秒；
+    // 若不足 2 秒则补足剩余时长，保证启动页稳定展示约 2 秒再决定去向。
+    final stopwatch = Stopwatch()..start();
+    final results = await Future.wait<Object?>([
+      ServiceLocator.authService
+          .getCurrentUser()
+          .timeout(const Duration(milliseconds: 1500))
+          .then<Object?>((user) => user, onError: (_) => null),
+      checkAndShowForceUpgrade(context)
+          .timeout(const Duration(milliseconds: 1500))
+          .then<Object?>((upgrade) => upgrade, onError: (_) => null),
+    ]);
+    final loggedIn = results[0] != null;
+    final hardUpgrade = results[1] == true;
     if (!mounted) return;
-    bool hardUpgrade = false;
-    try {
-      hardUpgrade = await checkAndShowForceUpgrade(context)
-          .timeout(const Duration(milliseconds: 1500));
-    } catch (_) {
-      hardUpgrade = false;
+    final elapsed = stopwatch.elapsedMilliseconds;
+    if (elapsed < 2000) {
+      await Future<void>.delayed(Duration(milliseconds: 2000 - elapsed));
     }
     if (!mounted) return;
     // hard 升级：dialog 已弹出，只停在启动页，不自动跳转。

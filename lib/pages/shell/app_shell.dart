@@ -39,7 +39,11 @@ import '../toolbox/units_page.dart';
 import '../toolbox/vlsm_page.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.initialTab});
+
+  /// 可选初始 tab 下标（0–3）。登录页“先看看知识库 / 打开工具箱”等入口
+  /// 指定后优先于 kv `ui.lastTab` 恢复。
+  final int? initialTab;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -66,6 +70,13 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    final initialTab = widget.initialTab;
+    if (initialTab != null &&
+        initialTab >= 0 &&
+        initialTab < _tabNames.length) {
+      _currentIndex = initialTab;
+      return;
+    }
     final lastTab = ServiceLocator.kvStore.getString(KvStore.keyUiLastTab);
     final index = _tabNames.indexOf(lastTab ?? '');
     if (index >= 0) _currentIndex = index;

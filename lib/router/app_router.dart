@@ -60,6 +60,10 @@ class AppRouter {
         page = const RegisterPage();
       case AppRoutes.home:
         page = const AppShell();
+      case AppRoutes.knowledge:
+        page = const AppShell(initialTab: 2);
+      case AppRoutes.toolbox:
+        page = const AppShell(initialTab: 3);
       case AppRoutes.profile:
         page = const ProfilePage();
       case AppRoutes.settings:

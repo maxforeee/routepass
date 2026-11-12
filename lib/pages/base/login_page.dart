@@ -16,7 +16,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
   String? _usernameError;
   String? _passwordError;
@@ -106,122 +105,119 @@ class _LoginPageState extends State<LoginPage> {
                           AppSpacing.pageBottom,
                     ),
                     child: IntrinsicHeight(
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Center(
-                              child: RoutePassLogo(size: AppSizes.logo),
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                            Text(
-                              '欢迎回来',
-                              textAlign: TextAlign.center,
-                              style: AppTheme.brandTitleStyle,
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              '登录后开始刷题（演示模式，不会发送任何请求）',
-                              textAlign: TextAlign.center,
-                              style: AppTheme.brandSubtitleStyle,
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-                            _LoginTextField(
-                              label: '用户名',
-                              hint: '4-20 位字母、数字或下划线',
-                              controller: _usernameController,
-                              errorText: _usernameError,
-                              textInputAction: TextInputAction.next,
-                              autofillHints: const [AutofillHints.username],
-                            ),
-                            const SizedBox(height: AppSpacing.formBlock),
-                            _LoginTextField(
-                              label: '密码',
-                              hint: '8-32 位，含字母与数字',
-                              controller: _passwordController,
-                              errorText: _passwordError,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (_) => _submit(),
-                              autofillHints: const [AutofillHints.password],
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  size: AppSizes.icon,
-                                  color: AppColors.brandCaption,
-                                ),
-                                tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Center(
+                            child: RoutePassLogo(size: AppSizes.logo),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          Text(
+                            '欢迎回来',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.brandTitleStyle,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            '登录后开始刷题（演示模式，不会发送任何请求）',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.brandSubtitleStyle,
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          _LoginTextField(
+                            label: '用户名',
+                            hint: '4–20 位字母、数字或下划线',
+                            controller: _usernameController,
+                            errorText: _usernameError,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.username],
+                          ),
+                          const SizedBox(height: AppSpacing.formBlock),
+                          _LoginTextField(
+                            label: '密码',
+                            hint: '8–32 位，含字母与数字',
+                            controller: _passwordController,
+                            errorText: _passwordError,
+                            obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _submit(),
+                            autofillHints: const [AutofillHints.password],
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                size: AppSizes.icon,
+                                color: AppColors.brandCaption,
                               ),
+                              tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
                             ),
-                            const SizedBox(height: AppSpacing.formBlock),
-                            SizedBox(
-                              height: AppSizes.buttonHeight,
-                              child: FilledButton(
-                                onPressed: _submit,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.brandPrimary,
-                                  foregroundColor: AppColors.brandOnPrimary,
-                                  textStyle: AppTheme.brandButtonStyle,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadii.button,
-                                    ),
+                          ),
+                          const SizedBox(height: AppSpacing.formBlock),
+                          SizedBox(
+                            height: AppSizes.buttonHeight,
+                            child: FilledButton(
+                              onPressed: _submit,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.brandPrimary,
+                                foregroundColor: AppColors.brandOnPrimary,
+                                textStyle: AppTheme.brandButtonStyle,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadii.button,
                                   ),
                                 ),
-                                child: const Text('登录'),
                               ),
+                              child: const Text('登录'),
                             ),
-                            const SizedBox(height: AppSpacing.xxl),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '还没有账号？',
-                                  style: AppTheme.brandSubtitleStyle,
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context)
-                                          .pushNamed(AppRoutes.register),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppColors.brandPrimary,
-                                    textStyle: AppTheme.brandLinkStyle,
-                                    minimumSize: Size.zero,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppSpacing.xs,
-                                    ),
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          const SizedBox(height: AppSpacing.xxl),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '还没有账号？',
+                                style: AppTheme.brandSubtitleStyle,
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context)
+                                        .pushNamed(AppRoutes.register),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.brandPrimary,
+                                  textStyle: AppTheme.brandLinkStyle,
+                                  minimumSize: Size.zero,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.xs,
                                   ),
-                                  child: const Text('注册'),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
-                              ],
-                            ),
-                            const Spacer(),
-                            Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: AppSpacing.md,
-                              children: [
-                                _LoginLink(
-                                  label: '先看看知识库',
-                                  route: AppRoutes.knowledge,
-                                ),
-                                _LoginLink(
-                                  label: '打开工具箱',
-                                  route: AppRoutes.toolbox,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                                child: const Text('注册'),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: AppSpacing.md,
+                            children: [
+                              _LoginLink(
+                                label: '先看看知识库',
+                                route: AppRoutes.knowledge,
+                              ),
+                              _LoginLink(
+                                label: '打开工具箱',
+                                route: AppRoutes.toolbox,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
