@@ -56,7 +56,8 @@ void main() {
     expect(find.text('样例章节：VLAN 基础'), findsOneWidget);
     expect(find.text('样例小节：VLAN 概念'), findsOneWidget);
     expect(find.text('样例章节：子网划分基础'), findsOneWidget);
-    expect(find.text('已掌握 0/2'), findsOneWidget);
+    // 每条知识点行右侧各显示“已掌握 0/1”。
+    expect(find.text('已掌握 0/1'), findsNWidgets(2));
   });
 
   testWidgets('点小节折叠/展开知识点行，点行展开面板', (tester) async {
@@ -88,11 +89,11 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
     await tester.pumpAndSettle();
-    expect(find.text('已掌握 1/2'), findsOneWidget);
+    expect(find.text('已掌握 1/1'), findsOneWidget);
     // 再点已掌握的 icon 取消。
     await tester.tap(find.byIcon(Icons.check_circle).first);
     await tester.pumpAndSettle();
-    expect(find.text('已掌握 0/2'), findsOneWidget);
+    expect(find.text('已掌握 0/1'), findsNWidgets(2));
   });
 
   testWidgets('搜索过滤：只剩命中点，清空恢复', (tester) async {

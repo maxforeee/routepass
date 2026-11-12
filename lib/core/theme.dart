@@ -25,6 +25,17 @@ class AppColors {
   /// 品牌页固定色（启动页、Logo 等，不随深浅色模式变化，与 mockup 一致）。
   /// 深色模式下品牌页仍用浅底深字，保证品牌观感统一。
   static const Color pageBackgroundLight = Color(0xFFF8FAFC);
+
+  /// 页面底色（知识库页等，随深浅色模式变化）。
+  static const Color pageBackgroundDark = Color(0xFF0B1220);
+
+  /// 页面底色：浅色 #F8FAFC，深色回退深底。
+  static Color pageBackground(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? pageBackgroundDark
+        : pageBackgroundLight;
+  }
+
   static const Color brandPrimary = Color(0xFF2563EB);
   static const Color brandOnPrimary = Color(0xFFFFFFFF);
   static const Color brandTitle = Color(0xFF0F172A);
@@ -74,6 +85,9 @@ class AppSpacing {
 
   /// 题库页卡片/入口行之间的间距（逻辑像素）。
   static const double cardGap = 14;
+
+  /// 知识库页章卡片 / 知识点行之间的间距（逻辑像素）。
+  static const double chapterGap = 10;
 }
 
 /// 品牌页尺寸（逻辑像素）。
@@ -88,6 +102,15 @@ class AppSizes {
   static const double icon = 20;
   static const double avatarRadius = 20;
   static const double progressRing = 40;
+
+  /// 知识库页搜索栏高度（逻辑像素）。
+  static const double searchBarHeight = 44;
+
+  /// 知识库页章卡片高度（逻辑像素）。
+  static const double chapterCardHeight = 56;
+
+  /// 知识库页知识点行高度（逻辑像素）。
+  static const double pointRowHeight = 44;
 
   /// 题库页套卷卡高度（逻辑像素）。
   static const double setCardHeight = 104;
@@ -112,6 +135,15 @@ class AppRadii {
   static const double input = 14;
   static const double button = 14;
   static const double card = 16;
+
+  /// 知识库页搜索栏圆角（约 22 = 半胶囊形）。
+  static const double search = 22;
+
+  /// 知识库页章卡片圆角（逻辑像素）。
+  static const double chapterCard = 14;
+
+  /// 知识库页知识点行圆角（逻辑像素）。
+  static const double pointRow = 12;
 
   /// 题库页套卷卡“开始”按钮圆角（逻辑像素）。
   static const double setStartButton = 18;

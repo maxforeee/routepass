@@ -4,14 +4,17 @@ import 'package:flutter/material.dart';
 
 import '../../core/kv_store.dart';
 import '../../core/service_locator.dart';
+import '../../core/theme.dart';
 import '../../models/knowledge_point.dart';
 import '../../router/app_router.dart';
+import '../../widgets/page_header.dart';
 
-/// 知识库页（第 3 章 §22.7：章→节→知识点三层，倒三角展开，同节单开手风琴）。
+/// 知识库页（R7：按 06_knowledge mockup 重排：页头 + 搜索 + 章卡片 + 节 + 知识点行）。
 ///
-/// K-01 顶栏；K-02 搜索（输入即过滤，提交进搜索页）；K-03 掌握进度；K-04 章 header；
-/// K-05 节 header；K-06 知识点行；K-07 倒三角（220ms 旋转）；K-08 展开面板；
-/// K-09 查看详情；K-10 练一练；K-11 掌握 icon；K-13 空态。K-12 版本条由 AppShell 全局显示，不在本页重复。
+/// K-01 页头；K-02 搜索（输入即过滤，提交进搜索页）；K-03 掌握进度（每知识点行右侧
+/// “已掌握 x/y”）；K-04 章卡片（右缘三角 220ms 旋转，点按折叠整章）；K-05 节 header；
+/// K-06 知识点行；K-07 倒三角（220ms 旋转）；K-08 展开面板；K-09 查看详情；
+/// K-10 练一练；K-11 掌握 icon；K-13 空态。K-12 版本条由 AppShell 全局显示，不在本页重复。
 /// 展开态存 kv `kb.expandedIds`（§4.9.1）；掌握态存派生 kv 键 `kb.masteredIds`。
 class KnowledgeHomePage extends StatefulWidget {
   const KnowledgeHomePage({super.key});
@@ -128,22 +131,13 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     return all.where(_matches).toList();
   }
 
-  int get _totalPoints {
-    var n = 0;
-    for (final list in _points.values) {
-      n += list.length;
-    }
-    return n;
-  }
-
-  int get _masteredCount {
-    final allIds = <String>{};
-    for (final list in _points.values) {
-      for (final p in list) {
-        allIds.add(p.id);
-      }
-    }
-    return _mastered.intersection(allIds).length;
+  /// 搜索时命中至少一个知识点的章（未搜索时返回全部章）。
+  List<Chapter> _visibleChapters() {
+    if (!_searching) return _chapters;
+    return _chapters.where((chapter) {
+      final sections = _sections[chapter.id] ?? <Section>[];
+      return sections.any((s) => _visiblePoints(s.id).isNotEmpty);
+    }).toList();
   }
 
   /// 搜索时第一个命中点的 id（用于自动滚动定位）。
@@ -222,140 +216,173 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('知识库')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _chapters.isEmpty
-          ? const Center(child: Text('暂无知识点，请更新'))
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              children: [
-                _buildSearch(),
-                const SizedBox(height: 12),
-                _buildProgress(),
-                const SizedBox(height: 8),
-                if (_searching && _visibleTotal == 0)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 48),
-                    child: Center(child: Text('没有找到相关知识点')),
-                  )
-                else
-                  ..._chapters.map(_buildChapter),
-              ],
-            ),
+      backgroundColor: AppColors.pageBackground(context),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _chapters.isEmpty
+            ? const Center(child: Text('暂无知识点，请更新'))
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
+                children: [
+                  const PageHeader(
+                    title: '知识库',
+                    subtitle: 'H3CNE 考点 · 章 / 节 / 知识点',
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _buildSearch(),
+                  const SizedBox(height: AppSpacing.md),
+                  if (_searching && _visibleTotal == 0)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 48),
+                      child: Center(child: Text('没有找到相关知识点')),
+                    )
+                  else
+                    ..._buildChapterList(),
+                ],
+              ),
+      ),
     );
   }
 
-  /// K-02 搜索框：高 48，圆角 12；输入即过滤，提交进搜索页。
+  List<Widget> _buildChapterList() {
+    final chapters = _visibleChapters();
+    final widgets = <Widget>[];
+    for (var i = 0; i < chapters.length; i++) {
+      widgets.add(_buildChapter(chapters[i]));
+      if (i < chapters.length - 1) {
+        widgets.add(const SizedBox(height: AppSpacing.chapterGap));
+      }
+    }
+    return widgets;
+  }
+
+  /// K-02 搜索框：高 44，圆角 22；输入即过滤，提交进搜索页。
   Widget _buildSearch() {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return SizedBox(
-      height: 48,
+      height: AppSizes.searchBarHeight,
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchChanged,
         onSubmitted: (_) => _openSearchPage(),
         decoration: InputDecoration(
-          hintText: '搜索知识点',
-          prefixIcon: const Icon(Icons.search),
+          hintText: '搜索知识点、命令…',
+          hintStyle: theme.textTheme.labelLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+          prefixIcon: Icon(
+            Icons.search,
+            size: AppSizes.icon,
+            color: scheme.onSurfaceVariant,
+          ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: AppSizes.searchBarHeight,
+            minHeight: AppSizes.searchBarHeight,
+          ),
           suffixIcon: _query.isEmpty
               ? null
               : IconButton(
-                  icon: const Icon(Icons.clear),
+                  icon: const Icon(Icons.clear, size: AppSizes.icon),
                   onPressed: () {
                     _searchController.clear();
                     _onSearchChanged('');
                   },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: AppSizes.searchBarHeight,
+                    minHeight: AppSizes.searchBarHeight,
+                  ),
                 ),
+          isDense: true,
           filled: true,
-          fillColor: theme.colorScheme.surfaceContainerHighest,
+          fillColor: scheme.surfaceContainerHighest,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadii.search),
             borderSide: BorderSide.none,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         ),
       ),
     );
   }
 
-  /// K-03 掌握进度：label 12“已掌握 x/y”+ 线性条。
-  Widget _buildProgress() {
-    final theme = Theme.of(context);
-    final total = _totalPoints;
-    final done = _masteredCount;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('已掌握 $done/$total', style: theme.textTheme.labelMedium),
-        const SizedBox(height: 4),
-        LinearProgressIndicator(value: total == 0 ? 0 : done / total),
-      ],
-    );
-  }
-
-  /// K-04 章 header：高 56；左模块名，标题 16，右知识点计数；点按折叠整章。
+  /// K-04 章卡片：白底圆角 14 浅灰描边；标题 15 粗体 + 右缘三角（220ms 旋转）。
   Widget _buildChapter(Chapter chapter) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final sections = _sections[chapter.id] ?? <Section>[];
     final collapsed = _collapsedChapters.contains(chapter.id);
-    if (_searching) {
-      final hasMatch = sections.any((s) => _visiblePoints(s.id).isNotEmpty);
-      if (!hasMatch) return const SizedBox.shrink();
-    }
-    var pointCount = 0;
-    for (final s in sections) {
-      pointCount += _points[s.id]?.length ?? 0;
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          onTap: () => setState(() {
-            if (collapsed) {
-              _collapsedChapters.remove(chapter.id);
-            } else {
-              _collapsedChapters.add(chapter.id);
-            }
-          }),
-          child: SizedBox(
-            height: 56,
-            child: Row(
-              children: [
-                Text(
-                  chapter.module,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.primary,
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(AppRadii.chapterCard),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() {
+              if (collapsed) {
+                _collapsedChapters.remove(chapter.id);
+              } else {
+                _collapsedChapters.add(chapter.id);
+              }
+            }),
+            borderRadius: BorderRadius.circular(AppRadii.chapterCard),
+            child: SizedBox(
+              height: AppSizes.chapterCardHeight,
+              child: Row(
+                children: [
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      chapter.title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: AppFontSizes.entryTitle,
+                        fontWeight: FontWeight.bold,
+                        color: scheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    chapter.title,
-                    style: theme.textTheme.titleMedium,
+                  Semantics(
+                    label: collapsed ? '展开章节' : '收起章节',
+                    child: AnimatedRotation(
+                      turns: collapsed ? 0 : 0.25,
+                      duration: const Duration(milliseconds: 220),
+                      child: Icon(
+                        Icons.chevron_right,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  '$pointCount 个知识点',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(collapsed ? Icons.expand_more : Icons.expand_less),
-              ],
+                  const SizedBox(width: AppSpacing.md),
+                ],
+              ),
             ),
           ),
-        ),
-        if (!collapsed) ...sections.map((s) => _buildSection(chapter, s)),
-      ],
+          if (!collapsed) ...[
+            ...sections.map((s) => _buildSection(chapter, s)),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ],
+      ),
     );
   }
 
-  /// K-05 节 header：高 48；标题 15 `onSurfaceVariant`；点按折叠节。
-  /// 搜索时命中节自动展开（忽略折叠态）。
+  /// K-05 节 header：标题 14 粗体，缩进；点按折叠节。搜索时命中节自动展开。
   Widget _buildSection(Chapter chapter, Section section) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final points = _visiblePoints(section.id);
     final collapsed = _collapsedSections.contains(section.id) && !_searching;
     if (_searching && points.isEmpty) return const SizedBox.shrink();
@@ -370,109 +397,138 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
               _collapsedSections.add(section.id);
             }
           }),
-          child: SizedBox(
-            height: 48,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.xs,
+              AppSpacing.md,
+              AppSpacing.xs,
+            ),
             child: Row(
               children: [
-                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     section.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontSize: 15,
-                      color: theme.colorScheme.onSurfaceVariant,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onSurface,
                     ),
-                  ),
-                ),
-                Text(
-                  '${points.length} 个',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Icon(
                   collapsed ? Icons.expand_more : Icons.expand_less,
-                  size: 20,
+                  size: AppSizes.icon,
+                  color: scheme.onSurfaceVariant,
                 ),
               ],
             ),
           ),
         ),
-        if (!collapsed)
-          ...points.map((p) => _buildPointRow(chapter, section, p)),
+        if (!collapsed) ..._buildPointList(chapter, section),
       ],
     );
   }
 
-  /// K-06 知识点行：高 56；1px 分隔；标题 15；左掌握 icon（K-11）。
-  /// K-07 倒三角：24dp，220ms 旋转 180°，semantics“展开/收起知识点”。
+  List<Widget> _buildPointList(Chapter chapter, Section section) {
+    final points = _visiblePoints(section.id);
+    final widgets = <Widget>[];
+    for (var i = 0; i < points.length; i++) {
+      widgets.add(_buildPointRow(chapter, section, points[i]));
+      if (i < points.length - 1) {
+        widgets.add(const SizedBox(height: AppSpacing.chapterGap));
+      }
+    }
+    return widgets;
+  }
+
+  /// K-06 知识点行：高 44，圆角 12，浅灰描边；标题 13 + 右侧“已掌握 x/y”（K-03）
+  /// + 掌握 icon（K-11）。K-07 倒三角：24dp，220ms 旋转 180°。
   Widget _buildPointRow(
     Chapter chapter,
     Section section,
     KnowledgePoint point,
   ) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final expanded = _expandedPoints.contains(point.id);
     final mastered = _mastered.contains(point.id);
-    return Column(
-      key: point.id == _firstMatchId ? _firstMatchKey : null,
-      children: [
-        InkWell(
-          onTap: () => _togglePoint(point, section.id),
-          child: SizedBox(
-            height: 56,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    mastered
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color: mastered
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  tooltip: mastered ? '已掌握' : '标记已掌握',
-                  onPressed: () => _toggleMastered(point.id),
-                ),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Column(
+        key: point.id == _firstMatchId ? _firstMatchKey : null,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.pageBackground(context),
+              borderRadius: BorderRadius.circular(AppRadii.pointRow),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: InkWell(
+              onTap: () => _togglePoint(point, section.id),
+              borderRadius: BorderRadius.circular(AppRadii.pointRow),
+              child: SizedBox(
+                height: AppSizes.pointRowHeight,
+                child: Row(
+                  children: [
+                    Semantics(
+                      label: mastered ? '已掌握' : '标记已掌握',
+                      button: true,
+                      child: SizedBox(
+                        width: AppSizes.pointRowHeight,
+                        height: AppSizes.pointRowHeight,
+                        child: InkWell(
+                          onTap: () => _toggleMastered(point.id),
+                          borderRadius: BorderRadius.circular(
+                            AppRadii.pointRow,
+                          ),
+                          child: Icon(
+                            mastered
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked,
+                            size: AppSizes.icon,
+                            color: mastered
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
                         point.title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontSize: 15,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: AppFontSizes.pageSubtitle,
+                          color: scheme.onSurface,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        '${point.code} · ${point.topic}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                    ),
+                    Text(
+                      '已掌握 ${mastered ? 1 : 0}/1',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
-                    ],
-                  ),
+                    ),
+                    Semantics(
+                      label: expanded ? '收起知识点' : '展开知识点',
+                      child: AnimatedRotation(
+                        turns: expanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 220),
+                        child: const Icon(Icons.expand_more, size: 24),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                  ],
                 ),
-                Semantics(
-                  label: expanded ? '收起知识点' : '展开知识点',
-                  child: AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 220),
-                    child: const Icon(Icons.expand_more, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-              ],
+              ),
             ),
           ),
-        ),
-        const Divider(height: 1),
-        if (expanded) _buildPanel(chapter, section, point),
-      ],
+          if (expanded) _buildPanel(chapter, section, point),
+        ],
+      ),
     );
   }
 
