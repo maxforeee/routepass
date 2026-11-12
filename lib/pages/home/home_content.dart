@@ -1,7 +1,5 @@
-/// 首页 tab 内容（R3a：问候区 + #DBEAFE 横幅 + 10 张卡片瀑布流）。
+/// 首页 tab 内容（问候区 + 继续学习横幅 + 工具方阵 + 套卷）。
 library;
-
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -10,7 +8,6 @@ import '../../core/modules.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/content.dart';
-import '../../models/knowledge_point.dart';
 import '../../models/stats.dart';
 import '../../models/sync.dart';
 import '../../models/user.dart';
@@ -20,6 +17,7 @@ import '../../widgets/app_card.dart';
 import '../../widgets/app_progress_ring.dart';
 import '../../widgets/module_tag.dart';
 import '../../widgets/user_avatar.dart';
+import '../toolbox/toolbox_tools.dart';
 
 class HomeContentPage extends StatefulWidget {
   const HomeContentPage({super.key, required this.onSelectTab});
@@ -33,17 +31,10 @@ class HomeContentPage extends StatefulWidget {
 class HomeContentPageState extends State<HomeContentPage> {
   User? _user;
   int _wrongCount = 0;
-  KnowledgePoint? _dailyPoint;
-  List<Chapter> _chapters = const <Chapter>[];
   StatsOverview? _overview;
   SyncStatus? _syncStatus;
   ContentVersion? _contentVersion;
   List<ModuleStat> _modules = const <ModuleStat>[];
-  List<String> _pointIds = const <String>[];
-  List<String> _masteredIds = const <String>[];
-
-  /// 掌握态的本地 kv 键（与知识库页共用同一派生键 `kb.masteredIds`）。
-  static const String _keyMasteredIds = 'kb.masteredIds';
 
   @override
   void initState() {
@@ -67,18 +58,6 @@ class HomeContentPageState extends State<HomeContentPage> {
       wrongCount = wrongItems.length;
     } catch (_) {
       wrongCount = 0;
-    }
-    KnowledgePoint? dailyPoint;
-    try {
-      dailyPoint = await ServiceLocator.knowledgeRepository.getDailyPoint();
-    } catch (_) {
-      dailyPoint = null;
-    }
-    List<Chapter> chapters = const <Chapter>[];
-    try {
-      chapters = await ServiceLocator.knowledgeRepository.getChapters();
-    } catch (_) {
-      chapters = const <Chapter>[];
     }
     StatsOverview? overview;
     try {
@@ -104,48 +83,15 @@ class HomeContentPageState extends State<HomeContentPage> {
     } catch (_) {
       modules = const <ModuleStat>[];
     }
-    final pointIds = <String>[];
-    for (final chapter in chapters) {
-      var sections = const <Section>[];
-      try {
-        sections = await ServiceLocator.knowledgeRepository.getSections(
-          chapter.id,
-        );
-      } catch (_) {
-        sections = const <Section>[];
-      }
-      for (final section in sections) {
-        try {
-          final points = await ServiceLocator.knowledgeRepository
-              .getPointsBySection(section.id);
-          pointIds.addAll(points.map((p) => p.id));
-        } catch (_) {}
-      }
-    }
-    final masteredIds = _readIdList(_keyMasteredIds);
     if (!mounted) return;
     setState(() {
       _user = user;
       _wrongCount = wrongCount;
-      _dailyPoint = dailyPoint;
-      _chapters = chapters;
       _overview = overview;
       _syncStatus = syncStatus;
       _contentVersion = contentVersion;
       _modules = modules;
-      _pointIds = pointIds;
-      _masteredIds = masteredIds;
     });
-  }
-
-  List<String> _readIdList(String key) {
-    final raw = ServiceLocator.kvStore.getString(key);
-    if (raw == null || raw.isEmpty) return <String>[];
-    try {
-      return (jsonDecode(raw) as List<dynamic>).cast<String>();
-    } catch (_) {
-      return <String>[];
-    }
   }
 
   /// 时段问候：早上好 / 下午好 / 晚上好。
@@ -175,20 +121,6 @@ class HomeContentPageState extends State<HomeContentPage> {
     if (total <= 0) return 0.0;
     return (answered / total).clamp(0.0, 1.0);
   }
-
-  /// 章节卡标题：无章节回退“暂无章节”，有章节时去掉展示用的“样例章节：”前缀。
-  String get _chapterCardTitle {
-    if (_chapters.isEmpty) return '暂无章节';
-    const prefix = '样例章节：';
-    final title = _chapters.first.title;
-    return title.startsWith(prefix) ? title.substring(prefix.length) : title;
-  }
-
-  /// 已掌握知识点数 = 掌握 id 与全部知识点 id 的交集。
-  int get _masteredCount => _masteredIds.where(_pointIds.contains).length;
-
-  /// 知识点总数。
-  int get _totalPoints => _pointIds.length;
 
   /// 本地模式时显示同步提示条（未连接服务器 / 未同步）。
   bool get _showSyncTip {
@@ -270,7 +202,6 @@ class HomeContentPageState extends State<HomeContentPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dailyPoint = _dailyPoint;
     final user = _user;
     final nickname = user?.nickname ?? user?.username ?? '';
     return Scaffold(
@@ -337,6 +268,28 @@ class HomeContentPageState extends State<HomeContentPage> {
                   onStart: () => _openQuiz('quick', 10),
                 ),
                 const SizedBox(height: AppSpacing.md),
+                Text(
+                  '工具箱',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: AppColors.brandTitle,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: toolboxTools.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 1,
+                    crossAxisSpacing: AppSpacing.sm,
+                    mainAxisSpacing: AppSpacing.sm,
+                  ),
+                  itemBuilder: (context, index) =>
+                      _ToolGridCard(tool: toolboxTools[index]),
+                ),
+                const SizedBox(height: AppSpacing.md),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -368,24 +321,6 @@ class HomeContentPageState extends State<HomeContentPage> {
                                 Navigator.of(context)
                                     .pushNamed(AppRoutes.bankWrong),
                           ),
-                          const SizedBox(height: AppSpacing.md),
-                          _ChapterCard(
-                            title: _chapterCardTitle,
-                            masteredCount: _masteredCount,
-                            totalPoints: _totalPoints,
-                            hasChapter: _chapters.isNotEmpty,
-                            onTap: () => widget.onSelectTab(2),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _IconCard(
-                            icon: Icons.swap_horiz,
-                            iconColor: theme.colorScheme.primary,
-                            title: 'IP/进制转换',
-                            subtitle: '二/十/十六进制',
-                            onTap: () =>
-                                Navigator.of(context)
-                                    .pushNamed(AppRoutes.toolboxIpConvert),
-                          ),
                         ],
                       ),
                     ),
@@ -403,36 +338,6 @@ class HomeContentPageState extends State<HomeContentPage> {
                             count: 50,
                             progress: _setProgress,
                             onTap: () => _openSetDetail(50),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _DailyPointCard(
-                            point: dailyPoint,
-                            onTap: dailyPoint == null
-                                ? null
-                                : () => Navigator.of(context).pushNamed(
-                                    AppRoutes.knowledgePoint,
-                                    arguments: <String, Object?>{
-                                      'kpId': dailyPoint.id,
-                                      'returnTo': 'home',
-                                    },
-                                  ),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _IconCard(
-                            icon: Icons.calculate_outlined,
-                            iconColor: theme.colorScheme.primary,
-                            title: '子网计算器',
-                            subtitle: '网络 / 广播 / 主机数',
-                            onTap: () =>
-                                Navigator.of(context)
-                                    .pushNamed(AppRoutes.toolboxSubnet),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _StatsCard(
-                            overview: _overview,
-                            onTap: () =>
-                                Navigator.of(context)
-                                    .pushNamed(AppRoutes.bankStats),
                           ),
                         ],
                       ),
@@ -574,7 +479,47 @@ class _SyncTipStrip extends StatelessWidget {
   }
 }
 
-/// 图标 + 标题 + 副标型卡片（快速 10 题 / 错题本 / 子网计算器 / IP 转换）。
+class _ToolGridCard extends StatelessWidget {
+  const _ToolGridCard({required this.tool});
+
+  final ToolboxTool tool;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AspectRatio(
+      aspectRatio: 1,
+      child: AppCard(
+        onTap: () => Navigator.of(context).pushNamed(tool.route),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              tool.icon,
+              size: AppSizes.toolGridIconSize,
+              color: switch (tool.iconTone) {
+                ToolIconTone.blue => AppColors.brandPrimary,
+                ToolIconTone.green => AppColors.success(context),
+                ToolIconTone.orange => AppColors.warning(context),
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              tool.name,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: AppColors.brandTitle,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 图标 + 标题 + 副标型卡片（快速 10 题 / 错题本）。
 class _IconCard extends StatelessWidget {
   const _IconCard({
     required this.icon,
@@ -664,221 +609,6 @@ class _ExamSetCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// 章节速览卡片：图标 + 小标题 + 章节名（粗）+ 掌握进度。
-class _ChapterCard extends StatelessWidget {
-  const _ChapterCard({
-    required this.title,
-    required this.masteredCount,
-    required this.totalPoints,
-    required this.hasChapter,
-    required this.onTap,
-  });
-
-  final String title;
-  final int masteredCount;
-  final int totalPoints;
-  final bool hasChapter;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final subtitle = hasChapter ? '已掌握 $masteredCount/$totalPoints' : null;
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SmallHeading(
-            icon: Icons.layers_outlined,
-            iconColor: theme.colorScheme.primary,
-            text: '章节速览',
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(title, style: _cardTitleStyle(theme)),
-          if (subtitle != null) ...[
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              subtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// 今日知识点卡片：橙色星标 + 小标题 + 完整正文（不截断）。
-class _DailyPointCard extends StatelessWidget {
-  const _DailyPointCard({required this.point, this.onTap});
-
-  final KnowledgePoint? point;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final p = point;
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SmallHeading(
-            icon: Icons.star,
-            iconColor: AppColors.warning(context),
-            text: '今日知识点',
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          if (p == null)
-            Text(
-              '暂无知识点',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            )
-          else ...[
-            Text(
-              '${p.code} · ${p.topic}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              p.title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              p.summary,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// 学习统计卡片：小标题 + 三个数字并排（空值如实展示）。
-class _StatsCard extends StatelessWidget {
-  const _StatsCard({required this.overview, required this.onTap});
-
-  final StatsOverview? overview;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ov = overview;
-    final correctRate = ov == null || ov.answeredTotal == 0
-        ? '–'
-        : '${(ov.correctRate * 100).round()}%';
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SmallHeading(
-            icon: Icons.insert_chart_outlined,
-            iconColor: theme.colorScheme.primary,
-            text: '学习统计',
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            children: [
-              Expanded(
-                child: _StatValue(
-                  value: '${ov?.streakDays ?? 0}',
-                  label: '连续天数',
-                ),
-              ),
-              Expanded(
-                child: _StatValue(value: correctRate, label: '正确率'),
-              ),
-              Expanded(
-                child: _StatValue(
-                  value: '${ov?.answeredTotal ?? 0}',
-                  label: '累计答题',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 小标题（章节速览 / 今日知识点 / 学习统计 上方的小字标题）。
-class _SmallHeading extends StatelessWidget {
-  const _SmallHeading({
-    required this.icon,
-    required this.iconColor,
-    required this.text,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, size: AppSizes.icon, color: iconColor),
-        const SizedBox(width: AppSpacing.xxs),
-        Text(
-          text,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// 统计卡里的单个数值 + 标签。
-class _StatValue extends StatelessWidget {
-  const _StatValue({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          value,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
 }

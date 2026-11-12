@@ -10,6 +10,7 @@ import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
 import 'package:routepass/pages/bank/stats_page.dart';
 import 'package:routepass/pages/bank/wrong_page.dart';
+import 'package:routepass/router/app_router.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 
 import 'test_helpers.dart';
@@ -114,12 +115,14 @@ void main() {
   // “快速 10 题直达答题页”已在 set_detail_test.dart（首页套卷卡进详情页，
   // 快速 10 题直达答题页）覆盖；题库页没有“10 题速练”入口，不在此测。
 
-  testWidgets('首页学习统计方块进统计页', (tester) async {
+  // G1c: 首页“学习统计”方块已移除，统计页改为直接走路由验证。
+  testWidgets('统计页路由仍可用（首页统计方块已随 G1c 移除）', (tester) async {
     await loginToHome(tester);
-
-    await tester.ensureVisible(find.text('学习统计'));
+    await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('学习统计'));
+
+    final context = tester.element(find.byType(BankModuleListPage));
+    Navigator.of(context).pushNamed(AppRoutes.bankStats);
     await tester.pumpAndSettle();
     expect(find.byType(StatsPage), findsOneWidget);
   });

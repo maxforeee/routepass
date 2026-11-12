@@ -68,23 +68,20 @@ void main() {
     expect(find.text('样例知识点：VLAN 是什么'), findsOneWidget);
   });
 
-  testWidgets('首页今日知识点进详情页', (tester) async {
+  // G1c: 首页“今日知识点”卡片已移除，改为从知识库列表进详情页。
+  testWidgets('知识库列表进知识点详情页', (tester) async {
     await loginToHome(tester);
+    await _openDetailFromList(tester);
 
-    await tester.ensureVisible(find.text('样例知识点：VLAN 是什么'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('样例知识点：VLAN 是什么'));
-    await tester.pumpAndSettle();
     expect(find.byType(KnowledgeDetailPage), findsOneWidget);
-    expect(find.text('返回首页'), findsOneWidget);
+    expect(find.text('返回知识库'), findsOneWidget);
   });
 
-  testWidgets('首页章节速览切到知识库 tab', (tester) async {
+  // G1c: 首页“章节速览”卡片已移除，直接点底栏知识 tab 进列表页。
+  testWidgets('点底栏知识进列表页', (tester) async {
     await loginToHome(tester);
 
-    await tester.ensureVisible(find.text('章节速览'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('章节速览'));
+    await tester.tap(_navTab('知识'));
     await tester.pumpAndSettle();
     expect(find.byType(KnowledgeHomePage), findsOneWidget);
     expect(find.text('样例章节：VLAN 基础'), findsOneWidget);
