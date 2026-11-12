@@ -138,6 +138,42 @@ void main() {
     expect(find.text('暂无收藏'), findsOneWidget);
   });
 
+  testWidgets('410 宽视口下套卷卡模块标签单行不溢出', (tester) async {
+    tester.view.physicalSize = const Size(410, 890);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _loginToHome(tester);
+    await tester.tap(_navTab('题库'));
+    await tester.pumpAndSettle();
+
+    // 5 个模块标签都渲染；若标签换行会撑破套卷卡 104 固定高，触发 RenderFlex 溢出。
+    for (final label in const ['VLAN', 'OSPF', 'ACL', 'NAT', '子网划分']) {
+      expect(find.text(label), findsWidgets);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('只看错题空态 / 只看未做显示样题列表', (tester) async {
+    await _loginToHome(tester);
+    await tester.tap(_navTab('题库'));
+    await tester.pumpAndSettle();
+
+    // Mock 错题本为空：只看错题 -> 空态。
+    await tester.tap(find.text('只看错题'));
+    await tester.pumpAndSettle();
+    expect(find.text('暂无符合条件的题目'), findsOneWidget);
+
+    // 关掉“只看错题”，再开“只看未做”（样题全部未做 -> 列表照常显示）。
+    await tester.tap(find.text('只看错题'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('只看未做'));
+    await tester.pumpAndSettle();
+    expect(find.text('暂无符合条件的题目'), findsNothing);
+    expect(find.byType(ListTile), findsWidgets);
+  });
+
   testWidgets('首页学习统计方块进统计页', (tester) async {
     await _loginToHome(tester);
 

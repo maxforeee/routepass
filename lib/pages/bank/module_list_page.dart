@@ -12,10 +12,7 @@ import '../../core/theme.dart';
 import '../../models/question.dart';
 import '../../models/stats.dart';
 import '../../router/app_router.dart';
-import '../../widgets/account_sheet.dart';
-
-/// Mock 暂无套卷作答进度，进度环恒为 0（接后端后按练习记录计算）。
-const double _mockSetProgress = 0;
+import '../../widgets/page_header.dart';
 
 /// 模块代码 -> 中文展示名（套卷卡标签用完整名“子网划分”）。
 String _moduleLabel(String module) => module == 'SUBNET' ? '子网划分' : module;
@@ -30,6 +27,10 @@ class BankModuleListPage extends StatefulWidget {
 class _BankModuleListPageState extends State<BankModuleListPage> {
   List<ModuleStat> _modules = const <ModuleStat>[];
   List<Question> _samples = const <Question>[];
+  List<String> _wrongIds = const <String>[];
+
+  /// 已作答题目 id 集合（当前无作答记录源，恒为空；接后端后按练习记录填充）。
+  final Set<String> _answeredIds = <String>{};
   int _wrongCount = 0;
   int _favoriteCount = 0;
   String _query = '';
@@ -65,6 +66,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
       setState(() {
         _modules = modules;
         _samples = samples;
+        _wrongIds = wrong.map((w) => w.question_id).toList();
         _wrongCount = wrong.length;
         _favoriteCount = favs.length;
       });
@@ -89,11 +91,24 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
     if (_typeFilter != null) {
       list = list.where((q) => q.type == _typeFilter).toList();
     }
-    if (_onlyUnanswered || _onlyWrong) {
-      // Mock 无作答记录与错题记录，筛选项恒为空（接后端后按 practice_records / wrong_items 过滤）。
-      return const <Question>[];
+    if (_onlyWrong) {
+      list = list.where((q) => _wrongIds.contains(q.id)).toList();
+    }
+    if (_onlyUnanswered) {
+      list = list.where((q) => !_answeredIds.contains(q.id)).toList();
     }
     return list;
+  }
+
+  /// 汇总已加载模块的作答进度（sum answered / sum total，total 为 0 时取 0）。
+  double get _moduleProgress {
+    var answered = 0;
+    var total = 0;
+    for (final m in _modules) {
+      answered += m.answered;
+      total += m.total;
+    }
+    return total == 0 ? 0 : answered / total;
   }
 
   void _openQuiz(String mode, int drawCount) {
@@ -124,107 +139,92 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: AppColors.pageBackground(context),
+      body: SafeArea(
+        child: Column(
           children: [
-            Text(
-              '题库',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.xs,
+              ),
+              child: PageHeader(title: '题库', subtitle: 'H3CNE 300 道 · 每套含解析'),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                AppSpacing.xs,
+              ),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: '搜索题目',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.card),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.card),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                ),
+                onChanged: (v) => setState(() => _query = v.trim()),
               ),
             ),
-            Text(
-              'H3CNE 300 道 · 每套含解析',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: AppFontSizes.pageSubtitle,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Row(
+                children: [
+                  ..._moduleNames.map(
+                    (m) => _chip(
+                      label: _moduleLabel(m),
+                      selected: _moduleFilter == m,
+                      onSelected: (v) =>
+                          setState(() => _moduleFilter = v ? m : null),
+                    ),
+                  ),
+                  _chip(
+                    label: '单选',
+                    selected: _typeFilter == 'single',
+                    onSelected: (v) =>
+                        setState(() => _typeFilter = v ? 'single' : null),
+                  ),
+                  _chip(
+                    label: '多选',
+                    selected: _typeFilter == 'multiple',
+                    onSelected: (v) =>
+                        setState(() => _typeFilter = v ? 'multiple' : null),
+                  ),
+                  _chip(
+                    label: '只看未做',
+                    selected: _onlyUnanswered,
+                    onSelected: (v) => setState(() => _onlyUnanswered = v),
+                  ),
+                  _chip(
+                    label: '只看错题',
+                    selected: _onlyWrong,
+                    onSelected: (v) => setState(() => _onlyWrong = v),
+                  ),
+                ],
               ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Expanded(
+              child: _filtering ? _buildResults(theme) : _buildSets(theme),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sync_outlined),
-            tooltip: '同步诊断',
-            onPressed: () => showAccountSheet(context),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.xs,
-              AppSpacing.md,
-              AppSpacing.xs,
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: '搜索题目',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: theme.colorScheme.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.card),
-                  borderSide: BorderSide(
-                    color: theme.colorScheme.outlineVariant,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.card),
-                  borderSide: BorderSide(
-                    color: theme.colorScheme.outlineVariant,
-                  ),
-                ),
-              ),
-              onChanged: (v) => setState(() => _query = v.trim()),
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Row(
-              children: [
-                ..._moduleNames.map(
-                  (m) => _chip(
-                    label: _moduleLabel(m),
-                    selected: _moduleFilter == m,
-                    onSelected: (v) =>
-                        setState(() => _moduleFilter = v ? m : null),
-                  ),
-                ),
-                _chip(
-                  label: '单选',
-                  selected: _typeFilter == 'single',
-                  onSelected: (v) =>
-                      setState(() => _typeFilter = v ? 'single' : null),
-                ),
-                _chip(
-                  label: '多选',
-                  selected: _typeFilter == 'multiple',
-                  onSelected: (v) =>
-                      setState(() => _typeFilter = v ? 'multiple' : null),
-                ),
-                _chip(
-                  label: '只看未做',
-                  selected: _onlyUnanswered,
-                  onSelected: (v) => setState(() => _onlyUnanswered = v),
-                ),
-                _chip(
-                  label: '只看错题',
-                  selected: _onlyWrong,
-                  onSelected: (v) => setState(() => _onlyWrong = v),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Expanded(
-            child: _filtering ? _buildResults(theme) : _buildSets(theme),
-          ),
-        ],
       ),
     );
   }
@@ -277,6 +277,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           title: '100 题套卷',
           subtitle: '100 题 · 5 个模块 · 含解析',
           modules: modules,
+          progress: _moduleProgress,
           onTap: () => _openSetDetail(100),
         ),
         const SizedBox(height: AppSpacing.cardGap),
@@ -284,6 +285,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           title: '200 题套卷',
           subtitle: '200 题 · 5 个模块 · 含解析',
           modules: modules,
+          progress: _moduleProgress,
           onTap: () => _openSetDetail(200),
         ),
         const SizedBox(height: AppSpacing.cardGap),
@@ -291,6 +293,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           title: '50 题套卷',
           subtitle: '50 题 · 5 个模块 · 含解析',
           modules: modules,
+          progress: _moduleProgress,
           onTap: () => _openSetDetail(50),
         ),
         const SizedBox(height: AppSpacing.cardGap),
@@ -298,6 +301,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
           title: '10 题速练',
           subtitle: '10 题 · 5 个模块 · 含解析',
           modules: modules,
+          progress: _moduleProgress,
           onTap: () => _openQuiz('quick', 10),
         ),
         const SizedBox(height: AppSpacing.cardGap),
@@ -336,9 +340,7 @@ class _BankModuleListPageState extends State<BankModuleListPage> {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              _onlyUnanswered || _onlyWrong
-                  ? '暂无符合条件的题目（Mock 无作答/错题记录）'
-                  : '没有找到相关题目',
+              _onlyUnanswered || _onlyWrong ? '暂无符合条件的题目' : '没有找到相关题目',
               style: theme.textTheme.bodyMedium,
             ),
           ],
@@ -387,12 +389,14 @@ class _SetCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.modules,
+    required this.progress,
     required this.onTap,
   });
 
   final String title;
   final String subtitle;
   final List<String> modules;
+  final double progress;
   final VoidCallback onTap;
 
   @override
@@ -413,7 +417,7 @@ class _SetCard extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.sm),
             child: Row(
               children: [
-                const _SetProgressRing(value: _mockSetProgress),
+                _SetProgressRing(value: progress),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
@@ -429,31 +433,39 @@ class _SetCard extends StatelessWidget {
                       const SizedBox(height: AppSpacing.xxs),
                       Text(
                         subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Wrap(
-                        spacing: AppSpacing.xxs,
-                        runSpacing: AppSpacing.xxs,
+                      const SizedBox(height: AppSpacing.xxs),
+                      Row(
                         children: modules.map((m) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xs,
-                              vertical: AppSpacing.xxs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.xs,
+                          return Flexible(
+                            child: Container(
+                              margin: const EdgeInsets.only(
+                                right: AppSpacing.xxs,
                               ),
-                            ),
-                            child: Text(
-                              _moduleLabel(m),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontSize: AppFontSizes.setCardTag,
-                                color: theme.colorScheme.onSurfaceVariant,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.xs,
+                                vertical: AppSpacing.xxs,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.xs,
+                                ),
+                              ),
+                              child: Text(
+                                _moduleLabel(m),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontSize: AppFontSizes.setCardTag,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           );
