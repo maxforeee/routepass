@@ -22,6 +22,14 @@ class AppColors {
   static const Color warningContainerLight = Color(0xFFFEF3C7);
   static const Color warningContainerDark = Color(0xFF451A03);
 
+  /// 品牌页固定色（启动页、Logo 等，不随深浅色模式变化，与 mockup 一致）。
+  /// 深色模式下品牌页仍用浅底深字，保证品牌观感统一。
+  static const Color pageBackgroundLight = Color(0xFFF8FAFC);
+  static const Color brandPrimary = Color(0xFF2563EB);
+  static const Color brandOnPrimary = Color(0xFFFFFFFF);
+  static const Color brandTitle = Color(0xFF0F172A);
+  static const Color brandCaption = Color(0xFF94A3B8);
+
   static Color success(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? successDark
@@ -46,6 +54,23 @@ class AppTheme {
 
   /// 等宽字体族（IP、命令、数字用等宽字体，§22.3.2）。
   static const String monoFontFamily = 'monospace';
+
+  /// 品牌页标题（启动页“路由通”，28 粗体）。
+  static const TextStyle brandTitleStyle = TextStyle(
+    fontSize: 28,
+    height: 1.4,
+    fontWeight: FontWeight.w700,
+    color: AppColors.brandTitle,
+  );
+
+  /// 品牌页副标（“ROUTEPASS”字样，14 常规、宽字距；mockup 未给确切字距，取 4）。
+  static const TextStyle brandCaptionStyle = TextStyle(
+    fontSize: 14,
+    height: 1.4,
+    fontWeight: FontWeight.w400,
+    letterSpacing: 4,
+    color: AppColors.brandCaption,
+  );
 
   static ThemeData get light {
     const scheme = ColorScheme(

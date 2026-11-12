@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config.dart';
 import '../../core/service_locator.dart';
+import '../../core/theme.dart';
 import '../../router/app_router.dart';
 import '../../widgets/force_upgrade_dialog.dart';
+import '../../widgets/route_pass_logo.dart';
 
 /// 启动页（第 2 章 §14.4：按序 6 步，总耗时 ≤2.0 秒，断网不卡启动页，一次性跳转）。
 ///
@@ -53,6 +56,23 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return Scaffold(
+      backgroundColor: AppColors.pageBackgroundLight,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const RoutePassLogo(size: 72),
+            const SizedBox(height: 28),
+            Text(AppConfig.appNameCn, style: AppTheme.brandTitleStyle),
+            const SizedBox(height: 14),
+            Text(
+              AppConfig.appName.toUpperCase(),
+              style: AppTheme.brandCaptionStyle,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
