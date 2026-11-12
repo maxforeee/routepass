@@ -83,6 +83,8 @@ class AppSizes {
   static const double borderWidth = 1;
   static const double focusedBorderWidth = 1.5;
   static const double icon = 20;
+  static const double avatarRadius = 20;
+  static const double progressRing = 40;
 }
 
 /// 品牌页圆角（逻辑像素）。
@@ -91,6 +93,7 @@ class AppRadii {
 
   static const double input = 14;
   static const double button = 14;
+  static const double card = 16;
 }
 
 class AppTheme {

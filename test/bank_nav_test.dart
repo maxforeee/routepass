@@ -73,7 +73,7 @@ Future<void> _loginToHome(WidgetTester tester) async {
   // 上一个用例可能停在别的 tab（AppShell 按 kv `ui.lastTab` 恢复）；先切回首页。
   await tester.tap(_navTab('首页'));
   await tester.pumpAndSettle();
-  expect(find.textContaining('欢迎回来'), findsOneWidget);
+  expect(find.textContaining('，Max'), findsOneWidget);
 }
 
 void main() {
@@ -141,7 +141,7 @@ void main() {
     expect(find.byType(StatsPage), findsOneWidget);
   });
 
-  testWidgets('kv 有进度指针时首页显示继续学习', (tester) async {
+  testWidgets('kv 有进度指针时首页不再显示继续学习', (tester) async {
     ServiceLocator.kvStore.setString(
       KvStore.keyHomeContinue,
       jsonEncode(
@@ -156,6 +156,6 @@ void main() {
     addTearDown(() => ServiceLocator.kvStore.remove(KvStore.keyHomeContinue));
 
     await _loginToHome(tester);
-    expect(find.text('继续学习'), findsOneWidget);
+    expect(find.text('继续学习'), findsNothing);
   });
 }

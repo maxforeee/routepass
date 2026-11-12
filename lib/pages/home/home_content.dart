@@ -1,4 +1,4 @@
-/// 首页 tab 内容（T3 按 §22.4 重做为 12 方块瀑布流）。
+/// 首页 tab 内容（R3a：问候区 + #DBEAFE 横幅 + 10 张卡片瀑布流）。
 library;
 
 import 'package:flutter/material.dart';
@@ -8,11 +8,12 @@ import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/content.dart';
 import '../../models/knowledge_point.dart';
-import '../../models/practice.dart';
 import '../../models/stats.dart';
 import '../../models/sync.dart';
+import '../../models/user.dart';
 import '../../router/app_router.dart';
 import '../../widgets/account_sheet.dart';
+import '../../widgets/user_avatar.dart';
 
 class HomeContentPage extends StatefulWidget {
   const HomeContentPage({super.key, required this.onSelectTab});
@@ -24,7 +25,7 @@ class HomeContentPage extends StatefulWidget {
 }
 
 class _HomeContentPageState extends State<HomeContentPage> {
-  ContinueSession? _continueSession;
+  User? _user;
   int _wrongCount = 0;
   KnowledgePoint? _dailyPoint;
   List<Chapter> _chapters = const <Chapter>[];
@@ -39,12 +40,11 @@ class _HomeContentPageState extends State<HomeContentPage> {
   }
 
   Future<void> _load() async {
-    ContinueSession? continueSession;
+    User? user;
     try {
-      continueSession = await ServiceLocator.practiceService
-          .getContinueSession();
+      user = await ServiceLocator.authService.getCurrentUser();
     } catch (_) {
-      continueSession = null;
+      user = null;
     }
     int wrongCount = 0;
     try {
@@ -85,7 +85,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
     }
     if (!mounted) return;
     setState(() {
-      _continueSession = continueSession;
+      _user = user;
       _wrongCount = wrongCount;
       _dailyPoint = dailyPoint;
       _chapters = chapters;
@@ -95,10 +95,19 @@ class _HomeContentPageState extends State<HomeContentPage> {
     });
   }
 
-  bool get _showSyncCard {
-    final sync = _syncStatus;
-    if (sync == null) return false;
-    return sync.pendingCount > 0 || sync.state == 'offline';
+  /// 时段问候：早上好 / 下午好 / 晚上好 + 当前登录用户昵称。
+  String get _greetingText {
+    final hour = DateTime.now().hour;
+    final String prefix;
+    if (hour < 12) {
+      prefix = '早上好';
+    } else if (hour < 18) {
+      prefix = '下午好';
+    } else {
+      prefix = '晚上好';
+    }
+    final name = _user?.nickname ?? _user?.username ?? '';
+    return name.isEmpty ? prefix : '$prefix，$name';
   }
 
   String get _todaySummary {
@@ -112,7 +121,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
   String get _dateLabel {
     final now = DateTime.now();
     const weekdays = <String>['一', '二', '三', '四', '五', '六', '日'];
-    return '${now.month}月${now.day}日 星期${weekdays[now.weekday - 1]}';
+    return '${now.month}月${now.day}日星期${weekdays[now.weekday - 1]}';
   }
 
   void _openSyncSheet() {
@@ -174,16 +183,20 @@ class _HomeContentPageState extends State<HomeContentPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final syncState = _syncStatus?.state ?? 'local_only';
-    final continueSession = _continueSession;
     final dailyPoint = _dailyPoint;
+    final user = _user;
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '欢迎回来，Max',
-              style: theme.textTheme.titleLarge?.copyWith(fontSize: 20),
+              _greetingText,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
             Text(
               _dateLabel,
@@ -195,104 +208,84 @@ class _HomeContentPageState extends State<HomeContentPage> {
         ),
         actions: [
           _SyncChip(state: syncState, onTap: _openSyncSheet),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: '账户与同步',
-            onPressed: () => showAccountSheet(context),
+          const SizedBox(width: AppSpacing.xs),
+          UserAvatar(
+            username: user?.username ?? '',
+            onTap: () => showAccountSheet(context),
           ),
+          const SizedBox(width: AppSpacing.md),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.md),
           children: [
-            Text(
-              _todaySummary,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            _Banner(
+              summary: _todaySummary,
+              onStart: () => _openQuiz('quick', 10),
             ),
-            const SizedBox(height: 12),
-            if (continueSession != null) ...[
-              _ContinueHero(
-                session: continueSession,
-                onTap: () => Navigator.of(context).pushNamed(
-                  AppRoutes.bankQuiz,
-                  arguments: <String, Object?>{
-                    'mode': continueSession.mode,
-                    'questionId': continueSession.questionId,
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
+            const SizedBox(height: AppSpacing.sm),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
                     children: [
-                      _HomeBlock(
-                        height: 150,
+                      _IconCard(
+                        icon: Icons.bolt,
+                        iconColor: theme.colorScheme.primary,
+                        title: '快速 10 题',
+                        subtitle: '随机 10 题 · 约 5 分钟',
                         onTap: () => _openQuiz('quick', 10),
-                        child: const _BlockIconText(
-                          icon: Icons.quiz_outlined,
-                          title: '快速 10 题',
-                          subtitle: '随机 10 题·约 5 分钟',
-                        ),
                       ),
-                      const SizedBox(height: 12),
-                      _ExamBlock(
-                        title: '200 题套卷',
+                      const SizedBox(height: AppSpacing.sm),
+                      _ExamSetCard(
+                        count: 200,
                         onTap: () => _openQuiz('exam', 200),
                       ),
-                      const SizedBox(height: 12),
-                      _HomeBlock(
-                        height: 140,
+                      const SizedBox(height: AppSpacing.sm),
+                      _IconCard(
+                        icon: Icons.menu_book_outlined,
+                        iconColor: theme.colorScheme.error,
+                        title: '错题本',
+                        subtitle: _wrongCount == 0 ? '暂无错题' : '$_wrongCount 道',
                         onTap: () =>
                             Navigator.of(context)
                                 .pushNamed(AppRoutes.bankWrong),
-                        child: _BlockTitleBadge(
-                          title: '错题本',
-                          badge: '$_wrongCount 道',
-                        ),
                       ),
-                      const SizedBox(height: 12),
-                      _HomeBlock(
-                        height: 140,
+                      const SizedBox(height: AppSpacing.sm),
+                      _ChapterCard(
+                        chapters: _chapters,
                         onTap: () => widget.onSelectTab(2),
-                        child: _ChapterBlockContent(chapters: _chapters),
                       ),
-                      const SizedBox(height: 12),
-                      _HomeBlock(
-                        height: 130,
+                      const SizedBox(height: AppSpacing.sm),
+                      _IconCard(
+                        icon: Icons.swap_horiz,
+                        iconColor: theme.colorScheme.primary,
+                        title: 'IP/进制转换',
+                        subtitle: '二/十/十六进制',
                         onTap: () => widget.onSelectTab(3),
-                        child: const _BlockIconText(
-                          icon: Icons.swap_horiz,
-                          title: 'IP/进制转换',
-                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     children: [
-                      _ExamBlock(
-                        title: '100 题套卷',
+                      _ExamSetCard(
+                        count: 100,
                         onTap: () => _openQuiz('exam', 100),
                       ),
-                      const SizedBox(height: 12),
-                      _ExamBlock(
-                        title: '50 题套卷',
-                        height: 150,
+                      const SizedBox(height: AppSpacing.sm),
+                      _ExamSetCard(
+                        count: 50,
                         onTap: () => _openQuiz('exam', 50),
                       ),
-                      const SizedBox(height: 12),
-                      _HomeBlock(
-                        height: 160,
+                      const SizedBox(height: AppSpacing.sm),
+                      _DailyPointCard(
+                        point: dailyPoint,
                         onTap: dailyPoint == null
                             ? null
                             : () => Navigator.of(context).pushNamed(
@@ -302,41 +295,30 @@ class _HomeContentPageState extends State<HomeContentPage> {
                                   'returnTo': 'home',
                                 },
                               ),
-                        child: _DailyPointContent(point: dailyPoint),
                       ),
-                      const SizedBox(height: 12),
-                      _HomeBlock(
-                        height: 130,
+                      const SizedBox(height: AppSpacing.sm),
+                      _IconCard(
+                        icon: Icons.calculate_outlined,
+                        iconColor: theme.colorScheme.primary,
+                        title: '子网计算器',
+                        subtitle: '网络 / 广播 / 主机数',
                         onTap: () =>
                             Navigator.of(context)
                                 .pushNamed(AppRoutes.toolboxSubnet),
-                        child: const _BlockIconText(
-                          icon: Icons.calculate_outlined,
-                          title: '子网计算器',
-                        ),
                       ),
-                      const SizedBox(height: 12),
-                      _HomeBlock(
-                        height: 120,
+                      const SizedBox(height: AppSpacing.sm),
+                      _StatsCard(
+                        overview: _overview,
                         onTap: () =>
                             Navigator.of(context)
                                 .pushNamed(AppRoutes.bankStats),
-                        child: _StatsContent(overview: _overview),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            if (_showSyncCard) ...[
-              const SizedBox(height: 12),
-              _HomeBlock(
-                height: 96,
-                onTap: _openSyncSheet,
-                child: _SyncCardContent(sync: _syncStatus!),
-              ),
-            ],
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
           ],
         ),
       ),
@@ -344,153 +326,183 @@ class _HomeContentPageState extends State<HomeContentPage> {
   }
 }
 
-/// 方块通用容器：固定高、圆角 16、内边距 16，点按有涟漪。
-class _HomeBlock extends StatelessWidget {
-  const _HomeBlock({required this.height, required this.child, this.onTap});
+/// 卡片通用容器：圆角 16、浅灰边框、轻微阴影，点按有涟漪；高度随内容自适应。
+class _Card extends StatelessWidget {
+  const _Card({required this.child, this.onTap});
 
-  final double height;
   final Widget child;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(padding: const EdgeInsets.all(16), child: child),
+    final theme = Theme.of(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: child,
         ),
       ),
     );
   }
 }
 
-/// 图标 + 标题（+副标）型方块内容。
-class _BlockIconText extends StatelessWidget {
-  const _BlockIconText({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-  });
+/// 浅蓝横幅（#DBEAFE）：左文案 + 右“开始”按钮（快速 10 题）。
+class _Banner extends StatelessWidget {
+  const _Banner({required this.summary, required this.onStart});
 
-  final IconData icon;
-  final String title;
-  final String? subtitle;
+  final String summary;
+  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 32, color: theme.colorScheme.primary),
-        const SizedBox(height: 8),
-        Text(title, style: theme.textTheme.titleMedium),
-        if (subtitle != null) ...[
-          const SizedBox(height: 4),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  summary,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  '从快速 10 题开始，约 5 分钟',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          FilledButton(
+            onPressed: onStart,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(64, 36),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            ),
+            child: const Text('开始'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 图标 + 标题 + 副标型卡片（快速 10 题 / 错题本 / 子网计算器 / IP 转换）。
+class _IconCard extends StatelessWidget {
+  const _IconCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _Card(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 32, color: iconColor),
+          const SizedBox(height: AppSpacing.xs),
+          Text(title, style: _cardTitleStyle(theme)),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
-            subtitle!,
+            subtitle,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
 
-/// 标题 + 数量徽标型方块内容（错题本）。
-class _BlockTitleBadge extends StatelessWidget {
-  const _BlockTitleBadge({required this.title, required this.badge});
+/// 套卷卡片（100/200/50 题）：进度环 0% + 列表图标 + 标题 + 5 个模块小标签。
+class _ExamSetCard extends StatelessWidget {
+  const _ExamSetCard({required this.count, required this.onTap});
 
-  final String title;
-  final String badge;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.errorContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            badge,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onErrorContainer,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// 套卷方块：标题 + 进度环（右）+ 覆盖模块小 chips。
-class _ExamBlock extends StatelessWidget {
-  const _ExamBlock({
-    required this.title,
-    required this.onTap,
-    this.height = 170,
-  });
-
-  final String title;
+  final int count;
   final VoidCallback onTap;
-  final double height;
 
   static const List<String> _modules = <String>[
     'VLAN',
     'OSPF',
     'ACL',
     'NAT',
-    '子网',
+    '子网划分',
   ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return _HomeBlock(
-      height: height,
+    return _Card(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
-              const SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(value: 0),
+              const _ProgressRing(value: 0),
+              const Spacer(),
+              Icon(
+                Icons.list_alt_outlined,
+                size: AppSizes.icon,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
+          Text('$count 题套卷', style: _cardTitleStyle(theme)),
+          const SizedBox(height: AppSpacing.xs),
           Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: _modules.map((m) {
+            spacing: AppSpacing.xxs,
+            runSpacing: AppSpacing.xxs,
+            children: _modules.map((module) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: AppSpacing.xxs,
+                ),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppSpacing.xs),
                 ),
                 child: Text(
-                  m,
+                  module,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               );
@@ -502,187 +514,241 @@ class _ExamBlock extends StatelessWidget {
   }
 }
 
-/// 继续学习 hero：左文案 + 进度条，右“继续”按钮。
-class _ContinueHero extends StatelessWidget {
-  const _ContinueHero({required this.session, required this.onTap});
+/// 灰色进度环 + 中间百分比文字（套卷卡 0%）。
+class _ProgressRing extends StatelessWidget {
+  const _ProgressRing({required this.value});
 
-  final ContinueSession session;
-  final VoidCallback onTap;
+  final double value;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final progress = session.totalCount == 0
-        ? 0.0
-        : session.answeredCount / session.totalCount;
+    final percent = (value * 100).round();
     return SizedBox(
-      height: 120,
-      child: Card(
-        margin: EdgeInsets.zero,
-        color: theme.colorScheme.primaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '继续学习',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '已完成 ${session.answeredCount}/${session.totalCount} 题',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(value: progress),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                FilledButton(
-                  onPressed: onTap,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(72, 40),
-                  ),
-                  child: const Text('继续'),
-                ),
-              ],
+      width: AppSizes.progressRing,
+      height: AppSizes.progressRing,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CircularProgressIndicator(
+            value: value,
+            strokeWidth: 3,
+            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          Center(
+            child: Text(
+              '$percent%',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-/// 章节速览方块内容。
-class _ChapterBlockContent extends StatelessWidget {
-  const _ChapterBlockContent({required this.chapters});
+/// 章节速览卡片：图标 + 小标题 + 章节名（粗）+ 掌握进度。
+class _ChapterCard extends StatelessWidget {
+  const _ChapterCard({required this.chapters, required this.onTap});
 
   final List<Chapter> chapters;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('章节速览', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        if (chapters.isEmpty)
-          Text(
-            '暂无章节',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          )
-        else ...[
-          Text(
-            chapters.first.title,
-            style: theme.textTheme.bodyMedium,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    final hasChapter = chapters.isNotEmpty;
+    final title = hasChapter ? chapters.first.title : '暂无章节';
+    final subtitle = hasChapter ? '已掌握 0/${chapters.length}' : null;
+    return _Card(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SmallHeading(
+            icon: Icons.layers_outlined,
+            iconColor: theme.colorScheme.primary,
+            text: '章节速览',
           ),
-          const SizedBox(height: 4),
-          Text(
-            '共 ${chapters.length} 章',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          const SizedBox(height: AppSpacing.xs),
+          Text(title, style: _cardTitleStyle(theme)),
+          if (subtitle != null) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
-/// 今日知识点方块内容。
-class _DailyPointContent extends StatelessWidget {
-  const _DailyPointContent({required this.point});
+/// 今日知识点卡片：橙色星标 + 小标题 + 完整正文（不截断）。
+class _DailyPointCard extends StatelessWidget {
+  const _DailyPointCard({required this.point, this.onTap});
 
   final KnowledgePoint? point;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final p = point;
-    if (p == null) {
-      return Column(
+    return _Card(
+      onTap: onTap,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('今日知识点', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(
-            '暂无知识点',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          _SmallHeading(
+            icon: Icons.star,
+            iconColor: AppColors.warning(context),
+            text: '今日知识点',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          if (p == null)
+            Text(
+              '暂无知识点',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else ...[
+            Text(
+              '${p.code} · ${p.topic}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              p.title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              p.summary,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          p.code,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          p.title,
-          style: theme.textTheme.titleMedium,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          p.summary,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+      ),
     );
   }
 }
 
-/// 学习统计方块内容。
-class _StatsContent extends StatelessWidget {
-  const _StatsContent({required this.overview});
+/// 学习统计卡片：小标题 + 三个数字并排（空值如实展示）。
+class _StatsCard extends StatelessWidget {
+  const _StatsCard({required this.overview, required this.onTap});
 
   final StatsOverview? overview;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ov = overview;
+    final correctRate = ov == null || ov.answeredTotal == 0
+        ? '–'
+        : '${(ov.correctRate * 100).round()}%';
+    return _Card(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SmallHeading(
+            icon: Icons.insert_chart_outlined,
+            iconColor: theme.colorScheme.primary,
+            text: '学习统计',
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              Expanded(
+                child: _StatValue(
+                  value: '${ov?.streakDays ?? 0}',
+                  label: '连续天数',
+                ),
+              ),
+              Expanded(
+                child: _StatValue(value: correctRate, label: '正确率'),
+              ),
+              Expanded(
+                child: _StatValue(
+                  value: '${ov?.answeredTotal ?? 0}',
+                  label: '累计答题',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 小标题（章节速览 / 今日知识点 / 学习统计 上方的小字标题）。
+class _SmallHeading extends StatelessWidget {
+  const _SmallHeading({
+    required this.icon,
+    required this.iconColor,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: AppSizes.icon, color: iconColor),
+        const SizedBox(width: AppSpacing.xxs),
+        Text(
+          text,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 统计卡里的单个数值 + 标签。
+class _StatValue extends StatelessWidget {
+  const _StatValue({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('学习统计', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text('连续 ${ov?.streakDays ?? 0} 天', style: theme.textTheme.bodyMedium),
-        const SizedBox(height: 4),
         Text(
-          ov == null || ov.answeredTotal == 0
-              ? '暂无数据'
-              : '正确率 ${(ov.correctRate * 100).round()}%',
+          value,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          label,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -692,29 +758,9 @@ class _StatsContent extends StatelessWidget {
   }
 }
 
-/// 同步/版本卡内容（条件出现）。
-class _SyncCardContent extends StatelessWidget {
-  const _SyncCardContent({required this.sync});
-
-  final SyncStatus sync;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('同步/版本', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text(
-          sync.pendingCount > 0 ? '待同步 ${sync.pendingCount} 条' : '离线，未同步',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
+/// 卡片标题样式：约 15px 加粗、深色。
+TextStyle _cardTitleStyle(ThemeData theme) {
+  return theme.textTheme.titleSmall!.copyWith(fontWeight: FontWeight.bold);
 }
 
 /// 同步诊断 sheet 里的一行。

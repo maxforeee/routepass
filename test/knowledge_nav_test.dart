@@ -68,7 +68,7 @@ Future<void> _loginToHome(WidgetTester tester) async {
 
   await tester.tap(_navTab('首页'));
   await tester.pumpAndSettle();
-  expect(find.textContaining('欢迎回来'), findsOneWidget);
+  expect(find.textContaining('，Max'), findsOneWidget);
 }
 
 /// 从知识库列表进详情页（点行展开面板，再点“查看详情”）。

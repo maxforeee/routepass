@@ -57,25 +57,31 @@ Future<void> _loginToHome(WidgetTester tester) async {
     await tester.pumpAndSettle();
   }
 
-  expect(find.textContaining('欢迎回来'), findsOneWidget);
+  expect(find.textContaining('好，'), findsOneWidget);
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _initServices();
 
-  testWidgets('首页 12 方块瀑布流：关键方块齐全，继续学习（H-B1）隐藏', (tester) async {
+  testWidgets('首页 10 卡片瀑布流：关键卡片齐全，继续学习（H-B1）隐藏', (tester) async {
     await _loginToHome(tester);
 
     expect(find.text('快速 10 题'), findsOneWidget);
     expect(find.text('100 题套卷'), findsOneWidget);
+    expect(find.text('200 题套卷'), findsOneWidget);
+    expect(find.text('50 题套卷'), findsOneWidget);
     expect(find.text('错题本'), findsOneWidget);
+    expect(find.text('章节速览'), findsOneWidget);
+    expect(find.text('今日知识点'), findsOneWidget);
     expect(find.text('子网计算器'), findsOneWidget);
+    expect(find.text('IP/进制转换'), findsOneWidget);
     expect(find.text('学习统计'), findsOneWidget);
 
     // Mock 无继续会话 → H-B1 隐藏。
     expect(find.text('继续学习'), findsNothing);
 
+    // 横幅标题（今日未完成任务）。
     expect(find.text('今天还没有完成任务'), findsOneWidget);
   });
 }
