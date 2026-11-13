@@ -223,41 +223,6 @@ void main() {
     }
   });
 
-  testWidgets('首页套卷卡进详情页，快速 10 题直达答题页', (tester) async {
-    await loginToHome(tester);
-
-    // R3：题库区改为懒加载行列表，首页有两个 ListView（外层 + 内层
-    // shrinkWrap），拖拽须用 Scrollable.first 定位外层。
-    for (var i = 0; i < 8 && find.text('100 题套卷').evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
-      await tester.pumpAndSettle();
-    }
-    // 再向上滚一段，让卡片离开底部悬浮导航的遮挡区再点。
-    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('100 题套卷'));
-    await tester.pumpAndSettle();
-    expect(find.byType(SetDetailPage), findsOneWidget);
-    expect(find.text('100 题套卷'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('返回'));
-    await tester.pumpAndSettle();
-
-    // R3：快速 10 题入口卡已删；横幅“开始”按钮直达快速 10 题答题页。
-    // 先向上滚回顶部，让横幅按钮可见再点。
-    for (
-      var i = 0;
-      i < 8 && find.widgetWithText(FilledButton, '开始').evaluate().isEmpty;
-      i++
-    ) {
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, 300));
-      await tester.pumpAndSettle();
-    }
-    await tester.tap(find.widgetWithText(FilledButton, '开始'));
-    await tester.pumpAndSettle();
-    expect(find.text('第 1/3 题'), findsOneWidget);
-  });
-
   testWidgets('410×890 视口无溢出且开始答题按钮可见', (tester) async {
     await tester.binding.setSurfaceSize(const Size(410, 890));
     addTearDown(() => tester.binding.setSurfaceSize(null));
