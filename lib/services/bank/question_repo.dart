@@ -28,4 +28,12 @@ abstract class QuestionRepository {
   /// 单题详情。Mock：样例题返回本身；非样例 id 返回 null（页面显示“题目不存在”）。
   /// 以后：GET /bank/questions/{id}（含答案与解析）。
   Future<Question?> getQuestionById(String id);
+
+  /// 套卷级知识点统计（F16 预留接口）：给定套卷（考试卷 id，如
+  /// `h3cne-2026-01`；或练习模块代码，如 `VLAN`）返回每模块题量与用户
+  /// 作答进度。后端尚未提供，需要新增
+  /// `GET /api/v1/bank/sets/{setId}/modules`，响应为
+  /// `[{module, total, answered, correctRate}]`（与 ModuleStat 同一契约）。
+  /// 真实实现就绪前一律返回空列表，UI 显示“待接口”，不得虚构数字。
+  Future<List<ModuleStat>> getSetModuleStats({required String setId});
 }

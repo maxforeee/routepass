@@ -98,10 +98,16 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       ? _samples
       : _samples.where((q) => q.stem.contains(_query)).toList();
 
-  void _openSetDetail(int drawCount) {
+  /// F16：把当前 tab 的真实 mode 与套卷标识传给详情页——练习 tab 进
+  /// practice 前置页（不显示答题说明卡），考试 tab 进 exam 前置页。
+  void _openSetDetail(_BankSetEntry entry) {
     Navigator.of(context).pushNamed(
       AppRoutes.bankSetDetail,
-      arguments: <String, Object?>{'mode': 'exam', 'drawCount': drawCount},
+      arguments: <String, Object?>{
+        'mode': _tab == _BankTab.exam ? 'exam' : 'practice',
+        'drawCount': entry.drawCount,
+        'setId': entry.setId,
+      },
     );
   }
 
@@ -335,7 +341,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
             title: entry.title,
             subtitle: entry.subtitle,
             trailing: SetRowTags(labels: entry.tags),
-            onTap: () => _openSetDetail(entry.drawCount),
+            onTap: () => _openSetDetail(entry),
           );
         },
       ),
@@ -351,6 +357,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
           subtitle: '${set.questionCount} 题 · 含解析',
           tags: [moduleLabel(set.module), '${set.questionCount}题'],
           drawCount: set.questionCount,
+          setId: set.module,
         ),
     ];
   }
@@ -367,6 +374,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
           subtitle: '${set.questionCount} 题 · 含解析',
           tags: [module, '模拟', '${set.questionCount}题'],
           drawCount: set.questionCount,
+          setId: set.id,
         ),
     ];
   }
@@ -442,19 +450,23 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   }
 }
 
-/// 一张 tab 内套卷卡的展示数据（标题 / 副标题 / 标签 / 点按抽题数）。
+/// 一张 tab 内套卷卡的展示数据（标题 / 副标题 / 标签 / 点按抽题数 / 套卷标识）。
 class _BankSetEntry {
   const _BankSetEntry({
     required this.title,
     required this.subtitle,
     required this.tags,
     required this.drawCount,
+    required this.setId,
   });
 
   final String title;
   final String subtitle;
   final List<String> tags;
   final int drawCount;
+
+  /// 套卷标识（F16）：考试卷 id 或练习模块代码，传给详情页预留统计接口。
+  final String setId;
 }
 
 /// tab 下方的渐隐虚线指示线（虚线段 + 两端平滑渐隐）。

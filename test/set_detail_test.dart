@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/theme.dart';
+import 'package:routepass/models/bank_manifest.dart';
+import 'package:routepass/models/stats.dart';
 import 'package:routepass/pages/bank/answer_page.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
+import 'package:routepass/services/mock/mock_bank_manifest_service.dart';
+import 'package:routepass/services/mock/mock_question_repository.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/widgets/reserved_slot.dart';
 import 'package:routepass/widgets/set_row_card.dart';
@@ -27,6 +31,45 @@ Finder get _paperCard => find.descendant(
   matching: find.widgetWithText(SetRowCard, 'H3CNE 模拟卷 A'),
 );
 
+/// 2026-11-14 实测线上清单（curl GET /api/v1/bank/manifest）：
+/// practiceByModule 与 kModuleOrder 重叠 VLAN / OSPF / ACL 各 100 题，
+/// NAT / SUBNET 无数据；H3CNE / 基础知识 不在五模块展示序内。
+const Map<String, dynamic> _liveManifestJson = <String, dynamic>{
+  'bankId': 'bank_default',
+  'version': '1.0.0',
+  'questionCount': 650,
+  'exams': <Map<String, dynamic>>[
+    <String, dynamic>{
+      'id': 'h3cne-2026-01',
+      'title': 'H3CNE 模拟卷 A',
+      'questionCount': 100,
+    },
+    <String, dynamic>{
+      'id': 'h3cne-2026-02',
+      'title': 'H3CNE 模拟卷 B',
+      'questionCount': 100,
+    },
+  ],
+  'practiceByModule': <String, dynamic>{
+    'ACL': 100,
+    'H3CNE': 100,
+    'OSPF': 100,
+    'VLAN': 100,
+    '基础知识': 50,
+  },
+};
+
+/// F16 预留套卷统计接口的测试替身：模拟后端就绪后返回真实套卷级统计。
+class _SetStatsRepository extends MockQuestionRepository {
+  @override
+  Future<List<ModuleStat>> getSetModuleStats({required String setId}) async {
+    if (setId != 'h3cne-2026-01') return const <ModuleStat>[];
+    return const <ModuleStat>[
+      ModuleStat(module: 'VLAN', total: 40, answered: 10, correctRate: 0.8),
+    ];
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   initTestServices();
@@ -44,7 +87,9 @@ void main() {
     expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
     expect(find.text('单选 75 · 多选 25'), findsOneWidget);
 
-    // 知识点考察：20px 粗体标题 + 5 个模块行（真实进度 0%）。
+    // 知识点考察：20px 粗体标题 + 5 个模块行。F16：题量/进度来自真实
+    // 数据——默认 Mock 清单只有 H3CNE（与五模块无重叠）、Mock 进度 0/0，
+    // 所以五行都显示“待接口”，不再是 drawCount 均分的假数字。
     final sectionTitle = tester.widget<Text>(find.text('知识点考察'));
     expect(sectionTitle.style?.fontSize, AppFontSizes.detailSectionTitle);
     expect(sectionTitle.style?.fontWeight, FontWeight.bold);
@@ -54,7 +99,7 @@ void main() {
     expect(find.text('ACL'), findsOneWidget);
     expect(find.text('NAT'), findsOneWidget);
     expect(find.text('子网划分'), findsOneWidget);
-    expect(find.text('20 题 · 0%'), findsNWidgets(5));
+    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
     final progressBars = find.descendant(
       of: find.byType(SetDetailPage),
       matching: find.byType(FractionallySizedBox),
@@ -66,10 +111,11 @@ void main() {
 
     expect(find.byType(ReservedSlot), findsOneWidget);
     expect(find.text('预留容器 · 以后在这里加内容'), findsOneWidget);
-    expect(find.text('答题说明'), findsOneWidget);
-    expect(find.text('限时 60 分钟，超时自动交卷'), findsOneWidget);
-    expect(find.text('交卷后可查看解析与得分'), findsOneWidget);
-    expect(find.text('做错的题自动收入错题本'), findsOneWidget);
+    // F16：这是练习 tab 进入的 practice 前置页，答题说明卡只属于考试页。
+    expect(find.text('答题说明'), findsNothing);
+    expect(find.text('限时 60 分钟，超时自动交卷'), findsNothing);
+    expect(find.text('交卷后可查看解析与得分'), findsNothing);
+    expect(find.text('做错的题自动收入错题本'), findsNothing);
     expect(find.text('开始答题'), findsOneWidget);
   });
 
@@ -129,6 +175,8 @@ void main() {
       final card = i == 0 ? _practiceCard : _paperCard;
       await tester.tap(card);
       await tester.pumpAndSettle();
+      // F16：练习前置页无答题说明卡，考试前置页有。
+      expect(find.text('答题说明'), i == 0 ? findsNothing : findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, '开始答题'));
       await tester.pumpAndSettle();
       final answer = tester.widget<AnswerPage>(find.byType(AnswerPage));
@@ -166,7 +214,8 @@ void main() {
     expect(find.text('200 题套卷'), findsOneWidget);
     expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
     expect(find.text('单选 150 · 多选 50'), findsOneWidget);
-    expect(find.text('40 题 · 0%'), findsNWidgets(5));
+    // F16：模块题量不再按 drawCount 均分，缺真实数据显示“待接口”。
+    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
     expect(find.text('限时 120 分钟，超时自动交卷'), findsOneWidget);
   });
 
@@ -184,20 +233,21 @@ void main() {
     expect(find.text('50 题套卷'), findsOneWidget);
     expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
     expect(find.text('单选 37 · 多选 13'), findsOneWidget);
-    expect(find.text('10 题 · 0%'), findsNWidgets(5));
+    // F16：模块题量不再按 drawCount 均分，缺真实数据显示“待接口”。
+    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
     expect(find.text('限时 30 分钟，超时自动交卷'), findsOneWidget);
   });
 
-  testWidgets('四套卷共用模板，数字全由 drawCount 推导', (tester) async {
-    // 100/200/50/10 同一模板：标题、单选多选、每模块题量、时长
-    // 全部按 drawCount 公式推导，不许出现写死的单套数字。
-    for (final (count, meta, perModule, minutes)
-        in <(int, String, String, String)>[
-          (100, '单选 75 · 多选 25', '20 题 · 0%', '限时 60 分钟，超时自动交卷'),
-          (200, '单选 150 · 多选 50', '40 题 · 0%', '限时 120 分钟，超时自动交卷'),
-          (50, '单选 37 · 多选 13', '10 题 · 0%', '限时 30 分钟，超时自动交卷'),
-          (10, '单选 7 · 多选 3', '2 题 · 0%', '限时 6 分钟，超时自动交卷'),
-        ]) {
+  testWidgets('四套卷共用模板，规模数字由 drawCount 推导', (tester) async {
+    // 100/200/50/10 同一模板：标题、单选多选、时长按 drawCount 公式推导，
+    // 不许出现写死的单套数字。F16：每模块题量改由真实数据决定，不再随
+    // drawCount 均分——默认 Mock 清单无重叠模块，五行恒为“待接口”。
+    for (final (count, meta, minutes) in <(int, String, String)>[
+      (100, '单选 75 · 多选 25', '限时 60 分钟，超时自动交卷'),
+      (200, '单选 150 · 多选 50', '限时 120 分钟，超时自动交卷'),
+      (50, '单选 37 · 多选 13', '限时 30 分钟，超时自动交卷'),
+      (10, '单选 7 · 多选 3', '限时 6 分钟，超时自动交卷'),
+    ]) {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
@@ -215,9 +265,9 @@ void main() {
       );
       expect(find.text(meta), findsOneWidget, reason: 'drawCount=$count 元信息');
       expect(
-        find.text(perModule),
+        find.text('题量待接口 · 进度待接口'),
         findsNWidgets(5),
-        reason: 'drawCount=$count 每模块题量',
+        reason: 'drawCount=$count 模块行（与 drawCount 无关）',
       );
       expect(find.text(minutes), findsOneWidget, reason: 'drawCount=$count 时长');
     }
@@ -291,5 +341,148 @@ void main() {
       expect(text.style?.color, isNot(AppColors.brandTitle));
     }
     expect(AppColors.title(context), const Color(0xFFFFFFFF));
+  });
+
+  testWidgets('F16 答题说明卡只在考试前置页显示', (tester) async {
+    for (final mode in <String>['practice', 'exam']) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SetDetailPage(
+            args: <String, Object?>{'mode': mode, 'drawCount': 100},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final expected = mode == 'exam' ? findsOneWidget : findsNothing;
+      expect(find.text('答题说明'), expected, reason: 'mode=$mode');
+      expect(find.text('限时 60 分钟，超时自动交卷'), expected, reason: 'mode=$mode');
+      expect(find.text('交卷后可查看解析与得分'), expected, reason: 'mode=$mode');
+      expect(find.text('做错的题自动收入错题本'), expected, reason: 'mode=$mode');
+      // 其余内容两种 mode 完全一致。
+      expect(find.text('100 题套卷'), findsOneWidget);
+      expect(find.text('知识点考察'), findsOneWidget);
+      expect(find.text('开始答题'), findsOneWidget);
+    }
+  });
+
+  testWidgets('F16 答题说明卡深浅色都跟随主题（深色不再白底白字）', (tester) async {
+    for (final theme in <ThemeData>[AppTheme.light, AppTheme.dark]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: SetDetailPage(
+            args: <String, Object?>{'mode': 'exam', 'drawCount': 100},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.text('答题说明'));
+      final card = tester.widget<Container>(
+        find
+            .ancestor(of: find.text('答题说明'), matching: find.byType(Container))
+            .first,
+      );
+      final decoration = card.decoration! as BoxDecoration;
+      final borderColor = (decoration.border! as Border).top.color;
+      final isDark = theme.brightness == Brightness.dark;
+      // 卡面 / 边框用亮度感知 token；浅色值与旧 brandSurface/brandBorder 相同。
+      expect(decoration.color, AppColors.cardSurface(context));
+      expect(borderColor, AppColors.cardBorder(context));
+      expect(
+        decoration.color,
+        isDark ? const Color(0xFF2B2B2B) : const Color(0xFFFFFFFF),
+      );
+      expect(
+        borderColor,
+        isDark ? const Color(0xFF4D4D4D) : const Color(0xFFE9E9E9),
+      );
+      // 深色下标题白字对 #2B2B2B 卡面、正文 #D2D2D2，均可读。
+      final title = tester.widget<Text>(find.text('答题说明'));
+      expect(
+        title.style?.color,
+        isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111),
+      );
+      final body = tester.widget<Text>(find.text('限时 60 分钟，超时自动交卷'));
+      expect(
+        body.style?.color,
+        isDark ? const Color(0xFFD2D2D2) : const Color(0xFF2B2B2B),
+      );
+    }
+  });
+
+  testWidgets('F16 知识点考察题量来自清单重叠模块，缺数据显示待接口', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SetDetailPage(
+          args: <String, Object?>{
+            'mode': 'exam',
+            'drawCount': 100,
+            'setId': 'h3cne-2026-01',
+          },
+          manifestService: MockBankManifestService(
+            manifest: BankManifest.fromJson(_liveManifestJson),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // VLAN / OSPF / ACL 与清单重叠 → 真实题量 100；进度无真实数据 → 待接口。
+    expect(find.text('100 题 · 进度待接口'), findsNWidgets(3));
+    // NAT / 子网划分 清单里没有 → 题量也待接口，绝不均分虚构。
+    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(2));
+    final progressBars = find.descendant(
+      of: find.byType(SetDetailPage),
+      matching: find.byType(FractionallySizedBox),
+    );
+    expect(progressBars, findsNWidgets(5));
+    for (final element in progressBars.evaluate()) {
+      expect((element.widget as FractionallySizedBox).widthFactor, 0.0);
+    }
+  });
+
+  testWidgets('F16 预留套卷统计接口就绪后优先于清单', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SetDetailPage(
+          args: <String, Object?>{
+            'mode': 'exam',
+            'drawCount': 100,
+            'setId': 'h3cne-2026-01',
+          },
+          manifestService: MockBankManifestService(
+            manifest: BankManifest.fromJson(_liveManifestJson),
+          ),
+          questionRepository: _SetStatsRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // VLAN 用套卷级统计：40 题、10/40 = 25%。
+    expect(find.text('40 题 · 25%'), findsOneWidget);
+    // OSPF / ACL 仍回退清单题量；NAT / 子网划分 仍待接口。
+    expect(find.text('100 题 · 进度待接口'), findsNWidgets(2));
+    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(2));
+    final vlanBar = tester.widget<FractionallySizedBox>(
+      find
+          .descendant(
+            of: find.byType(SetDetailPage),
+            matching: find.byType(FractionallySizedBox),
+          )
+          .first,
+    );
+    expect(vlanBar.widthFactor, 0.25);
+  });
+
+  test('F16 预留套卷统计接口默认返回空（后端未就绪，不虚构数字）', () async {
+    final repo = MockQuestionRepository();
+    expect(await repo.getSetModuleStats(setId: 'h3cne-2026-01'), isEmpty);
+    expect(await repo.getSetModuleStats(setId: 'VLAN'), isEmpty);
   });
 }

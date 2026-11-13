@@ -57,4 +57,10 @@ class MockQuestionRepository implements QuestionRepository {
     }
     return null;
   }
+
+  /// F16 预留接口：后端套卷级统计未就绪，返回空（UI 显示“待接口”）。
+  @override
+  Future<List<ModuleStat>> getSetModuleStats({required String setId}) async {
+    return const <ModuleStat>[];
+  }
 }

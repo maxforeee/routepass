@@ -1,8 +1,11 @@
 /// 套卷详情页（R5：09_set_detail mockup）。
 ///
-/// 从题库/首页的套卷“开始”进入，展示套卷规模、模块进度与答题说明；
+/// 从题库页的套卷卡进入，展示套卷规模、模块进度与答题说明；
 /// “开始答题”再进答题页。四套卷（100/200/50/10）共用本模板，
-/// 规模数字全部由路由参数 drawCount 推导。
+/// 标题 / 单选多选 / 时长由路由参数 drawCount 推导；知识点考察的
+/// 题量与进度来自真实数据（F16）：优先预留的套卷统计接口，其次
+/// 题库清单 practiceByModule 的重叠模块，取不到就显示“待接口”。
+/// 答题说明卡只在考试（mode=exam）前置页显示（F16）。
 library;
 
 import 'package:flutter/material.dart';
@@ -10,14 +13,28 @@ import 'package:flutter/material.dart';
 import '../../core/service_locator.dart';
 import '../../core/modules.dart';
 import '../../core/theme.dart';
+import '../../models/bank_manifest.dart';
 import '../../models/stats.dart';
 import '../../router/app_router.dart';
+import '../../services/bank/bank_manifest_service.dart';
+import '../../services/bank/question_repo.dart';
 import '../../widgets/reserved_slot.dart';
 
 class SetDetailPage extends StatefulWidget {
-  const SetDetailPage({super.key, required this.args});
+  const SetDetailPage({
+    super.key,
+    required this.args,
+    this.manifestService,
+    this.questionRepository,
+  });
 
   final Map<String, Object?> args;
+
+  /// 测试可注入 Mock；生产环境不传，走 ServiceLocator 里的 HTTP 实现。
+  final BankManifestService? manifestService;
+
+  /// 测试可注入 Mock；生产环境不传，走 ServiceLocator 里的实现。
+  final QuestionRepository? questionRepository;
 
   @override
   State<SetDetailPage> createState() => _SetDetailPageState();
@@ -25,6 +42,11 @@ class SetDetailPage extends StatefulWidget {
 
 class _SetDetailPageState extends State<SetDetailPage> {
   List<ModuleStat> _modules = const <ModuleStat>[];
+  List<ModuleStat> _setStats = const <ModuleStat>[];
+  BankManifest? _manifest;
+
+  late final BankManifestService _manifestService;
+  late final QuestionRepository _questionRepository;
 
   /// 套卷规模：路由参数 drawCount（100/200/50/10）。
   int get _drawCount =>
@@ -34,23 +56,42 @@ class _SetDetailPageState extends State<SetDetailPage> {
   int get _singleCount => _drawCount * 3 ~/ 4;
   int get _multipleCount => _drawCount - _singleCount;
 
-  /// 每模块题量（5 个模块均分）。
-  int get _perModuleCount => _drawCount ~/ 5;
-
   /// 时长估算：每题 0.6 分钟，四舍五入。
   int get _minutes => (_drawCount * 0.6).round();
+
+  /// F16：答题说明卡只出现在考试前置页（mode=exam），练习页不显示。
+  bool get _isExam => widget.args['mode'] == 'exam';
+
+  /// 套卷标识（F16）：考试卷 id 或练习模块代码，供预留统计接口使用。
+  String? get _setId => widget.args['setId'] as String?;
 
   @override
   void initState() {
     super.initState();
+    _manifestService =
+        widget.manifestService ?? ServiceLocator.bankManifestService;
+    _questionRepository =
+        widget.questionRepository ?? ServiceLocator.questionRepository;
     _load();
   }
 
   Future<void> _load() async {
     try {
-      final modules = await ServiceLocator.questionRepository.getModules();
+      final modules = await _questionRepository.getModules();
       if (!mounted) return;
       setState(() => _modules = modules);
+    } catch (_) {}
+    try {
+      final manifest = await _manifestService.fetchManifest();
+      if (!mounted) return;
+      setState(() => _manifest = manifest);
+    } catch (_) {}
+    final setId = _setId;
+    if (setId == null) return;
+    try {
+      final stats = await _questionRepository.getSetModuleStats(setId: setId);
+      if (!mounted) return;
+      setState(() => _setStats = stats);
     } catch (_) {}
   }
 
@@ -62,17 +103,37 @@ class _SetDetailPageState extends State<SetDetailPage> {
     return kModuleOrder;
   }
 
-  ModuleStat? _moduleStat(String module) {
-    for (final m in _modules) {
-      if (m.module == module) return m;
+  ModuleStat? _statOf(List<ModuleStat> stats, String module) {
+    for (final s in stats) {
+      if (s.module == module) return s;
     }
     return null;
   }
 
-  /// 模块进度（0–1）：Mock 无作答记录（answered/total 均为 0），故 0%。
-  double _moduleProgress(String module) {
-    final stat = _moduleStat(module);
-    if (stat == null || stat.total <= 0) return 0;
+  /// 每模块题量（F16）：优先预留套卷统计接口，其次清单 practiceByModule
+  /// 里与展示模块重叠的真实题量；都取不到返回 null（UI 显示“题量待接口”），
+  /// 不再按 drawCount 均分虚构。
+  int? _moduleCount(String module) {
+    final setStat = _statOf(_setStats, module);
+    if (setStat != null && setStat.total > 0) return setStat.total;
+    final manifest = _manifest;
+    if (manifest != null) {
+      for (final set in manifest.practiceSets) {
+        if (set.module == module) return set.questionCount;
+      }
+    }
+    return null;
+  }
+
+  /// 模块进度（0–1，F16）：只有 total>0 才计算 answered/total；
+  /// Mock 无作答记录（0/0）返回 null（UI 显示“进度待接口”），不虚构 0%。
+  double? _moduleProgress(String module) {
+    final setStat = _statOf(_setStats, module);
+    if (setStat != null && setStat.total > 0) {
+      return (setStat.answered / setStat.total).clamp(0.0, 1.0);
+    }
+    final stat = _statOf(_modules, module);
+    if (stat == null || stat.total <= 0) return null;
     return (stat.answered / stat.total).clamp(0.0, 1.0);
   }
 
@@ -150,7 +211,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                           ),
                           child: Container(
                             height: AppSizes.divider,
-                            color: AppColors.brandBorder,
+                            color: AppColors.cardBorder(context),
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),
@@ -182,7 +243,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                             ),
                             child: _ModuleRow(
                               name: moduleLabel(module),
-                              count: _perModuleCount,
+                              count: _moduleCount(module),
                               progress: _moduleProgress(module),
                             ),
                           ),
@@ -191,13 +252,16 @@ class _SetDetailPageState extends State<SetDetailPage> {
                               height: AppSpacing.setDetailModuleGap,
                             ),
                         ],
-                        const SizedBox(height: AppSpacing.lg),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.contentInset,
+                        // F16：答题说明卡只在考试前置页显示。
+                        if (_isExam) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.contentInset,
+                            ),
+                            child: _InstructionsCard(minutes: _minutes),
                           ),
-                          child: _InstructionsCard(minutes: _minutes),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -274,6 +338,7 @@ class _MetaRow extends StatelessWidget {
 }
 
 /// 单个模块行：名称（14 粗）+ 右侧“N 题 · x%”（13 灰）+ 下方进度条。
+/// F16：题量 / 进度取不到真实数据时显示“待接口”，进度条不填充。
 class _ModuleRow extends StatelessWidget {
   const _ModuleRow({
     required this.name,
@@ -282,13 +347,16 @@ class _ModuleRow extends StatelessWidget {
   });
 
   final String name;
-  final int count;
-  final double progress;
+  final int? count;
+  final double? progress;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final percent = (progress * 100).round();
+    final countLabel = count == null ? '题量待接口' : '$count 题';
+    final progressLabel = progress == null
+        ? '进度待接口'
+        : '${(progress! * 100).round()}%';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -305,7 +373,7 @@ class _ModuleRow extends StatelessWidget {
               ),
             ),
             Text(
-              '$count 题 · $percent%',
+              '$countLabel · $progressLabel',
               style: theme.textTheme.bodySmall?.copyWith(
                 fontSize: AppFontSizes.detailStat,
                 color: AppColors.cardCaption(context),
@@ -318,11 +386,11 @@ class _ModuleRow extends StatelessWidget {
           height: AppSizes.setDetailProgressBarHeight,
           alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
-            color: AppColors.brandBorder,
+            color: AppColors.cardBorder(context),
             borderRadius: BorderRadius.circular(AppRadii.setDetailProgressBar),
           ),
           child: FractionallySizedBox(
-            widthFactor: progress.clamp(0.0, 1.0),
+            widthFactor: (progress ?? 0).clamp(0.0, 1.0),
             child: Container(
               decoration: BoxDecoration(
                 color: AppColors.accent(context),
@@ -355,9 +423,9 @@ class _InstructionsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.brandSurface,
+        color: AppColors.cardSurface(context),
         borderRadius: BorderRadius.circular(AppRadii.input),
-        border: Border.all(color: AppColors.brandBorder),
+        border: Border.all(color: AppColors.cardBorder(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
