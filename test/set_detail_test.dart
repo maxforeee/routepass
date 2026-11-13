@@ -305,7 +305,7 @@ void main() {
     final statColor = statText.style?.color;
     expect(statColor, isNotNull);
     expect(statColor, isNot(const Color(0xFF334155)));
-    expect(statColor, const Color(0xFF94A3B8));
+    expect(statColor, const Color(0xFFD2D2D2));
   });
 
   testWidgets('深色模式下套卷详情标题使用自适应浅色', (tester) async {
@@ -325,6 +325,6 @@ void main() {
       expect(text.style?.color, AppColors.title(context));
       expect(text.style?.color, isNot(AppColors.brandTitle));
     }
-    expect(AppColors.title(context), const Color(0xFFF1F5F9));
+    expect(AppColors.title(context), const Color(0xFFFFFFFF));
   });
 }

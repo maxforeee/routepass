@@ -215,7 +215,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                 child: FilledButton(
                   onPressed: _start,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.brandPrimary,
+                    backgroundColor: AppColors.accent(context),
                     foregroundColor: AppColors.brandSurface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(
@@ -257,7 +257,7 @@ class _MetaRow extends StatelessWidget {
             'H3CNE-RS+ 模拟套卷 · 含解析',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontSize: AppFontSizes.detailBody,
-              color: AppColors.brandCaption,
+              color: AppColors.cardCaption(context),
             ),
           ),
         ),
@@ -265,7 +265,7 @@ class _MetaRow extends StatelessWidget {
           '单选 $single · 多选 $multiple',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: AppFontSizes.detailStat,
-            color: AppColors.brandCaption,
+            color: AppColors.cardCaption(context),
           ),
         ),
       ],
@@ -308,7 +308,7 @@ class _ModuleRow extends StatelessWidget {
               '$count 题 · $percent%',
               style: theme.textTheme.bodySmall?.copyWith(
                 fontSize: AppFontSizes.detailStat,
-                color: AppColors.brandCaption,
+                color: AppColors.cardCaption(context),
               ),
             ),
           ],
@@ -325,7 +325,7 @@ class _ModuleRow extends StatelessWidget {
             widthFactor: progress.clamp(0.0, 1.0),
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.brandPrimary,
+                color: AppColors.accent(context),
                 borderRadius: BorderRadius.circular(
                   AppRadii.setDetailProgressBar,
                 ),

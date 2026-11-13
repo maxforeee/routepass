@@ -117,7 +117,7 @@ class _CapsuleNavItem extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: selected
                           ? scheme.primaryContainer
-                          : Colors.transparent,
+                          : AppColors.brandTransparent,
                       borderRadius: BorderRadius.circular(AppRadii.card),
                     ),
                   ),

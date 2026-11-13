@@ -338,7 +338,7 @@ void main() {
 
     final scheme = Theme.of(tester.element(find.byType(BankModuleListPage)))
         .colorScheme;
-    const darkTitle = Color(0xFFF1F5F9);
+    const darkTitle = Color(0xFFFFFFFF);
     final activeTab = tester.widget<Text>(_inBank(find.text('练习')));
     expect(activeTab.style?.color, darkTitle);
     expect(activeTab.style?.color, scheme.onSurface);

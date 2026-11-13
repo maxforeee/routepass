@@ -58,18 +58,25 @@ class _SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.pageBackgroundLight,
+      backgroundColor: AppColors.pageBackground(context),
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const RoutePassLogo(size: AppSizes.splashLogo),
             const SizedBox(height: AppSpacing.splashLogoGap),
-            Text(AppConfig.appNameCn, style: AppTheme.brandTitleStyle),
+            Text(
+              AppConfig.appNameCn,
+              style: AppTheme.brandTitleStyle.copyWith(
+                color: AppColors.title(context),
+              ),
+            ),
             const SizedBox(height: AppSpacing.splashNameGap),
             Text(
               AppConfig.appName.toUpperCase(),
-              style: AppTheme.brandCaptionStyle,
+              style: AppTheme.brandCaptionStyle.copyWith(
+                color: AppColors.cardCaption(context),
+              ),
             ),
           ],
         ),

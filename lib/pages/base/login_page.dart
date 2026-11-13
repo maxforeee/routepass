@@ -4,29 +4,17 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
+import '../../core/theme.dart';
 import '../../router/app_router.dart';
 
-// F14a 登录页 1:1 参考稿（routepass_login_1to1.html）专用色值与尺寸；
-// 后续任务会把它们提升为全局主题 token，本页先私有。
-
-const Color _inkLight = Color(0xFF111111);
-const Color _inkDark = Color(0xFFFFFFFF);
-const Color _pillLight = Color(0xFFD2D2D2);
-const Color _pillDark = Color(0xFF777777);
-const Color _errorLight = Color(0xFFB91C1C);
-const Color _errorDark = Color(0xFFFCA5A5);
-const Color _blobPurple = Color(0xFF8B5CF6);
+// F14a 登录页 1:1 参考稿（routepass_login_1to1.html）专用尺寸；
+// 色值已在 F14b 提升为 AppColors 登录色板 token，本页只引用 token。
 
 /// 浅色底：CSS 105deg 对角渐变（左上偏绿 → 右下偏蓝）。
 const LinearGradient _backgroundLight = LinearGradient(
   begin: Alignment(-0.97, -0.26),
   end: Alignment(0.97, 0.26),
-  colors: [
-    Color(0xFFC6F5C6),
-    Color(0xFFB9E6D6),
-    Color(0xFFA9C6F2),
-    Color(0xFF8FB4F2),
-  ],
+  colors: AppColors.loginBackgroundLightColors,
   stops: [0.0, 0.30, 0.68, 1.0],
 );
 
@@ -34,20 +22,14 @@ const LinearGradient _backgroundLight = LinearGradient(
 const LinearGradient _backgroundDark = LinearGradient(
   begin: Alignment.centerLeft,
   end: Alignment.centerRight,
-  colors: [Color(0xFF050505), Color(0xFF2B2B2B), Color(0xFF6E6E6E)],
+  colors: AppColors.loginBackgroundDarkColors,
   stops: [0.0, 0.52, 1.0],
 );
 
 /// 深色气泡高光：radial-gradient(circle at 32% 28%, ...)。
 const RadialGradient _bubbleGradient = RadialGradient(
   center: Alignment(-0.36, -0.44),
-  colors: [
-    Color(0xFFBFE9FF),
-    Color(0xFF38BDF8),
-    Color(0xFF1D6FE0),
-    Color(0xFF0B2F7A),
-    Color(0xFF061A4D),
-  ],
+  colors: AppColors.loginBubbleColors,
   stops: [0.0, 0.22, 0.48, 0.78, 1.0],
 );
 
@@ -335,7 +317,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       width: _blobWidth,
                       height: _blobHeight,
                       decoration: BoxDecoration(
-                        color: _blobPurple,
+                        color: AppColors.loginBlobViolet,
                         borderRadius: radius,
                       ),
                     ),
@@ -347,7 +329,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       width: _blobBumpSize,
                       height: _blobBumpSize,
                       decoration: const BoxDecoration(
-                        color: _blobPurple,
+                        color: AppColors.loginBlobViolet,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -395,7 +377,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         gradient: _bubbleGradient,
                         boxShadow: [
                           BoxShadow(
-                            color: Color(0x59000000),
+                            color: AppColors.loginBubbleShadow,
                             offset: Offset(0, 6),
                             blurRadius: 14,
                           ),
@@ -414,9 +396,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pillColor = isDark ? _pillDark : _pillLight;
-    final textColor = isDark ? _inkDark : _inkLight;
-    final errorColor = isDark ? _errorDark : _errorLight;
+    final pillColor = isDark
+        ? AppColors.loginPillDark
+        : AppColors.loginPillLight;
+    final textColor = isDark ? AppColors.loginInkDark : AppColors.loginInkLight;
+    final errorColor = isDark
+        ? AppColors.loginErrorDark
+        : AppColors.loginErrorLight;
     final pillWidth = math.min(
       MediaQuery.sizeOf(context).width * _pillWidthFactor,
       _pillMaxWidth,

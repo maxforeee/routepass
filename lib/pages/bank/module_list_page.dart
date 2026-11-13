@@ -195,8 +195,8 @@ class BankModuleListPageState extends State<BankModuleListPage> {
           Container(
             width: AppSizes.bankSearchButtonSize,
             height: AppSizes.bankSearchButtonSize,
-            decoration: const BoxDecoration(
-              color: AppColors.brandPrimary,
+            decoration: BoxDecoration(
+              color: AppColors.accent(context),
               shape: BoxShape.circle,
             ),
             child: const Icon(

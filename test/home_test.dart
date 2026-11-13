@@ -175,12 +175,12 @@ void main() {
     expect(find.byType(SetDetailPage), findsNothing);
   });
 
-  testWidgets('R1 深色模式：问候语与昵称用深色标题色（#F1F5F9）', (tester) async {
+  testWidgets('R1 深色模式：问候语与昵称用深色标题色（#FFFFFF）', (tester) async {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await loginToHome(tester);
 
-    const darkTitle = Color(0xFFF1F5F9);
+    const darkTitle = Color(0xFFFFFFFF);
     final greeting = tester.widget<Text>(find.textContaining('好！'));
     expect(greeting.style?.color, darkTitle);
     final nickname = tester.widget<Text>(find.text('Max'));

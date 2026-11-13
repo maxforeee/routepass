@@ -10,11 +10,11 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  /// 成功色（light / dark）。
-  static const Color successLight = Color(0xFF16A34A);
-  static const Color successDark = Color(0xFF4ADE80);
+  /// 成功色（light / dark）：F14b 起取登录色板薄荷/水绿家族的深绿与亮绿。
+  static const Color successLight = Color(0xFF2E9E75);
+  static const Color successDark = Color(0xFF85E085);
 
-  /// 警告色（light / dark）。
+  /// 警告色（light / dark）：语义琥珀色，登录色板内无对应色，保持不变。
   static const Color warningLight = Color(0xFFD97706);
   static const Color warningDark = Color(0xFFFBBF24);
 
@@ -22,47 +22,102 @@ class AppColors {
   static const Color warningContainerLight = Color(0xFFFEF3C7);
   static const Color warningContainerDark = Color(0xFF451A03);
 
-  /// 品牌页固定色（启动页、Logo 等，不随深浅色模式变化，与 mockup 一致）。
-  /// 深色模式下品牌页仍用浅底深字，保证品牌观感统一。
-  static const Color pageBackgroundLight = Color(0xFFF8FAFC);
+  /// 页面底色（F14b 登录色板）：浅色为薄荷+水绿的极浅 tint，深色近黑。
+  static const Color pageBackgroundLight = Color(0xFFF2FCF5);
 
-  /// 页面底色（知识库页等，随深浅色模式变化）。
-  static const Color pageBackgroundDark = Color(0xFF0B1220);
+  /// 页面底色（深色）：登录深色渐变起点 #050505。
+  static const Color pageBackgroundDark = Color(0xFF050505);
 
-  /// 页面底色：浅色 #F8FAFC，深色回退深底。
+  /// 页面底色：随深浅色模式取登录色板的浅/深底。
   static Color pageBackground(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? pageBackgroundDark
         : pageBackgroundLight;
   }
 
-  static const Color brandPrimary = Color(0xFF2563EB);
+  /// 品牌主色（浅色交互紫）：登录紫 #8B5CF6 的 85% 加深，白字对比度 ≥4.5。
+  static const Color brandPrimary = Color(0xFF764ED1);
+
+  /// 品牌主色（深色交互蓝）：登录气泡蓝 #1D6FE0。
+  static const Color brandPrimaryDark = Color(0xFF1D6FE0);
+
+  /// 强调色随深浅色模式：浅色紫 / 深色蓝（F14b 登录色板）。
+  static Color accent(BuildContext context) {
+    return _isDark(context) ? brandPrimaryDark : brandPrimary;
+  }
+
   static const Color brandOnPrimary = Color(0xFFFFFFFF);
-  static const Color brandTitle = Color(0xFF0F172A);
-  static const Color brandCaption = Color(0xFF94A3B8);
+  static const Color brandTitle = Color(0xFF111111);
+  static const Color brandCaption = Color(0xFF6E6E6E);
   static const Color brandSurface = Color(0xFFFFFFFF);
-  static const Color brandBorder = Color(0xFFE2E8F0);
-  static const Color brandLabel = Color(0xFF334155);
+  static const Color brandBorder = Color(0xFFE9E9E9);
+  static const Color brandLabel = Color(0xFF2B2B2B);
   static const Color brandTransparent = Color(0x00000000);
+
+  /// F14b：登录页 1:1 参考稿色值（提升自 F14a 私有常量，值不变）。
+  static const Color loginInkLight = Color(0xFF111111);
+  static const Color loginInkDark = Color(0xFFFFFFFF);
+  static const Color loginPillLight = Color(0xFFD2D2D2);
+  static const Color loginPillDark = Color(0xFF777777);
+  static const Color loginErrorLight = Color(0xFFB91C1C);
+  static const Color loginErrorDark = Color(0xFFFCA5A5);
+  static const Color loginBlobViolet = Color(0xFF8B5CF6);
+  static const Color loginMint = Color(0xFFC6F5C6);
+  static const Color loginAqua = Color(0xFFB9E6D6);
+  static const Color loginPeriwinkle = Color(0xFFA9C6F2);
+  static const Color loginPeriwinkleDeep = Color(0xFF8FB4F2);
+  static const Color loginNight = Color(0xFF050505);
+  static const Color loginCharcoal = Color(0xFF2B2B2B);
+  static const Color loginGray = Color(0xFF6E6E6E);
+  static const Color loginBubbleHighlight = Color(0xFFBFE9FF);
+  static const Color loginBubbleCyan = Color(0xFF38BDF8);
+  static const Color loginBubbleBlue = Color(0xFF1D6FE0);
+  static const Color loginBubbleDeep = Color(0xFF0B2F7A);
+  static const Color loginBubbleAbyss = Color(0xFF061A4D);
+  static const Color loginBubbleShadow = Color(0x59000000);
+
+  /// 登录浅色底渐变色标（CSS 105deg：左上偏绿 → 右下偏蓝）。
+  static const List<Color> loginBackgroundLightColors = [
+    loginMint,
+    loginAqua,
+    loginPeriwinkle,
+    loginPeriwinkleDeep,
+  ];
+
+  /// 登录深色底渐变色标（CSS 90deg：近黑 → 中灰）。
+  static const List<Color> loginBackgroundDarkColors = [
+    loginNight,
+    loginCharcoal,
+    loginGray,
+  ];
+
+  /// 登录深色气泡 radial 渐变色标（高光 → 深蓝）。
+  static const List<Color> loginBubbleColors = [
+    loginBubbleHighlight,
+    loginBubbleCyan,
+    loginBubbleBlue,
+    loginBubbleDeep,
+    loginBubbleAbyss,
+  ];
 
   /// 错题本 / 收藏预览卡入口图标：错题本红底红图标、收藏琥珀底琥珀图标。
   /// 深色模式用对应的 error / warning 容器色，保证图标在深底上可读。
-  static const Color wrongIconBackgroundLight = Color(0xFFFEE2E2);
-  static const Color wrongIconForegroundLight = Color(0xFFDC2626);
+  static const Color wrongIconBackgroundLight = Color(0xFFF5DDDD);
+  static const Color wrongIconForegroundLight = Color(0xFFB91C1C);
   static const Color favoriteIconBackgroundLight = Color(0xFFFEF3C7);
   static const Color favoriteIconForegroundLight = Color(0xFFD97706);
 
   /// 每日一练选项：正确条浅绿底 / 深绿字，错误条深红字（底色复用
   /// wrongIconBackground、边框复用 wrongIconForeground），字母圈浅灰底。
   /// Light 常量为浅色模式取值；深色模式由下面的 context 取色函数切到深色变体。
-  static const Color dailyCorrectBackgroundLight = Color(0xFFDCFCE7);
-  static const Color dailyCorrectBackgroundDark = Color(0xFF14532D);
-  static const Color dailyCorrectTextLight = Color(0xFF14532D);
-  static const Color dailyWrongTextLight = Color(0xFF7F1D1D);
-  static const Color dailyLetterBackgroundLight = Color(0xFFF1F5F9);
-  static const Color dailyLetterTextLight = Color(0xFF475569);
+  static const Color dailyCorrectBackgroundLight = Color(0xFFE2FAE2);
+  static const Color dailyCorrectBackgroundDark = Color(0xFF1C4A1C);
+  static const Color dailyCorrectTextLight = Color(0xFF1C4A1C);
+  static const Color dailyWrongTextLight = Color(0xFF781212);
+  static const Color dailyLetterBackgroundLight = Color(0xFFEDEDED);
+  static const Color dailyLetterTextLight = Color(0xFF4D4D4D);
 
-  /// 阴影色（胶囊导航：Colors.black 8% 不透明度）。
+  /// 阴影色（胶囊导航：纯黑 8% 不透明度）。
   static const Color shadow = Color(0x14000000);
 
   static Color success(BuildContext context) {
@@ -83,17 +138,17 @@ class AppColors {
         : warningContainerLight;
   }
 
-  /// 页面次级标签色（浅色 #334155，深色浅灰保证可读）。
+  /// 页面次级标签色（浅色 #2B2B2B，深色浅灰保证可读）。
   static Color label(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF94A3B8)
+        ? const Color(0xFFD2D2D2)
         : brandLabel;
   }
 
-  /// 页面主标题色（浅色 brandTitle #0F172A，深色 #F1F5F9 保证可读）。
+  /// 页面主标题色（浅色 brandTitle #111111，深色纯白保证可读）。
   static Color title(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFF1F5F9)
+        ? const Color(0xFFFFFFFF)
         : brandTitle;
   }
 
@@ -632,32 +687,32 @@ class AppTheme {
   static ThemeData get light {
     const scheme = ColorScheme(
       brightness: Brightness.light,
-      primary: Color(0xFF2563EB),
+      primary: Color(0xFF764ED1),
       onPrimary: Color(0xFFFFFFFF),
-      primaryContainer: Color(0xFFDBEAFE),
-      onPrimaryContainer: Color(0xFF1E3A8A),
-      secondary: Color(0xFF0EA5E9),
+      primaryContainer: Color(0xFFE8DEFD),
+      onPrimaryContainer: Color(0xFF462E7B),
+      secondary: Color(0xFF5D759D),
       onSecondary: Color(0xFFFFFFFF),
-      secondaryContainer: Color(0xFFE0F2FE),
-      onSecondaryContainer: Color(0xFF0C4A6E),
-      tertiary: Color(0xFF0EA5E9),
+      secondaryContainer: Color(0xFFD4E3F9),
+      onSecondaryContainer: Color(0xFF144E9D),
+      tertiary: Color(0xFF5D759D),
       onTertiary: Color(0xFFFFFFFF),
-      error: Color(0xFFDC2626),
+      error: Color(0xFFB91C1C),
       onError: Color(0xFFFFFFFF),
-      errorContainer: Color(0xFFFEE2E2),
-      onErrorContainer: Color(0xFF7F1D1D),
+      errorContainer: Color(0xFFF5DDDD),
+      onErrorContainer: Color(0xFF781212),
       surface: Color(0xFFFFFFFF),
-      onSurface: Color(0xFF0F172A),
-      surfaceContainerHighest: Color(0xFFF1F5F9),
-      onSurfaceVariant: Color(0xFF475569),
-      outline: Color(0xFFCBD5E1),
-      outlineVariant: Color(0xFFE2E8F0),
+      onSurface: Color(0xFF111111),
+      surfaceContainerHighest: Color(0xFFEEFCEE),
+      onSurfaceVariant: Color(0xFF4D4D4D),
+      outline: Color(0xFF777777),
+      outlineVariant: Color(0xFFE9E9E9),
       shadow: Color(0xFF000000),
       scrim: Color(0xFF000000),
-      inverseSurface: Color(0xFF0F172A),
-      onInverseSurface: Color(0xFFF1F5F9),
-      inversePrimary: Color(0xFF93C5FD),
-      surfaceTint: Color(0xFF2563EB),
+      inverseSurface: Color(0xFF2B2B2B),
+      onInverseSurface: Color(0xFFFFFFFF),
+      inversePrimary: Color(0xFF1D6FE0),
+      surfaceTint: Color(0xFF764ED1),
     );
     return _base(scheme);
   }
@@ -665,32 +720,32 @@ class AppTheme {
   static ThemeData get dark {
     const scheme = ColorScheme(
       brightness: Brightness.dark,
-      primary: Color(0xFF93C5FD),
-      onPrimary: Color(0xFF0B1220),
-      primaryContainer: Color(0xFF1E3A8A),
-      onPrimaryContainer: Color(0xFFDBEAFE),
-      secondary: Color(0xFF7DD3FC),
-      onSecondary: Color(0xFF0B1220),
-      secondaryContainer: Color(0xFF0C4A6E),
-      onSecondaryContainer: Color(0xFFE0F2FE),
-      tertiary: Color(0xFF7DD3FC),
-      onTertiary: Color(0xFF0B1220),
-      error: Color(0xFFF87171),
-      onError: Color(0xFF0B1220),
-      errorContainer: Color(0xFF7F1D1D),
-      onErrorContainer: Color(0xFFFEE2E2),
-      surface: Color(0xFF0F172A),
-      onSurface: Color(0xFFF1F5F9),
-      surfaceContainerHighest: Color(0xFF1E293B),
-      onSurfaceVariant: Color(0xFF94A3B8),
-      outline: Color(0xFF475569),
-      outlineVariant: Color(0xFF334155),
+      primary: Color(0xFF1D6FE0),
+      onPrimary: Color(0xFFFFFFFF),
+      primaryContainer: Color(0xFF0B2F7A),
+      onPrimaryContainer: Color(0xFFBFE9FF),
+      secondary: Color(0xFF38BDF8),
+      onSecondary: Color(0xFF050505),
+      secondaryContainer: Color(0xFF061A4D),
+      onSecondaryContainer: Color(0xFFBFE9FF),
+      tertiary: Color(0xFF38BDF8),
+      onTertiary: Color(0xFF050505),
+      error: Color(0xFFFCA5A5),
+      onError: Color(0xFF410A0A),
+      errorContainer: Color(0xFF5C0E0E),
+      onErrorContainer: Color(0xFFFCA5A5),
+      surface: Color(0xFF2B2B2B),
+      onSurface: Color(0xFFFFFFFF),
+      surfaceContainerHighest: Color(0xFF3C3C3C),
+      onSurfaceVariant: Color(0xFFD2D2D2),
+      outline: Color(0xFF6E6E6E),
+      outlineVariant: Color(0xFF4D4D4D),
       shadow: Color(0xFF000000),
       scrim: Color(0xFF000000),
-      inverseSurface: Color(0xFFF1F5F9),
-      onInverseSurface: Color(0xFF0F172A),
-      inversePrimary: Color(0xFF2563EB),
-      surfaceTint: Color(0xFF93C5FD),
+      inverseSurface: Color(0xFFD2D2D2),
+      onInverseSurface: Color(0xFF111111),
+      inversePrimary: Color(0xFF764ED1),
+      surfaceTint: Color(0xFF1D6FE0),
     );
     return _base(scheme);
   }
