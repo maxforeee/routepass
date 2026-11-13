@@ -40,29 +40,27 @@ class AppColors {
   static const Color brandOnPrimary = Color(0xFFFFFFFF);
   static const Color brandTitle = Color(0xFF0F172A);
   static const Color brandCaption = Color(0xFF94A3B8);
-  static const Color brandSecondaryText = Color(0xFF64748B);
   static const Color brandSurface = Color(0xFFFFFFFF);
   static const Color brandBorder = Color(0xFFE2E8F0);
   static const Color brandLabel = Color(0xFF334155);
   static const Color brandTransparent = Color(0x00000000);
 
   /// 错题本 / 收藏预览卡入口图标：错题本红底红图标、收藏琥珀底琥珀图标。
-  static const Color wrongIconBackground = Color(0xFFFEE2E2);
-  static const Color wrongIconForeground = Color(0xFFDC2626);
-  static const Color favoriteIconBackground = Color(0xFFFEF3C7);
-  static const Color favoriteIconForeground = Color(0xFFD97706);
-
-  /// 预览卡条目文字色（固定浅色面深字，不随深浅色模式）。
-  static const Color previewItemText = Color(0xFF475569);
+  /// 深色模式用对应的 error / warning 容器色，保证图标在深底上可读。
+  static const Color wrongIconBackgroundLight = Color(0xFFFEE2E2);
+  static const Color wrongIconForegroundLight = Color(0xFFDC2626);
+  static const Color favoriteIconBackgroundLight = Color(0xFFFEF3C7);
+  static const Color favoriteIconForegroundLight = Color(0xFFD97706);
 
   /// 每日一练选项：正确条浅绿底 / 深绿字，错误条深红字（底色复用
   /// wrongIconBackground、边框复用 wrongIconForeground），字母圈浅灰底。
-  /// 卡片固定白底，这些色都不随深浅色模式变化。
-  static const Color dailyCorrectBackground = Color(0xFFDCFCE7);
-  static const Color dailyCorrectText = Color(0xFF14532D);
-  static const Color dailyWrongText = Color(0xFF7F1D1D);
-  static const Color dailyLetterBackground = Color(0xFFF1F5F9);
-  static const Color dailyLetterText = Color(0xFF475569);
+  /// Light 常量为浅色模式取值；深色模式由下面的 context 取色函数切到深色变体。
+  static const Color dailyCorrectBackgroundLight = Color(0xFFDCFCE7);
+  static const Color dailyCorrectBackgroundDark = Color(0xFF14532D);
+  static const Color dailyCorrectTextLight = Color(0xFF14532D);
+  static const Color dailyWrongTextLight = Color(0xFF7F1D1D);
+  static const Color dailyLetterBackgroundLight = Color(0xFFF1F5F9);
+  static const Color dailyLetterTextLight = Color(0xFF475569);
 
   /// 阴影色（胶囊导航：Colors.black 8% 不透明度）。
   static const Color shadow = Color(0x14000000);
@@ -97,6 +95,103 @@ class AppColors {
     return Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFFF1F5F9)
         : brandTitle;
+  }
+
+  /// 卡片底色：跟随当前模式（浅色白 / 深色深 surface）。
+  static Color cardSurface(BuildContext context) {
+    return Theme.of(context).colorScheme.surface;
+  }
+
+  /// 卡片边框：跟随当前模式（浅色浅灰 / 深色深描边）。
+  static Color cardBorder(BuildContext context) {
+    return Theme.of(context).colorScheme.outlineVariant;
+  }
+
+  /// 卡片主文字：跟随当前模式（与卡片底色成对比）。
+  static Color cardTitle(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
+  /// 卡片次级文字：跟随当前模式。
+  static Color cardSecondary(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurfaceVariant;
+  }
+
+  /// 卡片弱提示色（浅色 brandCaption，深色浅灰）。
+  static Color cardCaption(BuildContext context) {
+    return _isDark(context)
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : brandCaption;
+  }
+
+  static bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  /// 错题本入口图标底色（浅色浅红 / 深色 error 容器）。
+  static Color wrongIconBackground(BuildContext context) {
+    return _isDark(context)
+        ? Theme.of(context).colorScheme.errorContainer
+        : wrongIconBackgroundLight;
+  }
+
+  /// 错题本入口图标前景色（浅色深红 / 深色 error 容器上的浅字）。
+  static Color wrongIconForeground(BuildContext context) {
+    return _isDark(context)
+        ? Theme.of(context).colorScheme.onErrorContainer
+        : wrongIconForegroundLight;
+  }
+
+  /// 收藏入口图标底色（浅色浅琥珀 / 深色 warning 容器）。
+  static Color favoriteIconBackground(BuildContext context) {
+    return _isDark(context)
+        ? warningContainerDark
+        : favoriteIconBackgroundLight;
+  }
+
+  /// 收藏入口图标前景色（浅色琥珀 / 深色亮琥珀）。
+  static Color favoriteIconForeground(BuildContext context) {
+    return _isDark(context) ? warningDark : favoriteIconForegroundLight;
+  }
+
+  /// 每日一练正确选项底色（深色用深绿容器）。
+  static Color dailyCorrectBackground(BuildContext context) {
+    return _isDark(context)
+        ? dailyCorrectBackgroundDark
+        : dailyCorrectBackgroundLight;
+  }
+
+  /// 每日一练未作答选项底色（浅色白 / 深色抬升层，保证与透明卡面可分）。
+  static Color dailyOptionIdleBackground(BuildContext context) {
+    return _isDark(context)
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : brandSurface;
+  }
+
+  /// 每日一练正确选项文字色。
+  static Color dailyCorrectText(BuildContext context) {
+    return _isDark(context) ? successDark : dailyCorrectTextLight;
+  }
+
+  /// 每日一练错误选项文字色（深色用 error 容器上的浅字）。
+  static Color dailyWrongText(BuildContext context) {
+    return _isDark(context)
+        ? Theme.of(context).colorScheme.onErrorContainer
+        : dailyWrongTextLight;
+  }
+
+  /// 每日一练选项字母圈底色。
+  static Color dailyLetterBackground(BuildContext context) {
+    return _isDark(context)
+        ? Theme.of(context).colorScheme.surface
+        : dailyLetterBackgroundLight;
+  }
+
+  /// 每日一练选项字母文字色。
+  static Color dailyLetterText(BuildContext context) {
+    return _isDark(context)
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : dailyLetterTextLight;
   }
 }
 
@@ -157,7 +252,7 @@ class AppSpacing {
   /// 首页每日一练标题距卡片左边缘（逻辑像素）。
   static const double dailyTitleLeft = 20;
 
-  /// 首页每日一练标题左右内边距（逻辑像素，白底盖住边框）。
+  /// 首页每日一练标题左右内边距（逻辑像素，顶部边框在此处留出缺口）。
   static const double dailyTitlePadH = 10;
 
   /// 首页每日一练题干与选项之间的间距（逻辑像素）。
@@ -246,9 +341,6 @@ class AppSizes {
   /// 大图标尺寸（逻辑像素）。
   static const double iconXLarge = 32;
 
-  /// 首页问候区顶部预留高度（逻辑像素，为钉住头像留空）。
-  static const double homeTopPad = 68;
-
   /// 首页及各 tab 滚动内容底部预留高度（逻辑像素，防止内容被浮动胶囊遮住）。
   static const double homeBottomPad = 100;
 
@@ -323,9 +415,6 @@ class AppSizes {
 
   /// 首页错题本 / 收藏预览卡入口图标尺寸（逻辑像素，圆角方底）。
   static const double previewIconSize = 44;
-
-  /// 预览项左缩进（逻辑像素）：对齐到入口图标右侧的标题下方。
-  static const double previewItemIndent = previewIconSize + AppSpacing.sm;
 
   /// 首页每日一练选项字母圈直径（逻辑像素）。
   static const double dailyLetterSize = 26;

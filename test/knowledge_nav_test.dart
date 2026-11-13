@@ -55,6 +55,18 @@ void main() {
     expect(find.text('样例章节：VLAN 基础'), findsOneWidget);
   });
 
+  testWidgets('G2 知识详情页隐藏胶囊导航，返回后恢复', (tester) async {
+    await loginToHome(tester);
+    await _openDetailFromList(tester);
+
+    expect(find.byType(KnowledgeDetailPage), findsOneWidget);
+    expect(find.byType(CapsuleNavBar), findsNothing);
+
+    await tester.tap(find.text('返回知识库'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapsuleNavBar), findsOneWidget);
+  });
+
   testWidgets('列表页搜索框提交进搜索页', (tester) async {
     await loginToHome(tester);
 

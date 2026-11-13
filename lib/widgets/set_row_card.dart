@@ -1,8 +1,7 @@
 /// 共享套卷行卡片（首页题库区 / 题库页共用）。
 ///
-/// 白底面、圆角 16、固定高 76（setRowMinHeight）；左 = 标题 + 灰色副标题，
-/// 右 = trailing 组件，整行可点按。品牌色固定（不随深浅色模式变化），与
-/// mockup 一致。
+/// 圆角 16、固定高 76（setRowMinHeight）；左 = 标题 + 灰色副标题，
+/// 右 = trailing 组件，整行可点按。底色 / 边框 / 文字全部跟随当前深浅色模式。
 library;
 
 import 'package:flutter/material.dart';
@@ -27,16 +26,14 @@ class SetRowCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitleStyle = Theme.of(context).textTheme.bodySmall
-        ?.copyWith(color: AppColors.brandCaption);
     return SizedBox(
       height: AppSizes.setRowMinHeight,
       child: Material(
-        color: AppColors.brandSurface,
+        color: AppColors.cardSurface(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.card),
-          side: const BorderSide(
-            color: AppColors.brandBorder,
+          side: BorderSide(
+            color: AppColors.cardBorder(context),
             width: AppSizes.borderWidth,
           ),
         ),
@@ -60,10 +57,10 @@ class SetRowCard extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: AppFontSizes.entryTitle,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.brandTitle,
+                          color: AppColors.cardTitle(context),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxs),
@@ -73,7 +70,8 @@ class SetRowCard extends StatelessWidget {
                         subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: subtitleStyle,
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: AppColors.cardSecondary(context)),
                       ),
                     ],
                   ),

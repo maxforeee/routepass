@@ -15,6 +15,7 @@ import '../../core/theme.dart';
 import '../../models/question.dart';
 import '../../models/stats.dart';
 import '../../router/app_router.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/set_row_card.dart';
 import '../../widgets/set_row_tags.dart';
 
@@ -84,46 +85,35 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.pageBackground(context),
-      body: Column(
-        // stretch：页头块宽度撑满，标题左缘与搜索条 / 卡片同为 16px。
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSizes.homeTopPad,
-              AppSpacing.md,
-              AppSpacing.xs,
+      body: SafeArea(
+        child: Column(
+          // stretch：页头块宽度撑满，标题左缘与搜索条 / 卡片同为 16px。
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.xs,
+              ),
+              child: const PageHeader(title: '题库', subtitle: '练习考试'),
             ),
-            child: _buildHeader(),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.xxs,
-              AppSpacing.md,
-              AppSpacing.cardGap,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xxs,
+                AppSpacing.md,
+                AppSpacing.cardGap,
+              ),
+              child: _buildSearchBar(theme),
             ),
-            child: _buildSearchBar(theme),
-          ),
-          if (_query.isEmpty) _buildTabs(),
-          Expanded(
-            child: _query.isNotEmpty ? _buildResults(theme) : _buildSets(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 页头（canva 参考：只有 32px 特粗标题，无副标题、无头像）。
-  Widget _buildHeader() {
-    return Text(
-      '题库',
-      style: TextStyle(
-        fontSize: AppFontSizes.homeGreetingName,
-        fontWeight: FontWeight.w800,
-        color: AppColors.title(context),
-        height: 1.2,
+            if (_query.isEmpty) _buildTabs(),
+            Expanded(
+              child: _query.isNotEmpty ? _buildResults(theme) : _buildSets(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -206,8 +196,10 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   /// 单个 tab = 20px 标签 + 下方渐隐虚线指示线（不是搜索元素）。
   Widget _buildTab(String label, _BankTab tab) {
     final active = _tab == tab;
-    // 选中态用深浅色自适应的标题色，未选中用品牌浅灰；指示线跟随标签色。
-    final color = active ? AppColors.title(context) : AppColors.brandCaption;
+    // 选中态用深浅色自适应的标题色，未选中用弱提示色；指示线跟随标签色。
+    final color = active
+        ? AppColors.cardTitle(context)
+        : AppColors.cardCaption(context);
     final style = TextStyle(
       fontSize: AppFontSizes.bankTabLabel,
       fontWeight: active ? FontWeight.w800 : FontWeight.w500,

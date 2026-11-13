@@ -6,6 +6,7 @@ import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/widgets/module_tag.dart';
+import 'package:routepass/widgets/page_header.dart';
 import 'package:routepass/widgets/set_row_card.dart';
 import 'package:routepass/widgets/user_avatar.dart';
 
@@ -62,12 +63,19 @@ void main() {
   for (final size in _viewports) {
     final label = '${size.width.toInt()}x${size.height.toInt()}';
 
-    testWidgets('B1 题库标题 32px 且无头像（$label）', (tester) async {
+    testWidgets('H 题库页头与知识库/工具箱一致（PageHeader 22px + 练习考试）（$label）', (
+      tester,
+    ) async {
       await _openBank(tester, size);
 
+      expect(_inBank(find.byType(PageHeader)), findsOneWidget);
       final title = tester.widget<Text>(_inBank(find.text('题库')));
-      expect(title.style?.fontSize, AppFontSizes.homeGreetingName);
-      expect(title.style?.fontSize, 32);
+      // 与页 3 / 页 4 相同的 titleLarge 字号与粗体。
+      expect(title.style?.fontSize, 22);
+      expect(title.style?.fontWeight, FontWeight.bold);
+
+      final subtitle = tester.widget<Text>(_inBank(find.text('练习考试')));
+      expect(subtitle.style?.fontSize, AppFontSizes.pageSubtitle);
 
       expect(_inBank(find.byType(UserAvatar)), findsNothing);
       expect(tester.takeException(), isNull);
@@ -156,11 +164,11 @@ void main() {
       expect(_inBank(find.text('H3CNE 模拟卷 01')), findsNothing);
     });
 
-    testWidgets('F5 标题下副标题已移除（$label）', (tester) async {
+    testWidgets('H 标题下副标题为“练习考试”（$label）', (tester) async {
       await _openBank(tester, size);
 
+      expect(_inBank(find.text('练习考试')), findsOneWidget);
       expect(_inBank(find.textContaining('每套含解析')), findsNothing);
-      expect(_inBank(find.textContaining('道 ·')), findsNothing);
     });
 
     testWidgets('F5 搜索仍显示题目结果列表（$label）', (tester) async {
@@ -180,23 +188,22 @@ void main() {
     });
   }
 
-  testWidgets('F5 深色模式：选中 tab 用深色标题色，卡片文字与底色不同（可读）', (tester) async {
+  testWidgets('A/F5 深色模式：tab 与套卷卡跟随深色主题，不再是固定白底', (tester) async {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await _openBank(tester, const Size(410, 890));
 
+    final scheme = Theme.of(tester.element(find.byType(BankModuleListPage)))
+        .colorScheme;
     const darkTitle = Color(0xFFF1F5F9);
     final activeTab = tester.widget<Text>(_inBank(find.text('练习')));
     expect(activeTab.style?.color, darkTitle);
-    expect(
-      activeTab.style?.color,
-      AppColors.title(tester.element(find.byType(BankModuleListPage))),
-    );
+    expect(activeTab.style?.color, scheme.onSurface);
 
     final inactiveTab = tester.widget<Text>(_inBank(find.text('考试')));
-    expect(inactiveTab.style?.color, AppColors.brandCaption);
+    expect(inactiveTab.style?.color, scheme.onSurfaceVariant);
 
-    // 套卷卡：白底卡片 + 深色标题（品牌固定色），文字与底色不得相同。
+    // 套卷卡：深色 surface 卡片 + 深色主题文字，文字与底色不得相同。
     final surface = tester
         .widget<Material>(
           find
@@ -207,10 +214,14 @@ void main() {
               .first,
         )
         .color;
+    expect(surface, scheme.surface);
+    expect(surface, isNot(AppColors.brandSurface));
     final cardTitle = tester.widget<Text>(_inBank(find.text('100 题套卷')));
     final cardSubtitle = tester.widget<Text>(
       _inBank(find.text('100 题 · 5 个模块 · 含解析')),
     );
+    expect(cardTitle.style?.color, scheme.onSurface);
+    expect(cardSubtitle.style?.color, scheme.onSurfaceVariant);
     expect(cardTitle.style?.color, isNot(surface));
     expect(cardSubtitle.style?.color, isNot(surface));
 

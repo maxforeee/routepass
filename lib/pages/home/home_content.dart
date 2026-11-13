@@ -342,18 +342,18 @@ class HomeContentPageState extends State<HomeContentPage> {
           title: '错题本',
           countLabel: '今日新增 ${_todayWrong.length} 道',
           icon: Icons.menu_book_outlined,
-          iconBackground: AppColors.wrongIconBackground,
-          iconForeground: AppColors.wrongIconForeground,
+          iconBackground: AppColors.wrongIconBackground(context),
+          iconForeground: AppColors.wrongIconForeground(context),
           stems: [for (final (_, question) in _todayWrong) question.stem],
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankWrong),
         ),
-        const SizedBox(height: AppSpacing.cardGap),
+        const SizedBox(height: AppSpacing.md),
         _PreviewCard(
           title: '收藏',
           countLabel: '今日收藏 ${_todayFavorites.length} 道',
           icon: Icons.star_border_rounded,
-          iconBackground: AppColors.favoriteIconBackground,
-          iconForeground: AppColors.favoriteIconForeground,
+          iconBackground: AppColors.favoriteIconBackground(context),
+          iconForeground: AppColors.favoriteIconForeground(context),
           stems: [for (final (_, question) in _todayFavorites) question.stem],
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
         ),
@@ -361,119 +361,138 @@ class HomeContentPageState extends State<HomeContentPage> {
     );
   }
 
+  /// 问候区显示的名字：优先昵称，其次用户名；未登录时用中性占位，
+  /// 不再留空（v0.2.4 真机反馈：昵称为空导致问候语下方一片空白）。
+  String _displayName(User? user) {
+    final nickname = user?.nickname.trim() ?? '';
+    if (nickname.isNotEmpty) return nickname;
+    final username = user?.username.trim() ?? '';
+    if (username.isNotEmpty) return username;
+    return '同学';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final user = _user;
-    final nickname = user?.nickname ?? user?.username ?? '';
+    final nickname = _displayName(user);
+    const sectionGap = AppSpacing.md;
     return Scaffold(
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: _load,
-            child: ListView(
-              padding: const EdgeInsets.only(
-                top: AppSizes.homeTopPad,
-                left: AppSpacing.md,
-                right: AppSpacing.md,
-                bottom: AppSizes.homeBottomPad,
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.xs),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _greetingText,
-                        style: TextStyle(
-                          fontSize: AppFontSizes.homeGreetingHi,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.title(context),
-                          height: 1.2,
+      body: RefreshIndicator(
+        onRefresh: _load,
+        // 内容顶到屏幕最上沿（外壳 / MaterialApp 都没有 SafeArea），必须让出
+        // 系统状态栏高度，否则问候语会被状态栏压住（v0.2.4 真机反馈）。
+        // 与题库页一致：SafeArea 让出系统顶部内边距，md 内容内边距叠在它之下。
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: ListView(
+            padding: const EdgeInsets.only(
+              top: AppSpacing.md,
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              bottom: AppSizes.homeBottomPad,
+            ),
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _greetingText,
+                          style: TextStyle(
+                            fontSize: AppFontSizes.homeGreetingHi,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.title(context),
+                            height: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        nickname,
-                        style: TextStyle(
-                          fontSize: AppFontSizes.homeGreetingName,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.title(context),
-                          height: 1.2,
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          nickname,
+                          style: TextStyle(
+                            fontSize: AppFontSizes.homeGreetingName,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.title(context),
+                            height: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text.rich(
-                        TextSpan(
-                          text: '今日已完成题目数 ',
-                          children: [
-                            TextSpan(
-                              text: '${_overview?.todayAnswered ?? 0}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.title(context),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text.rich(
+                          TextSpan(
+                            text: '今日已完成题目数 ',
+                            children: [
+                              TextSpan(
+                                text: '${_overview?.todayAnswered ?? 0}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.title(context),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                          style: TextStyle(
+                            fontSize: AppFontSizes.pageSubtitle,
+                            color: AppColors.label(context),
+                            height: 1.5,
+                          ),
                         ),
-                        style: TextStyle(
-                          fontSize: AppFontSizes.pageSubtitle,
-                          color: AppColors.label(context),
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _Banner(
-                  summary: _todaySummary,
-                  onStart: () => _openQuiz('quick', 10),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                if (_dailyQuestion != null) ...[
-                  _DailyPracticeCard(
-                    question: _dailyQuestion!,
-                    selectedKey: _dailySelectedKey,
-                    onSelect: _answerDaily,
+                  const SizedBox(width: AppSpacing.md),
+                  // 头像随页面内容滚动（不再钉在屏幕上）。
+                  UserAvatar(
+                    username: user?.username ?? '',
+                    onTap: () => showAccountSheet(context),
                   ),
-                  const SizedBox(height: AppSpacing.md),
                 ],
-                Text(
-                  '精选题库',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              ),
+              const SizedBox(height: sectionGap),
+              _Banner(
+                summary: _todaySummary,
+                onStart: () => _openQuiz('quick', 10),
+              ),
+              const SizedBox(height: sectionGap),
+              if (_dailyQuestion != null) ...[
+                // 标题骑在上边框上、向上探出 overhang，补偿后再留统一间距，
+                // 让横幅到标题的视觉间距与其他组件一致。
+                const SizedBox(height: AppSpacing.dailyTitleOverhang),
+                _DailyPracticeCard(
+                  question: _dailyQuestion!,
+                  selectedKey: _dailySelectedKey,
+                  onSelect: _answerDaily,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                _buildFeaturedList(),
-                if (_showSyncTip) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  _SyncTipStrip(onTap: _openSyncSheet),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  '错题本 · 收藏',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _buildPreviewCards(),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: sectionGap),
               ],
-            ),
+              Text(
+                '精选题库',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _buildFeaturedList(),
+              if (_showSyncTip) ...[
+                const SizedBox(height: sectionGap),
+                _SyncTipStrip(onTap: _openSyncSheet),
+              ],
+              const SizedBox(height: sectionGap),
+              Text(
+                '错题本 · 收藏',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _buildPreviewCards(),
+              const SizedBox(height: sectionGap),
+            ],
           ),
-          Positioned(
-            top: AppSizes.homeTopPad + AppSpacing.xs,
-            right: AppSpacing.md,
-            child: UserAvatar(
-              username: user?.username ?? '',
-              onTap: () => showAccountSheet(context),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -635,9 +654,8 @@ class _SyncRow extends StatelessWidget {
 
 /// 首页今日预览卡：入口行（图标 + 左对齐标题 + 今日数量 + 箭头）+ 今日条目。
 ///
-/// 卡片沿用 SetRowCard 的固定白底品牌样式（不随深浅色模式变化），所以卡内
-/// 文字一律用固定深色 token；若改用 AppColors.title(context) 之类，深色模式
-/// 会变成浅字压在纯白卡面上（v0.2.2 报过的白底白字）。
+/// 卡面 / 边框 / 文字全部跟随当前深浅色模式（与 SetRowCard 一致），
+/// 不再使用固定白底，避免深色模式下与页面脱节。
 class _PreviewCard extends StatelessWidget {
   const _PreviewCard({
     required this.title,
@@ -668,11 +686,11 @@ class _PreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.brandSurface,
+      color: AppColors.cardSurface(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.card),
-        side: const BorderSide(
-          color: AppColors.brandBorder,
+        side: BorderSide(
+          color: AppColors.cardBorder(context),
           width: AppSizes.borderWidth,
         ),
       ),
@@ -708,82 +726,78 @@ class _PreviewCard extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: AppFontSizes.entryTitle,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.brandTitle,
+                        color: AppColors.cardTitle(context),
                       ),
                     ),
                   ),
                   Text(
                     countLabel,
                     maxLines: 1,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: AppFontSizes.previewCount,
-                      color: AppColors.brandSecondaryText,
+                      color: AppColors.cardSecondary(context),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xxs),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right,
                     size: AppSizes.iconLarge,
-                    color: AppColors.brandCaption,
+                    color: AppColors.cardCaption(context),
                   ),
                 ],
               ),
               if (stems.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.only(
+                Padding(
+                  padding: const EdgeInsets.only(
                     top: AppSpacing.sm,
                     bottom: AppSpacing.xxs,
                   ),
                   child: SizedBox(
                     height: AppSizes.divider,
                     width: double.infinity,
-                    child: ColoredBox(color: AppColors.brandBorder),
+                    child: ColoredBox(color: AppColors.cardBorder(context)),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: AppSizes.previewItemIndent,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final stem in stems)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.xxs,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              const Text(
-                                '·',
+                // 预览条目与卡片内容左缘齐平（无缩进）。
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final stem in stems)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.xxs,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              '·',
+                              style: TextStyle(
+                                fontSize: AppFontSizes.previewItem,
+                                color: AppColors.cardCaption(context),
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.previewItemGap),
+                            Expanded(
+                              child: Text(
+                                stem,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: AppFontSizes.previewItem,
-                                  color: AppColors.brandCaption,
+                                  height: 1.5,
+                                  color: AppColors.cardSecondary(context),
                                 ),
                               ),
-                              const SizedBox(width: AppSpacing.previewItemGap),
-                              Expanded(
-                                child: Text(
-                                  stem,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: AppFontSizes.previewItem,
-                                    height: 1.5,
-                                    color: AppColors.previewItemText,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ],
             ],
@@ -800,9 +814,8 @@ enum _DailyOptionState { idle, correct, wrong }
 /// 首页每日一练卡：标题“每日一练”骑在卡片上边框上，一道题 + 四条整条可点
 /// 的选项；答完即锁定，显示“已锁定，明天刷新”。
 ///
-/// 卡片固定白底品牌样式（与 _PreviewCard 一致），卡内文字与选项颜色一律用
-/// 固定深色 token，不用 AppColors.title(context) 之类——深色模式下白卡配
-/// 固定深字才可读。
+/// 卡片本身透明（无填充），上边框在标题处留出真实缺口；卡内文字与选项
+/// 颜色全部跟随当前深浅色模式。
 class _DailyPracticeCard extends StatelessWidget {
   const _DailyPracticeCard({
     required this.question,
@@ -826,12 +839,43 @@ class _DailyPracticeCard extends StatelessWidget {
     return _DailyOptionState.idle;
   }
 
+  /// 量出标题文字宽度，供边框在标题处留缺口（含左右内边距）。
+  double _measureTitle(BuildContext context, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: '每日一练', style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    return painter.width;
+  }
+
   @override
   Widget build(BuildContext context) {
     final options = question.options;
+    final titleStyle = TextStyle(
+      fontSize: AppFontSizes.dailyTitle,
+      fontWeight: FontWeight.w800,
+      color: AppColors.cardTitle(context),
+    );
+    final gapStart = AppSpacing.dailyTitleLeft;
+    final gapEnd =
+        gapStart +
+        _measureTitle(context, titleStyle) +
+        AppSpacing.dailyTitlePadH * 2;
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        Positioned.fill(
+          child: CustomPaint(
+            key: const ValueKey('daily-card-border'),
+            painter: DailyCardBorderPainter(
+              color: AppColors.cardBorder(context),
+              radius: AppRadii.card,
+              gapStart: gapStart,
+              gapEnd: gapEnd,
+            ),
+          ),
+        ),
         Container(
           key: const ValueKey('daily-practice-card'),
           padding: const EdgeInsets.fromLTRB(
@@ -840,24 +884,16 @@ class _DailyPracticeCard extends StatelessWidget {
             AppSpacing.dailyOptionPadH,
             AppSpacing.dailyOptionPadH,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.brandSurface,
-            borderRadius: BorderRadius.circular(AppRadii.card),
-            border: Border.all(
-              color: AppColors.brandBorder,
-              width: AppSizes.borderWidth,
-            ),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 question.stem,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: AppFontSizes.dailyQuestion,
                   fontWeight: FontWeight.bold,
                   height: 1.6,
-                  color: AppColors.brandTitle,
+                  color: AppColors.cardTitle(context),
                 ),
               ),
               const SizedBox(height: AppSpacing.dailyQuestionGap),
@@ -876,12 +912,12 @@ class _DailyPracticeCard extends StatelessWidget {
                 ),
               if (_locked) ...[
                 const SizedBox(height: AppSpacing.sm),
-                const Text(
+                Text(
                   '已锁定，明天刷新',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: AppFontSizes.dailyLockHint,
-                    color: AppColors.brandSecondaryText,
+                    color: AppColors.cardSecondary(context),
                   ),
                 ),
               ],
@@ -890,22 +926,12 @@ class _DailyPracticeCard extends StatelessWidget {
         ),
         Positioned(
           top: -AppSpacing.dailyTitleOverhang,
-          left: AppSpacing.dailyTitleLeft,
-          child: const ColoredBox(
-            color: AppColors.brandSurface,
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.dailyTitlePadH,
-              ),
-              child: Text(
-                '每日一练',
-                style: TextStyle(
-                  fontSize: AppFontSizes.dailyTitle,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.brandTitle,
-                ),
-              ),
+          left: gapStart,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.dailyTitlePadH,
             ),
+            child: Text('每日一练', style: titleStyle),
           ),
         ),
       ],
@@ -929,6 +955,7 @@ class _DailyOptionStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final (
       background,
       border,
@@ -937,25 +964,25 @@ class _DailyOptionStrip extends StatelessWidget {
       letterForeground,
     ) = switch (state) {
       _DailyOptionState.correct => (
-        AppColors.dailyCorrectBackground,
-        AppColors.successLight,
-        AppColors.dailyCorrectText,
-        AppColors.successLight,
-        AppColors.brandOnPrimary,
+        AppColors.dailyCorrectBackground(context),
+        AppColors.success(context),
+        AppColors.dailyCorrectText(context),
+        AppColors.success(context),
+        scheme.onPrimary,
       ),
       _DailyOptionState.wrong => (
-        AppColors.wrongIconBackground,
-        AppColors.wrongIconForeground,
-        AppColors.dailyWrongText,
-        AppColors.wrongIconForeground,
-        AppColors.brandOnPrimary,
+        AppColors.wrongIconBackground(context),
+        AppColors.wrongIconForeground(context),
+        AppColors.dailyWrongText(context),
+        AppColors.wrongIconForeground(context),
+        scheme.onError,
       ),
       _DailyOptionState.idle => (
-        AppColors.brandSurface,
-        AppColors.brandBorder,
-        AppColors.brandTitle,
-        AppColors.dailyLetterBackground,
-        AppColors.dailyLetterText,
+        AppColors.dailyOptionIdleBackground(context),
+        AppColors.cardBorder(context),
+        AppColors.cardTitle(context),
+        AppColors.dailyLetterBackground(context),
+        AppColors.dailyLetterText(context),
       ),
     };
     return Material(
@@ -1009,5 +1036,54 @@ class _DailyOptionStrip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 每日一练卡片的圆角边框：上边框在标题位置留出真实缺口（擦除，不用
+/// 背景色盖住），标题透明地坐在缺口里。
+class DailyCardBorderPainter extends CustomPainter {
+  const DailyCardBorderPainter({
+    required this.color,
+    required this.radius,
+    required this.gapStart,
+    required this.gapEnd,
+  });
+
+  final Color color;
+  final double radius;
+  final double gapStart;
+  final double gapEnd;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    canvas.saveLayer(Offset.zero & size, Paint());
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = AppSizes.borderWidth
+        ..color = color,
+    );
+    // 擦掉标题覆盖段的上边框，形成 fieldset-legend 式缺口。
+    canvas.drawLine(
+      Offset(gapStart, 0),
+      Offset(gapEnd, 0),
+      Paint()
+        ..blendMode = BlendMode.clear
+        ..strokeWidth = AppSizes.borderWidth * 3,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(DailyCardBorderPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.radius != radius ||
+        oldDelegate.gapStart != gapStart ||
+        oldDelegate.gapEnd != gapEnd;
   }
 }

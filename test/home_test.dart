@@ -68,7 +68,7 @@ void main() {
     ServiceLocator.kvStore.remove(KvStore.keyDailyAnswer);
   });
 
-  testWidgets('G1b 首页问候区：无 AppBar，问候块 + 钉住头像，无顶部同步 chip', (tester) async {
+  testWidgets('G1b 首页问候区：无 AppBar，问候块 + 滚动头像，无顶部同步 chip', (tester) async {
     await loginToHome(tester);
 
     expect(find.byType(AppBar), findsNothing);
@@ -81,6 +81,32 @@ void main() {
     // 横幅保留。
     expect(find.text('今天还没有完成任务'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '开始'), findsOneWidget);
+  });
+
+  testWidgets('F8b 首页问候区让出系统状态栏（顶部偏移 = 安全区 + 内容内边距）', (tester) async {
+    // 真机 Android 状态栏约 24–30dp；只留 16dp 内容内边距会让问候语
+    // 落在状态栏区域内（16 < 24），被状态栏压住。
+    const statusBar = 24.0;
+    await ServiceLocator.authService.logout();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(padding: const EdgeInsets.only(top: statusBar)),
+            child: HomeContentPage(onSelectTab: (_) {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final greetingTop = tester.getTopLeft(find.textContaining('好！')).dy;
+    // 问候语整块在状态栏下方。
+    expect(greetingTop, greaterThanOrEqualTo(statusBar));
+    // 系统安全区之上仍保留 md 内容内边距，与题库页一致。
+    expect(greetingTop, greaterThanOrEqualTo(statusBar + AppSpacing.md));
   });
 
   testWidgets('R2 首页不显示工具箱标题或工具网格', (tester) async {
@@ -161,21 +187,41 @@ void main() {
     expect(nickname.style?.color, darkTitle);
   });
 
-  testWidgets('R1 头像顶部与问候首行平齐（top = homeTopPad + xs = 76）', (tester) async {
+  testWidgets('E 头像随页面滚动：在可滚动内容里，不是固定 Positioned 覆盖层', (tester) async {
     await loginToHome(tester);
 
-    final positioned = tester.widget<Positioned>(
-      find.descendant(
-        of: find.byType(HomeContentPage),
-        matching: find.ancestor(
-          of: find.byType(UserAvatar),
-          matching: find.byType(Positioned),
-        ),
-      ),
+    final avatar = find.byType(UserAvatar);
+    expect(avatar, findsOneWidget);
+    // 头像是首页 ListView 内容的一部分，滚动时随页面移动。
+    expect(
+      find.ancestor(of: avatar, matching: find.byType(Scrollable)),
+      findsWidgets,
     );
-    expect(positioned.top, AppSizes.homeTopPad + AppSpacing.xs);
-    expect(positioned.top, 76);
-    expect(positioned.right, AppSpacing.md);
+    expect(
+      find.ancestor(of: avatar, matching: find.byType(Positioned)),
+      findsNothing,
+    );
+  });
+
+  testWidgets('D 未登录时问候区显示中性占位名，不留空白（浅色 / 深色都可见）', (tester) async {
+    for (final brightness in <Brightness>[Brightness.light, Brightness.dark]) {
+      await ServiceLocator.authService.logout();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+          home: HomeContentPage(onSelectTab: (_) {}),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final name = find.text('同学');
+      expect(name, findsOneWidget, reason: '$brightness 下应有占位名');
+      final text = tester.widget<Text>(name);
+      final scheme = Theme.of(tester.element(find.byType(HomeContentPage)))
+          .colorScheme;
+      expect(text.style?.color, scheme.onSurface);
+      expect(text.style?.color, isNot(scheme.surface));
+    }
   });
 
   testWidgets('R3 精选题库区：3 个精选套卷行同高 76、同宽，全宽行非方块', (tester) async {
@@ -363,7 +409,7 @@ void main() {
     expect(find.text('VLAN · 加入 $date'), findsNWidgets(2));
   });
 
-  testWidgets('F6 深色模式：预览卡固定白底深字，标题与条目都可读', (tester) async {
+  testWidgets('F6/A 深色模式：预览卡跟随深色主题，不再固定白底', (tester) async {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     tester.view.physicalSize = const Size(800, 1400);
@@ -372,13 +418,19 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await loginToHome(tester);
 
+    final scheme = Theme.of(tester.element(find.byType(HomeContentPage)))
+        .colorScheme;
+
+    final card = _previewCard('错题本');
+    final material = tester.widget<Material>(card);
+    expect(material.color, scheme.surface);
+    expect(material.color, isNot(AppColors.brandSurface));
+
     final title = tester.widget<Text>(find.text('错题本'));
-    expect(title.style?.color, AppColors.brandTitle);
-    expect(title.style?.color, isNot(AppColors.brandSurface));
+    expect(title.style?.color, scheme.onSurface);
 
     final count = tester.widget<Text>(find.text('今日新增 3 道'));
-    expect(count.style?.color, AppColors.brandSecondaryText);
-    expect(count.style?.color, isNot(AppColors.brandSurface));
+    expect(count.style?.color, scheme.onSurfaceVariant);
 
     final stems = await _sampleStems(['SAMPLE-10']);
     final item = tester.widget<Text>(
@@ -386,8 +438,8 @@ void main() {
           .descendant(of: _previewCard('错题本'), matching: find.text(stems.first))
           .first,
     );
-    expect(item.style?.color, AppColors.previewItemText);
-    expect(item.style?.color, isNot(AppColors.brandSurface));
+    expect(item.style?.color, scheme.onSurfaceVariant);
+    expect(item.style?.color, isNot(scheme.surface));
   });
 
   testWidgets('F7 每日一练卡在精选题库上方，标题骑在卡片上边框上', (tester) async {
@@ -433,9 +485,16 @@ void main() {
         find.descendant(of: strip, matching: find.text(option.text)),
         findsOneWidget,
       );
-      // 未作答：四条都是白底 + 浅灰边框。
-      expect(_dailyOption(tester, option.key).color, AppColors.brandSurface);
-      expect(_dailyOptionBorder(tester, option.key), AppColors.brandBorder);
+      // 未作答：四条都是主题白底 + 主题边框。
+      final context = tester.element(find.byType(HomeContentPage));
+      expect(
+        _dailyOption(tester, option.key).color,
+        AppColors.dailyOptionIdleBackground(context),
+      );
+      expect(
+        _dailyOptionBorder(tester, option.key),
+        AppColors.cardBorder(context),
+      );
     }
 
     expect(find.text('已锁定，明天刷新'), findsNothing);
@@ -454,21 +513,25 @@ void main() {
     await tester.tap(find.byKey(ValueKey('daily-option-$correct')));
     await tester.pumpAndSettle();
 
+    final context = tester.element(find.byType(HomeContentPage));
     expect(
       _dailyOption(tester, correct).color,
-      AppColors.dailyCorrectBackground,
+      AppColors.dailyCorrectBackground(context),
     );
-    expect(_dailyOptionBorder(tester, correct), AppColors.successLight);
+    expect(_dailyOptionBorder(tester, correct), AppColors.success(context));
     expect(find.text('已锁定，明天刷新'), findsOneWidget);
 
     // 锁定后点另一条：不产生第二次选择，正确的绿条保持不变。
     await tester.tap(find.byKey(ValueKey('daily-option-$other')));
     await tester.pumpAndSettle();
 
-    expect(_dailyOption(tester, other).color, AppColors.brandSurface);
+    expect(
+      _dailyOption(tester, other).color,
+      AppColors.dailyOptionIdleBackground(context),
+    );
     expect(
       _dailyOption(tester, correct).color,
-      AppColors.dailyCorrectBackground,
+      AppColors.dailyCorrectBackground(context),
     );
     expect(find.text('已锁定，明天刷新'), findsOneWidget);
   });
@@ -486,13 +549,20 @@ void main() {
     await tester.tap(find.byKey(ValueKey('daily-option-$wrong')));
     await tester.pumpAndSettle();
 
-    expect(_dailyOption(tester, wrong).color, AppColors.wrongIconBackground);
-    expect(_dailyOptionBorder(tester, wrong), AppColors.wrongIconForeground);
+    final context = tester.element(find.byType(HomeContentPage));
+    expect(
+      _dailyOption(tester, wrong).color,
+      AppColors.wrongIconBackground(context),
+    );
+    expect(
+      _dailyOptionBorder(tester, wrong),
+      AppColors.wrongIconForeground(context),
+    );
     expect(
       _dailyOption(tester, correct).color,
-      AppColors.dailyCorrectBackground,
+      AppColors.dailyCorrectBackground(context),
     );
-    expect(_dailyOptionBorder(tester, correct), AppColors.successLight);
+    expect(_dailyOptionBorder(tester, correct), AppColors.success(context));
     expect(find.text('已锁定，明天刷新'), findsOneWidget);
   });
 
@@ -521,25 +591,27 @@ void main() {
     expect(find.text('已锁定，明天刷新'), findsOneWidget);
     expect(
       _dailyOption(tester, question.correctKey).color,
-      AppColors.dailyCorrectBackground,
+      AppColors.dailyCorrectBackground(
+        tester.element(find.byType(HomeContentPage)),
+      ),
     );
   });
 
-  testWidgets('F7 深色模式：每日一练固定白卡深字，选项状态色与白底可区分', (tester) async {
+  testWidgets('A/F7 深色模式：每日一练跟随深色主题，状态色可区分', (tester) async {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     _useTallViewport(tester);
     await loginToHome(tester);
 
     final question = await _todayDailyQuestion();
+    final context = tester.element(find.byType(HomeContentPage));
+    final scheme = Theme.of(context).colorScheme;
 
     final title = tester.widget<Text>(find.text('每日一练'));
-    expect(title.style?.color, AppColors.brandTitle);
-    expect(title.style?.color, isNot(AppColors.brandSurface));
+    expect(title.style?.color, scheme.onSurface);
 
     final stem = tester.widget<Text>(find.text(question.stem));
-    expect(stem.style?.color, AppColors.brandTitle);
-    expect(stem.style?.color, isNot(AppColors.brandSurface));
+    expect(stem.style?.color, scheme.onSurface);
 
     final optionText = tester.widget<Text>(
       find.descendant(
@@ -547,10 +619,15 @@ void main() {
         matching: find.text(question.options.first.text),
       ),
     );
-    expect(optionText.style?.color, AppColors.brandTitle);
-    expect(optionText.style?.color, isNot(AppColors.brandSurface));
+    expect(optionText.style?.color, scheme.onSurface);
 
-    // 答错后：红条 / 绿条都与白色卡面不同，文字仍是固定深色。
+    // 未作答条用深色抬升层，不再固定白底。
+    expect(
+      _dailyOption(tester, question.options.first.key).color,
+      scheme.surfaceContainerHighest,
+    );
+
+    // 答错后：红条 / 绿条都用深色模式的状态色。
     final correct = question.correctKey;
     final wrong = question.options
         .firstWhere((option) => option.key != correct)
@@ -558,12 +635,10 @@ void main() {
     await tester.tap(find.byKey(ValueKey('daily-option-$wrong')));
     await tester.pumpAndSettle();
 
-    expect(_dailyOption(tester, wrong).color, isNot(AppColors.brandSurface));
-    expect(_dailyOption(tester, wrong).color, AppColors.wrongIconBackground);
-    expect(_dailyOption(tester, correct).color, isNot(AppColors.brandSurface));
+    expect(_dailyOption(tester, wrong).color, scheme.errorContainer);
     expect(
       _dailyOption(tester, correct).color,
-      AppColors.dailyCorrectBackground,
+      AppColors.dailyCorrectBackground(context),
     );
     expect(
       tester
@@ -577,7 +652,126 @@ void main() {
           )
           .style
           ?.color,
-      AppColors.dailyWrongText,
+      scheme.onErrorContainer,
+    );
+  });
+
+  testWidgets('B 每日一练卡透明、标题无底色，上边框在标题处留缺口', (tester) async {
+    _useTallViewport(tester);
+    await loginToHome(tester);
+
+    final context = tester.element(find.byType(HomeContentPage));
+    final cardFinder = find.byKey(const ValueKey('daily-practice-card'));
+    final card = tester.widget<Container>(cardFinder);
+    // 卡片自身无填充也无边框装饰（边框由 CustomPaint 单独绘制）。
+    expect(card.decoration, isNull);
+
+    // 标题透明，没有白底盖住边框。
+    expect(
+      find.ancestor(of: find.text('每日一练'), matching: find.byType(ColoredBox)),
+      findsNothing,
+    );
+
+    final border = tester.widget<CustomPaint>(
+      find.byKey(const ValueKey('daily-card-border')),
+    );
+    final painter = border.painter! as DailyCardBorderPainter;
+    expect(painter.color, AppColors.cardBorder(context));
+    expect(painter.gapStart, greaterThan(0));
+    expect(painter.gapEnd, greaterThan(painter.gapStart));
+
+    // 缺口横向覆盖标题（标题落在被擦除的上边框区间内）。
+    final cardRect = tester.getRect(cardFinder);
+    final titleRect = tester.getRect(find.text('每日一练'));
+    expect(
+      titleRect.left - cardRect.left,
+      greaterThanOrEqualTo(painter.gapStart),
+    );
+    expect(titleRect.right - cardRect.left, lessThanOrEqualTo(painter.gapEnd));
+  });
+
+  testWidgets('C 预览条目与卡片内容左缘齐平（无缩进）', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await loginToHome(tester);
+
+    final card = _previewCard('错题本');
+    final stems = await _sampleStems(['SAMPLE-10']);
+    final bullet = find.descendant(of: card, matching: find.text('·')).first;
+    final item = find.descendant(of: card, matching: find.text(stems.first));
+
+    // 圆点紧贴卡片内容左缘（卡内左右内边距 = md），不再缩进 56。
+    final cardLeft = tester.getTopLeft(card).dx;
+    expect(
+      tester.getTopLeft(bullet).dx,
+      moreOrLessEquals(cardLeft + AppSpacing.md, epsilon: 0.5),
+    );
+    // 题干在圆点右侧，仍是单行截断。
+    expect(
+      tester.getTopLeft(item).dx,
+      greaterThan(tester.getTopLeft(bullet).dx),
+    );
+    expect(tester.widget<Text>(item).maxLines, 1);
+  });
+
+  testWidgets('F 首页组件视觉间距统一（横幅 → 每日一练 → 精选题库 → 预览卡）', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await loginToHome(tester);
+
+    final banner = tester.getRect(
+      find
+          .ancestor(
+            of: find.text('今天还没有完成任务'),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    final dailyTitle = tester.getRect(find.text('每日一练'));
+    final dailyCard = tester.getRect(
+      find.byKey(const ValueKey('daily-practice-card')),
+    );
+    final sectionTitle = tester.getRect(find.text('精选题库'));
+    final lastRow = tester.getRect(find.byType(SetRowCard).last);
+    final syncStrip = tester.getRect(
+      find
+          .ancestor(
+            of: find.text('本地模式 · 未连接服务器'),
+            matching: find.byType(InkWell),
+          )
+          .first,
+    );
+    final previewTitle = tester.getRect(find.text('错题本 · 收藏'));
+
+    // 横幅到“每日一练”标题（不是卡片边框）、卡片到底部栏目标题、
+    // 套卷行到同步条、同步条到底部栏目标题，全部是同一个 md。
+    expect(
+      dailyTitle.top - banner.bottom,
+      moreOrLessEquals(AppSpacing.md, epsilon: 0.5),
+    );
+    expect(
+      sectionTitle.top - dailyCard.bottom,
+      moreOrLessEquals(AppSpacing.md, epsilon: 0.5),
+    );
+    expect(
+      syncStrip.top - lastRow.bottom,
+      moreOrLessEquals(AppSpacing.md, epsilon: 0.5),
+    );
+    expect(
+      previewTitle.top - syncStrip.bottom,
+      moreOrLessEquals(AppSpacing.md, epsilon: 0.5),
+    );
+
+    // 错题本 / 收藏两张预览卡之间也是同一个间距。
+    final wrong = tester.getRect(_previewCard('错题本'));
+    final favorite = tester.getRect(_previewCard('收藏'));
+    expect(
+      favorite.top - wrong.bottom,
+      moreOrLessEquals(AppSpacing.md, epsilon: 0.5),
     );
   });
 
