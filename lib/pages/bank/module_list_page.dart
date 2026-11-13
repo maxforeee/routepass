@@ -3,8 +3,9 @@
 /// 页头只有「题库」标题，下面是搜索条（保留的既有功能），再下面是「练习 /
 /// 考试」切换行（F5 按用户 1:1 参考稿新增，只做排版）：练习 tab 显示 4 张
 /// 套卷卡，考试 tab 显示 6 张模拟卷占位卡；输入搜索后切换为题目结果列表。
-/// （G2b：筛选 chips 已按 canva 参考移除，文本搜索行为不变。F3：标题 32px
-/// 与搜索条左缘对齐，头像只在首页，模块标签按 canva 参考排成 3 列两行。）
+/// （G2b：筛选 chips 已按 canva 参考移除，文本搜索行为不变。F8：标题改为与
+/// 知识库 / 工具箱相同的 PageHeader（22 粗体 + 副标题），与搜索条左缘对齐，
+/// 头像只在首页，模块标签按 canva 参考排成 3 列两行。）
 library;
 
 import 'package:flutter/material.dart';
@@ -129,10 +130,10 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         AppSpacing.xxs,
       ),
       decoration: BoxDecoration(
-        color: AppColors.brandSurface,
+        color: AppColors.cardSurface(context),
         borderRadius: BorderRadius.circular(AppRadii.searchPill),
         border: Border.all(
-          color: AppColors.brandBorder,
+          color: AppColors.cardBorder(context),
           width: AppSizes.borderWidth,
         ),
       ),
@@ -141,7 +142,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
           Expanded(
             child: TextField(
               style: theme.textTheme.labelLarge?.copyWith(
-                color: AppColors.brandTitle,
+                color: AppColors.cardTitle(context),
               ),
               decoration: InputDecoration(
                 isDense: true,
@@ -149,7 +150,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
                 contentPadding: EdgeInsets.zero,
                 hintText: '搜索题目',
                 hintStyle: theme.textTheme.labelLarge?.copyWith(
-                  color: AppColors.brandCaption,
+                  color: AppColors.cardCaption(context),
                 ),
               ),
               onChanged: (v) => setState(() => _query = v.trim()),

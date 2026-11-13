@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
+import 'package:routepass/pages/knowledge/knowledge_home_page.dart';
+import 'package:routepass/pages/toolbox/toolbox_home_page.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/widgets/module_tag.dart';
 import 'package:routepass/widgets/page_header.dart';
@@ -56,6 +58,77 @@ Finder _inBank(Finder matching) =>
 RenderParagraph _paragraph(WidgetTester tester, String text) =>
     tester.renderObject<RenderParagraph>(_inBank(find.text(text)));
 
+/// 单个页头实测值：三页逐项对比用，不写死字号。
+class _HeaderMetrics {
+  const _HeaderMetrics({
+    required this.titleSize,
+    required this.titleWeight,
+    required this.subtitleSize,
+    required this.alignment,
+    required this.titleLeft,
+    required this.titleTop,
+    required this.subtitleLeft,
+    required this.subtitleTop,
+  });
+
+  final double? titleSize;
+  final FontWeight? titleWeight;
+  final double? subtitleSize;
+  final CrossAxisAlignment alignment;
+  final double titleLeft;
+  final double titleTop;
+  final double subtitleLeft;
+  final double subtitleTop;
+
+  double get innerGap => subtitleTop - titleTop;
+}
+
+_HeaderMetrics _headerMetrics(
+  WidgetTester tester,
+  String title,
+  String subtitle,
+) {
+  final header = find.byType(PageHeader);
+  expect(header, findsOneWidget);
+  final titleFinder = find.descendant(of: header, matching: find.text(title));
+  final subtitleFinder = find.descendant(
+    of: header,
+    matching: find.text(subtitle),
+  );
+  expect(titleFinder, findsOneWidget);
+  expect(subtitleFinder, findsOneWidget);
+
+  final titleText = tester.widget<Text>(titleFinder);
+  final subtitleText = tester.widget<Text>(subtitleFinder);
+  final column = tester.widget<Column>(
+    find.descendant(of: header, matching: find.byType(Column)).first,
+  );
+  final titleTopLeft = tester.getTopLeft(titleFinder);
+  final subtitleTopLeft = tester.getTopLeft(subtitleFinder);
+  return _HeaderMetrics(
+    titleSize: titleText.style?.fontSize,
+    titleWeight: titleText.style?.fontWeight,
+    subtitleSize: subtitleText.style?.fontSize,
+    alignment: column.crossAxisAlignment,
+    titleLeft: titleTopLeft.dx,
+    titleTop: titleTopLeft.dy,
+    subtitleLeft: subtitleTopLeft.dx,
+    subtitleTop: subtitleTopLeft.dy,
+  );
+}
+
+/// 用与 App 相同的主题单独 pump 一个页面（知识库 / 工具箱不经过底栏）。
+Future<void> _pumpStandalonePage(
+  WidgetTester tester,
+  Size size,
+  Widget page,
+) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1.0;
+  await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: page));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   initTestServices();
@@ -63,21 +136,80 @@ void main() {
   for (final size in _viewports) {
     final label = '${size.width.toInt()}x${size.height.toInt()}';
 
-    testWidgets('H 题库页头与知识库/工具箱一致（PageHeader 22px + 练习考试）（$label）', (
-      tester,
-    ) async {
+    testWidgets('H 题库页头与知识库/工具箱逐项一致（$label）', (tester) async {
       await _openBank(tester, size);
 
       expect(_inBank(find.byType(PageHeader)), findsOneWidget);
-      final title = tester.widget<Text>(_inBank(find.text('题库')));
-      // 与页 3 / 页 4 相同的 titleLarge 字号与粗体。
-      expect(title.style?.fontSize, 22);
-      expect(title.style?.fontWeight, FontWeight.bold);
+      final bank = _headerMetrics(tester, '题库', '练习考试');
 
-      final subtitle = tester.widget<Text>(_inBank(find.text('练习考试')));
-      expect(subtitle.style?.fontSize, AppFontSizes.pageSubtitle);
+      await _pumpStandalonePage(tester, size, const KnowledgeHomePage());
+      final knowledge = _headerMetrics(tester, '知识库', 'H3CNE 考点 · 章 / 节 / 知识点');
+
+      await _pumpStandalonePage(tester, size, const ToolboxHomePage());
+      final toolbox = _headerMetrics(tester, '工具箱', '网工常用小工具 · 全部本地运行');
+
+      // 三页共用 PageHeader：字号 / 字重 / 左对齐 / 标题与副标题间距逐项相等。
+      for (final page in <(String, _HeaderMetrics)>[
+        ('知识库', knowledge),
+        ('工具箱', toolbox),
+      ]) {
+        final (name, metrics) = page;
+        expect(metrics.titleSize, bank.titleSize, reason: '$name 标题字号');
+        expect(metrics.titleWeight, bank.titleWeight, reason: '$name 标题字重');
+        expect(metrics.subtitleSize, bank.subtitleSize, reason: '$name 副标题字号');
+        expect(metrics.alignment, bank.alignment, reason: '$name 页头对齐');
+        expect(metrics.subtitleLeft, metrics.titleLeft, reason: '$name 副标题左对齐');
+        expect(metrics.innerGap, bank.innerGap, reason: '$name 标题/副标题间距');
+      }
+      expect(bank.subtitleLeft, bank.titleLeft, reason: '题库副标题左对齐');
+      expect(
+        bank.titleSize,
+        AppTheme.light.textTheme.titleLarge?.fontSize,
+        reason: '题库标题沿用主题 titleLarge 字号',
+      );
+      expect(bank.titleWeight, FontWeight.bold);
 
       expect(_inBank(find.byType(UserAvatar)), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('P1-2 题库搜索条深色模式跟随主题（$label）', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeMode.dark,
+          home: const BankModuleListPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final searchBar = find
+          .ancestor(
+            of: find.byType(TextField),
+            matching: find.byType(Container),
+          )
+          .first;
+      final decoration =
+          tester.widget<Container>(searchBar).decoration! as BoxDecoration;
+      final context = tester.element(find.byType(TextField));
+      expect(decoration.color, AppColors.cardSurface(context));
+      expect(decoration.color, isNot(AppColors.brandSurface));
+      expect(
+        (decoration.border! as Border).top.color,
+        AppColors.cardBorder(context),
+      );
+
+      final textField = tester.widget<TextField>(find.byType(TextField));
+      expect(textField.style?.color, AppColors.cardTitle(context));
+      expect(
+        textField.decoration?.hintStyle?.color,
+        AppColors.cardCaption(context),
+      );
       expect(tester.takeException(), isNull);
     });
 

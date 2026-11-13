@@ -469,7 +469,7 @@ class AppRadii {
 class AppFontSizes {
   AppFontSizes._();
 
-  /// 页头副标题（题库页“H3CNE 300 道 · 每套含解析”）。
+  /// 页头副标题（PageHeader 统一字号，如题库页「练习考试」）。
   static const double pageSubtitle = 13;
 
   /// 套卷卡模块小标签。
@@ -499,7 +499,7 @@ class AppFontSizes {
   /// 首页问候语字号（逻辑像素，28 粗体，小于昵称字号保持层级）。
   static const double homeGreetingHi = 28;
 
-  /// 首页问候区昵称 / 题库页标题字号（逻辑像素，32 特粗）。
+  /// 首页问候区昵称字号（逻辑像素，32 特粗）。
   static const double homeGreetingName = 32;
 
   /// 题库页练习/考试切换标签字号（逻辑像素）。
