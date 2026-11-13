@@ -91,89 +91,100 @@ class _SetDetailPageState extends State<SetDetailPage> {
       backgroundColor: AppColors.pageBackground(context),
       body: SafeArea(
         bottom: true,
-        child: Column(
+        child: Stack(
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.chevron_left,
-                    size: AppSizes.iconLarge,
+            Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.chevron_left,
+                        size: AppSizes.iconLarge,
+                      ),
+                      tooltip: '返回',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                   ),
-                  tooltip: '返回',
-                  onPressed: () => Navigator.of(context).pop(),
                 ),
-              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.xs,
+                      AppSpacing.md,
+                      AppSizes.homeBottomPad +
+                          AppSizes.buttonHeight +
+                          AppSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$_drawCount 题套卷',
+                          style: theme.textTheme.headlineLarge?.copyWith(
+                            fontSize: AppFontSizes.detailTitle,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.brandTitle,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        _MetaRow(
+                          single: _singleCount,
+                          multiple: _multipleCount,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Container(
+                          height: AppSizes.divider,
+                          color: AppColors.brandBorder,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        const ReservedSlot(),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          '知识点考察',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: AppFontSizes.detailSectionTitle,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.brandTitle,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        for (final module in modules) ...[
+                          _ModuleRow(
+                            name: moduleLabel(module),
+                            count: _perModuleCount,
+                            progress: _moduleProgress(module),
+                          ),
+                          if (module != modules.last)
+                            const SizedBox(
+                              height: AppSpacing.setDetailModuleGap,
+                            ),
+                        ],
+                        const SizedBox(height: AppSpacing.lg),
+                        _InstructionsCard(minutes: _minutes),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSpacing.xs,
-                  AppSpacing.md,
-                  AppSpacing.md,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$_drawCount 题套卷',
-                      style: theme.textTheme.headlineLarge?.copyWith(
-                        fontSize: AppFontSizes.detailTitle,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.brandTitle,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    _MetaRow(single: _singleCount, multiple: _multipleCount),
-                    const SizedBox(height: AppSpacing.md),
-                    Container(
-                      height: AppSizes.divider,
-                      color: AppColors.brandBorder,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    const ReservedSlot(),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      '知识点考察',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: AppFontSizes.detailSectionTitle,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    for (final module in modules) ...[
-                      _ModuleRow(
-                        name: moduleLabel(module),
-                        count: _perModuleCount,
-                        progress: _moduleProgress(module),
-                      ),
-                      if (module != modules.last)
-                        const SizedBox(height: AppSpacing.setDetailModuleGap),
-                    ],
-                    const SizedBox(height: AppSpacing.lg),
-                    _InstructionsCard(minutes: _minutes),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.xs,
-                AppSpacing.lg,
-                AppSizes.homeBottomPad,
-              ),
+            Positioned(
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              bottom: AppSizes.homeBottomPad,
               child: SizedBox(
                 width: double.infinity,
                 height: AppSizes.buttonHeight,
                 child: FilledButton(
                   onPressed: _start,
                   style: FilledButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
+                    backgroundColor: AppColors.brandPrimary,
+                    foregroundColor: AppColors.brandSurface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(
                         AppRadii.setDetailStartButton,
@@ -230,7 +241,7 @@ class _MetaRow extends StatelessWidget {
   }
 }
 
-/// 单个模块行：名称（14 粗）+ 右侧“N 题 · x%”（12 灰）+ 下方进度条。
+/// 单个模块行：名称（14 粗）+ 右侧“N 题 · x%”（13 灰）+ 下方进度条。
 class _ModuleRow extends StatelessWidget {
   const _ModuleRow({
     required this.name,
@@ -254,15 +265,18 @@ class _ModuleRow extends StatelessWidget {
             Expanded(
               child: Text(
                 name,
-                style: theme.textTheme.labelLarge?.copyWith(
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontSize: AppFontSizes.detailBody,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.brandTitle,
                 ),
               ),
             ),
             Text(
               '$count 题 · $percent%',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: AppFontSizes.detailStat,
+                color: AppColors.brandCaption,
               ),
             ),
           ],
@@ -272,14 +286,14 @@ class _ModuleRow extends StatelessWidget {
           height: AppSizes.setDetailProgressBarHeight,
           alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
-            color: theme.colorScheme.outlineVariant,
+            color: AppColors.brandBorder,
             borderRadius: BorderRadius.circular(AppRadii.setDetailProgressBar),
           ),
           child: FractionallySizedBox(
             widthFactor: progress.clamp(0.0, 1.0),
             child: Container(
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
+                color: AppColors.brandPrimary,
                 borderRadius: BorderRadius.circular(
                   AppRadii.setDetailProgressBar,
                 ),
@@ -292,7 +306,7 @@ class _ModuleRow extends StatelessWidget {
   }
 }
 
-/// 答题说明卡：标题 + 三条绿色对勾说明。
+/// 答题说明卡：标题 + 三条说明。
 class _InstructionsCard extends StatelessWidget {
   const _InstructionsCard({required this.minutes});
 
@@ -307,21 +321,20 @@ class _InstructionsCard extends StatelessWidget {
       '做错的题自动收入错题本',
     ];
     return Container(
-      height: AppSizes.setDetailInstructionsHeight,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: AppColors.brandSurface,
         borderRadius: BorderRadius.circular(AppRadii.input),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        border: Border.all(color: AppColors.brandBorder),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '答题说明',
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.bold,
+              color: AppColors.brandTitle,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),

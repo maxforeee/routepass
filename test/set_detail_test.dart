@@ -27,13 +27,27 @@ void main() {
     expect(find.text('100 题套卷'), findsOneWidget);
     expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
     expect(find.text('单选 75 · 多选 25'), findsOneWidget);
-    expect(find.text('知识点考察'), findsOneWidget);
+
+    // 知识点考察：20px 粗体标题 + 5 个模块行（真实进度 0%）。
+    final sectionTitle = tester.widget<Text>(find.text('知识点考察'));
+    expect(sectionTitle.style?.fontSize, AppFontSizes.detailSectionTitle);
+    expect(sectionTitle.style?.fontWeight, FontWeight.bold);
+    expect(sectionTitle.style?.color, AppColors.brandTitle);
     expect(find.text('VLAN'), findsOneWidget);
     expect(find.text('OSPF'), findsOneWidget);
     expect(find.text('ACL'), findsOneWidget);
     expect(find.text('NAT'), findsOneWidget);
     expect(find.text('子网划分'), findsOneWidget);
     expect(find.text('20 题 · 0%'), findsNWidgets(5));
+    final progressBars = find.descendant(
+      of: find.byType(SetDetailPage),
+      matching: find.byType(FractionallySizedBox),
+    );
+    expect(progressBars, findsNWidgets(5));
+    for (final element in progressBars.evaluate()) {
+      expect((element.widget as FractionallySizedBox).widthFactor, 0.0);
+    }
+
     expect(find.byType(ReservedSlot), findsOneWidget);
     expect(find.text('预留容器 · 以后在这里加内容'), findsOneWidget);
     expect(find.text('答题说明'), findsOneWidget);
@@ -41,6 +55,47 @@ void main() {
     expect(find.text('交卷后可查看解析与得分'), findsOneWidget);
     expect(find.text('做错的题自动收入错题本'), findsOneWidget);
     expect(find.text('开始答题'), findsOneWidget);
+  });
+
+  testWidgets('开始答题固定在屏幕底部且不随内容滚动', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SetDetailPage(
+          args: <String, Object?>{'mode': 'exam', 'drawCount': 100},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(SingleChildScrollView),
+        matching: find.text('开始答题'),
+      ),
+      findsNothing,
+    );
+    final pinned = tester.widget<Positioned>(
+      find.descendant(
+        of: find.byType(SetDetailPage),
+        matching: find.byType(Positioned),
+      ),
+    );
+    expect(pinned.bottom, AppSizes.homeBottomPad);
+
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '开始答题'),
+    );
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{}),
+      AppColors.brandPrimary,
+    );
+    final shape = button.style?.shape?.resolve(<WidgetState>{});
+    expect(shape, isA<RoundedRectangleBorder>());
+    expect(
+      (shape! as RoundedRectangleBorder).borderRadius,
+      BorderRadius.circular(AppRadii.setDetailStartButton),
+    );
   });
 
   testWidgets('套卷详情页 开始答题 进答题页', (tester) async {
@@ -200,10 +255,18 @@ void main() {
     expect(find.byType(SetDetailPage), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    final buttonRect = tester.getRect(find.text('开始答题'));
+    final buttonRect = tester.getRect(
+      find.widgetWithText(FilledButton, '开始答题'),
+    );
     final screenRect = tester.getRect(find.byType(SetDetailPage));
     expect(screenRect.overlaps(buttonRect), isTrue);
     expect(buttonRect.bottom, lessThanOrEqualTo(screenRect.bottom));
+    expect(buttonRect.left, closeTo(screenRect.left + AppSpacing.md, 1));
+    expect(buttonRect.right, closeTo(screenRect.right - AppSpacing.md, 1));
+    expect(
+      screenRect.bottom - buttonRect.bottom,
+      closeTo(AppSizes.homeBottomPad, 1),
+    );
   });
 
   testWidgets('深色模式下元信息文字使用品牌说明色', (tester) async {
