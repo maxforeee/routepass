@@ -116,6 +116,13 @@ class AppSpacing {
 
   /// 启动页应用名与英文名之间的间距（逻辑像素）。
   static const double splashNameGap = 14;
+
+  /// 题库页练习/考试切换行内边距（上 12 / 下 18）。
+  static const double bankTabsPaddingTop = 12;
+  static const double bankTabsPaddingBottom = 18;
+
+  /// 题库页两个切换 tab 之间的距离（逻辑像素）。
+  static const double bankTabGap = 72;
 }
 
 /// 品牌页尺寸（逻辑像素）。
@@ -244,6 +251,27 @@ class AppSizes {
 
   /// 进度环描边宽（逻辑像素）。
   static const double ringStroke = 3;
+
+  /// 题库页切换 tab 虚线指示线高（逻辑像素）。
+  static const double bankTabLineHeight = 2;
+
+  /// 题库页切换 tab 指示线比标签每侧多出的长度（逻辑像素）。
+  static const double bankTabLineOverhang = 10;
+
+  /// 题库页切换 tab 标签与指示线之间的间距（逻辑像素）。
+  static const double bankTabLineGap = 7;
+
+  /// 题库页切换 tab 虚线段长（逻辑像素）。
+  static const double bankTabDash = 6;
+
+  /// 题库页切换 tab 虚线间隔（逻辑像素）。
+  static const double bankTabDashGap = 5;
+
+  /// 题库页切换 tab 标签行高（倍数，与 canva 参考 1.2 一致）。
+  static const double bankTabLabelHeight = 1.2;
+
+  /// 题库页未选中 tab 指示线不透明度（canva 参考 .45）。
+  static const double bankTabLineInactiveOpacity = 0.45;
 }
 
 /// 品牌页圆角（逻辑像素）。
@@ -321,6 +349,9 @@ class AppFontSizes {
 
   /// 首页问候区昵称 / 题库页标题字号（逻辑像素，32 特粗）。
   static const double homeGreetingName = 32;
+
+  /// 题库页练习/考试切换标签字号（逻辑像素）。
+  static const double bankTabLabel = 20;
 }
 
 /// 品牌动画时长。

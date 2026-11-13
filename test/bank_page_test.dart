@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
+import 'package:routepass/widgets/module_tag.dart';
+import 'package:routepass/widgets/set_row_card.dart';
 import 'package:routepass/widgets/user_avatar.dart';
 
 import 'test_helpers.dart';
 
-/// F3（用户反馈 B1 / H3 / B3 / O1）回归：题库页标题字号与左对齐、头像只在
-/// 首页、套卷行标题与副标题完整显示。两个视口（手机 410 / 平板 800）各跑一遍。
+/// F3（用户反馈 B1 / H3 / B3 / O1）回归 + F5（练习/考试切换、去副标题、
+/// 移除错题本/收藏入口）回归：题库页标题字号与左对齐、头像只在首页、套卷行
+/// 标题与副标题完整显示、两个 tab 切换下方列表。两个视口（手机 410 / 平板
+/// 800）各跑一遍。
 const _viewports = <Size>[Size(410, 890), Size(800, 1400)];
 
 const _setTitles = <String>['100 题套卷', '200 题套卷', '50 题套卷', '10 题速练'];
@@ -19,6 +24,15 @@ const _setSubtitles = <String>[
   '200 题 · 5 个模块 · 含解析',
   '50 题 · 5 个模块 · 含解析',
   '10 题 · 5 个模块 · 含解析',
+];
+
+const _paperTitles = <String>[
+  'H3CNE 模拟卷 01',
+  'H3CNE 模拟卷 02',
+  'H3CNE 模拟卷 03',
+  'H3CNE 模拟卷 04',
+  'H3CNE 模拟卷 05',
+  'H3CNE 模拟卷 06',
 ];
 
 Future<void> _openBank(WidgetTester tester, Size size) async {
@@ -88,19 +102,127 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('B2 六行入口与搜索条齐全（$label）', (tester) async {
+    testWidgets('F5 默认显示 4 张练习套卷卡与练习/考试两个 tab（$label）', (tester) async {
       await _openBank(tester, size);
 
       expect(_inBank(find.text('搜索题目')), findsOneWidget);
+      expect(_inBank(find.text('练习')), findsOneWidget);
+      expect(_inBank(find.text('考试')), findsOneWidget);
+
       for (final t in _setTitles) {
         expect(_inBank(find.text(t)), findsOneWidget);
       }
       for (final t in const ['错题本', '收藏']) {
-        expect(_inBank(find.text(t)), findsOneWidget);
+        expect(_inBank(find.text(t)), findsNothing);
       }
       for (final tag in const ['VLAN', 'OSPF', 'ACL', 'NAT', '子网划分']) {
         expect(_inBank(find.text(tag)), findsWidgets);
       }
+      expect(_inBank(find.text('H3CNE 模拟卷 01')), findsNothing);
+    });
+
+    testWidgets('F5 点考试显示 6 张模拟卷卡并隐藏练习卡（$label）', (tester) async {
+      await _openBank(tester, size);
+
+      await tester.tap(_inBank(find.text('考试')));
+      await tester.pumpAndSettle();
+
+      for (final t in _paperTitles) {
+        expect(_inBank(find.text(t)), findsOneWidget);
+      }
+      expect(_inBank(find.text('100 题 · 60 分钟 · 含解析')), findsWidgets);
+      for (final tag in const ['综合', 'H3CNE', '模拟', '60分钟', '100题']) {
+        expect(_inBank(find.text(tag)), findsWidgets);
+      }
+      for (final t in _setTitles) {
+        expect(_inBank(find.text(t)), findsNothing);
+      }
+      expect(_inBank(find.text('练习')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('F5 点练习切回 4 张练习套卷卡（$label）', (tester) async {
+      await _openBank(tester, size);
+
+      await tester.tap(_inBank(find.text('考试')));
+      await tester.pumpAndSettle();
+      expect(_inBank(find.text('H3CNE 模拟卷 01')), findsOneWidget);
+
+      await tester.tap(_inBank(find.text('练习')));
+      await tester.pumpAndSettle();
+      for (final t in _setTitles) {
+        expect(_inBank(find.text(t)), findsOneWidget);
+      }
+      expect(_inBank(find.text('H3CNE 模拟卷 01')), findsNothing);
+    });
+
+    testWidgets('F5 标题下副标题已移除（$label）', (tester) async {
+      await _openBank(tester, size);
+
+      expect(_inBank(find.textContaining('每套含解析')), findsNothing);
+      expect(_inBank(find.textContaining('道 ·')), findsNothing);
+    });
+
+    testWidgets('F5 搜索仍显示题目结果列表（$label）', (tester) async {
+      await _openBank(tester, size);
+
+      final samples = await ServiceLocator.questionRepository.drawQuestions(
+        mode: 'practice',
+        drawCount: 100,
+      );
+      final searchField = _inBank(find.byType(TextField));
+      await tester.enterText(searchField, samples.first.stem);
+      await tester.pumpAndSettle();
+
+      expect(_inBank(find.byType(ListTile)), findsWidgets);
+      expect(_inBank(find.text('没有找到相关题目')), findsNothing);
+      expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('F5 深色模式：选中 tab 用深色标题色，卡片文字与底色不同（可读）', (tester) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await _openBank(tester, const Size(410, 890));
+
+    const darkTitle = Color(0xFFF1F5F9);
+    final activeTab = tester.widget<Text>(_inBank(find.text('练习')));
+    expect(activeTab.style?.color, darkTitle);
+    expect(
+      activeTab.style?.color,
+      AppColors.title(tester.element(find.byType(BankModuleListPage))),
+    );
+
+    final inactiveTab = tester.widget<Text>(_inBank(find.text('考试')));
+    expect(inactiveTab.style?.color, AppColors.brandCaption);
+
+    // 套卷卡：白底卡片 + 深色标题（品牌固定色），文字与底色不得相同。
+    final surface = tester
+        .widget<Material>(
+          find
+              .descendant(
+                of: find.byType(SetRowCard).first,
+                matching: find.byType(Material),
+              )
+              .first,
+        )
+        .color;
+    final cardTitle = tester.widget<Text>(_inBank(find.text('100 题套卷')));
+    final cardSubtitle = tester.widget<Text>(
+      _inBank(find.text('100 题 · 5 个模块 · 含解析')),
+    );
+    expect(cardTitle.style?.color, isNot(surface));
+    expect(cardSubtitle.style?.color, isNot(surface));
+
+    // 模块标签：深色 chip 上的浅灰文字同样与 chip 底色不同。
+    final firstTag = _inBank(find.byType(ModuleTag)).first;
+    final tagBox = tester.widget<Container>(
+      find.descendant(of: firstTag, matching: find.byType(Container)).first,
+    );
+    final tagSurface = (tagBox.decoration! as BoxDecoration).color;
+    final tagText = tester.widget<Text>(
+      find.descendant(of: firstTag, matching: find.byType(Text)),
+    );
+    expect(tagText.style?.color, isNot(tagSurface));
+  });
 }

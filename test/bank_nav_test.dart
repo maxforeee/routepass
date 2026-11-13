@@ -31,8 +31,8 @@ void main() {
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
     expect(find.byType(BankModuleListPage), findsOneWidget);
-    // B1：标题“题库”32px 特粗作为页面内容（非 AppBar）；副标题总数由模块
-    // 题量数据求和得出（Mock 各模块题量为 0，故显示 0，不再是写死的 300）。
+    // B1：标题“题库”32px 特粗作为页面内容（非 AppBar）；F5 起标题下不再
+    // 有“H3CNE N 道 · 每套含解析”副标题。
     expect(
       find.descendant(
         of: find.byType(BankModuleListPage),
@@ -40,7 +40,11 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('H3CNE 0 道 · 每套含解析'), findsOneWidget);
+    expect(find.text('H3CNE 0 道 · 每套含解析'), findsNothing);
+    expect(find.textContaining('每套含解析'), findsNothing);
+    // F5：搜索条下方是练习 / 考试切换。
+    expect(find.text('练习'), findsOneWidget);
+    expect(find.text('考试'), findsOneWidget);
     // H3：头像入口只在首页，题库页不再有 UserAvatar。
     expect(
       find.descendant(
@@ -142,33 +146,29 @@ void main() {
     expect(find.byType(CapsuleNavBar), findsOneWidget);
   });
 
-  testWidgets('错题本入口进错题本页（空态）', (tester) async {
-    // 入口行在 600 高默认视口下首屏外（ListView 懒构建，滚不到）；用 1400 高视口。
-    tester.view.physicalSize = const Size(800, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('错题本路由仍可用（入口已按 F5 从题库页移除）', (tester) async {
     await loginToHome(tester);
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('错题本'));
+    expect(find.text('错题本'), findsNothing);
+
+    final context = tester.element(find.byType(BankModuleListPage));
+    Navigator.of(context).pushNamed(AppRoutes.bankWrong);
     await tester.pumpAndSettle();
     expect(find.byType(WrongPage), findsOneWidget);
     expect(find.text('暂无错题'), findsOneWidget);
   });
 
-  testWidgets('收藏入口进收藏页（空态）', (tester) async {
-    // 同错题本：入口行在默认视口下首屏外，用 1400 高视口。
-    tester.view.physicalSize = const Size(800, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('收藏路由仍可用（入口已按 F5 从题库页移除）', (tester) async {
     await loginToHome(tester);
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('收藏'));
+    expect(find.text('收藏'), findsNothing);
+
+    final context = tester.element(find.byType(BankModuleListPage));
+    Navigator.of(context).pushNamed(AppRoutes.bankFavorites);
     await tester.pumpAndSettle();
     expect(find.byType(FavoritesPage), findsOneWidget);
     expect(find.text('暂无收藏'), findsOneWidget);
