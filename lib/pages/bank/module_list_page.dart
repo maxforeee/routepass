@@ -2,7 +2,8 @@
 ///
 /// 页头（题库 + 副标题）下是搜索条（保留的既有功能），默认显示 4 张套卷卡 +
 /// 错题本/收藏入口；输入搜索后切换为题目结果列表。（G2b：筛选 chips 已按
-/// canva 参考移除，文本搜索行为不变。）
+/// canva 参考移除，文本搜索行为不变。G2c：标题“题库”28px 作为页面内容，
+/// 头像与首页同样钉在右上；四个套卷（含 10 题速练）全部进套卷详情模板。）
 library;
 
 import 'package:flutter/material.dart';
@@ -12,10 +13,12 @@ import '../../core/modules.dart';
 import '../../core/theme.dart';
 import '../../models/question.dart';
 import '../../models/stats.dart';
+import '../../models/user.dart';
 import '../../router/app_router.dart';
+import '../../widgets/account_sheet.dart';
 import '../../widgets/module_tag.dart';
-import '../../widgets/page_header.dart';
 import '../../widgets/set_row_card.dart';
+import '../../widgets/user_avatar.dart';
 
 class BankModuleListPage extends StatefulWidget {
   const BankModuleListPage({super.key});
@@ -27,6 +30,7 @@ class BankModuleListPage extends StatefulWidget {
 class BankModuleListPageState extends State<BankModuleListPage> {
   List<ModuleStat> _modules = const <ModuleStat>[];
   List<Question> _samples = const <Question>[];
+  User? _user;
   int _wrongCount = 0;
   int _favoriteCount = 0;
   String _query = '';
@@ -41,6 +45,12 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   Future<void> refresh() => _load();
 
   Future<void> _load() async {
+    User? user;
+    try {
+      user = await ServiceLocator.authService.getCurrentUser();
+    } catch (_) {
+      user = null;
+    }
     try {
       final modules = await ServiceLocator.questionRepository.getModules();
       final samples = await ServiceLocator.questionRepository.drawQuestions(
@@ -51,6 +61,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       final favs = await ServiceLocator.favoriteService.getFavoriteIds();
       if (!mounted) return;
       setState(() {
+        _user = user;
         _modules = modules;
         _samples = samples;
         _wrongCount = wrong.length;
@@ -62,13 +73,6 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   List<Question> get _filtered => _query.isEmpty
       ? _samples
       : _samples.where((q) => q.stem.contains(_query)).toList();
-
-  void _openQuiz(String mode, int drawCount) {
-    Navigator.of(context).pushNamed(
-      AppRoutes.bankQuiz,
-      arguments: <String, Object?>{'mode': mode, 'drawCount': drawCount},
-    );
-  }
 
   void _openSetDetail(int drawCount) {
     Navigator.of(context).pushNamed(
@@ -87,40 +91,80 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     };
   }
 
+  /// 副标题总数：由模块题量数据求和得出（Mock 下各模块题量为 0）。
+  int get _questionTotal => _modules.fold<int>(0, (sum, m) => sum + m.total);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.pageBackground(context),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                AppSpacing.xs,
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSizes.homeTopPad,
+                  AppSpacing.md,
+                  AppSpacing.xs,
+                ),
+                child: _buildHeader(theme),
               ),
-              child: PageHeader(title: '题库', subtitle: 'H3CNE 300 道 · 每套含解析'),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.xxs,
-                AppSpacing.md,
-                AppSpacing.cardGap,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.xxs,
+                  AppSpacing.md,
+                  AppSpacing.cardGap,
+                ),
+                child: _buildSearchBar(theme),
               ),
-              child: _buildSearchBar(theme),
+              Expanded(
+                child: _query.isNotEmpty
+                    ? _buildResults(theme)
+                    : _buildSets(theme),
+              ),
+            ],
+          ),
+          Positioned(
+            top: AppSizes.homeTopPad + AppSpacing.xs,
+            right: AppSpacing.md,
+            child: UserAvatar(
+              username: _user?.username ?? '',
+              onTap: () => showAccountSheet(context),
             ),
-            Expanded(
-              child: _query.isNotEmpty
-                  ? _buildResults(theme)
-                  : _buildSets(theme),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  /// 页头（canva 参考：标题 28px 特粗作为页面内容 + 副标题 13px）。
+  Widget _buildHeader(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '题库',
+          style: TextStyle(
+            fontSize: AppFontSizes.homeGreetingName,
+            fontWeight: FontWeight.w800,
+            color: AppColors.brandTitle,
+            height: 1.2,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          'H3CNE $_questionTotal 道 · 每套含解析',
+          style: TextStyle(
+            fontSize: AppFontSizes.pageSubtitle,
+            color: AppColors.brandSecondaryText,
+            height: 1.5,
+          ),
+        ),
+      ],
     );
   }
 
@@ -203,7 +247,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         AppSpacing.md,
         AppSpacing.sm,
         AppSpacing.md,
-        AppSpacing.md,
+        AppSizes.homeBottomPad,
       ),
       children: [
         SetRowCard(
@@ -231,7 +275,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
           title: '10 题速练',
           subtitle: '10 题 · 5 个模块 · 含解析',
           trailing: moduleTags(modules),
-          onTap: () => _openQuiz('quick', 10),
+          onTap: () => _openSetDetail(10),
         ),
         const SizedBox(height: AppSpacing.cardGap),
         SetRowCard(
@@ -284,7 +328,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         AppSpacing.md,
         AppSpacing.sm,
         AppSpacing.md,
-        AppSpacing.md,
+        AppSizes.homeBottomPad,
       ),
       itemCount: results.length,
       itemBuilder: (context, index) {

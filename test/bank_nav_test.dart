@@ -12,6 +12,7 @@ import 'package:routepass/pages/bank/stats_page.dart';
 import 'package:routepass/pages/bank/wrong_page.dart';
 import 'package:routepass/router/app_router.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
+import 'package:routepass/widgets/user_avatar.dart';
 
 import 'test_helpers.dart';
 
@@ -29,8 +30,40 @@ void main() {
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
     expect(find.byType(BankModuleListPage), findsOneWidget);
-    expect(find.text('H3CNE 300 道 · 每套含解析'), findsOneWidget);
+    // G2c：标题“题库”28px 特粗作为页面内容（非 AppBar）；副标题总数由模块
+    // 题量数据求和得出（Mock 各模块题量为 0，故显示 0，不再是写死的 300）。
+    expect(
+      find.descendant(
+        of: find.byType(BankModuleListPage),
+        matching: find.text('题库'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('H3CNE 0 道 · 每套含解析'), findsOneWidget);
+    // G2c：头像与首页同一 UserAvatar，钉在右上不随列表滚动。
+    expect(
+      find.descendant(
+        of: find.byType(BankModuleListPage),
+        matching: find.byType(UserAvatar),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('100 题套卷'), findsOneWidget);
+  });
+
+  testWidgets('10 题速练进套卷详情页（G2c：不再直达答题页）', (tester) async {
+    // 同错题本：入口行在默认视口下位置偏下，用 1400 高视口保证可点。
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await loginToHome(tester);
+
+    await tester.tap(_navTab('题库'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('10 题速练'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SetDetailPage), findsOneWidget);
   });
 
   testWidgets('点套卷卡进套卷详情页', (tester) async {
@@ -128,9 +161,6 @@ void main() {
     expect(find.text('没有找到相关题目'), findsOneWidget);
     expect(resultTiles, findsNothing);
   });
-
-  // “快速 10 题直达答题页”已在 set_detail_test.dart（首页套卷卡进详情页，
-  // 快速 10 题直达答题页）覆盖；题库页没有“10 题速练”入口，不在此测。
 
   // G1c: 首页“学习统计”方块已移除，统计页改为直接走路由验证。
   testWidgets('统计页路由仍可用（首页统计方块已随 G1c 移除）', (tester) async {
