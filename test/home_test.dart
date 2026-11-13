@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/bank/answer_page.dart';
-import 'package:routepass/pages/bank/favorites_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
-import 'package:routepass/pages/bank/wrong_page.dart';
 import 'package:routepass/pages/home/home_content.dart';
 import 'package:routepass/widgets/set_row_card.dart';
 import 'package:routepass/widgets/user_avatar.dart';
@@ -124,46 +122,35 @@ void main() {
     expect(positioned.right, AppSpacing.md);
   });
 
-  testWidgets('R3 题库区：5 行 SetRowCard 同高 76、同宽，全宽行非方块', (tester) async {
+  testWidgets('R3 精选题库区：3 个精选套卷行同高 76、同宽，全宽行非方块', (tester) async {
     await loginToHome(tester);
-
-    await tester.scrollUntilVisible(
-      find.text('收藏'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.pumpAndSettle();
 
     final rows = find.byType(SetRowCard);
-    expect(rows, findsNWidgets(5));
-    final sizes = [for (var i = 0; i < 5; i++) tester.getSize(rows.at(i))];
+    expect(rows, findsNWidgets(3));
+    final sizes = [for (var i = 0; i < 3; i++) tester.getSize(rows.at(i))];
     for (final size in sizes) {
       expect(size.height, 76);
+      // 套卷行是长条，不是小方块。
+      expect(size.width, greaterThan(size.height * 2));
     }
     expect(sizes.map((size) => size.width).toSet().length, 1);
-    // 错题本 / 收藏是长条，不是小方块。
-    expect(sizes[3].width, greaterThan(sizes[3].height * 2));
-    expect(sizes[4].width, greaterThan(sizes[4].height * 2));
+
+    // 错题本 / 收藏只在题库页，首页不展示。
+    expect(find.text('错题本'), findsNothing);
+    expect(find.text('收藏'), findsNothing);
   });
 
-  testWidgets('R3 题库区懒加载：初始只渲染 3 行，滚到底部附近再补齐', (tester) async {
+  testWidgets('R3 精选题库区：3 个精选套卷首屏全部渲染（无懒加载）', (tester) async {
     await loginToHome(tester);
     await tester.pumpAndSettle();
 
     expect(find.byType(SetRowCard), findsNWidgets(3));
+    expect(find.text('100 题套卷'), findsOneWidget);
+    expect(find.text('200 题套卷'), findsOneWidget);
+    expect(find.text('50 题套卷'), findsOneWidget);
     expect(find.text('错题本'), findsNothing);
     expect(find.text('收藏'), findsNothing);
-
-    await tester.scrollUntilVisible(
-      find.text('收藏'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byType(SetRowCard), findsNWidgets(5));
-    expect(find.text('错题本'), findsOneWidget);
-    expect(find.text('收藏'), findsOneWidget);
   });
 
   testWidgets('R3 点按套卷行进套卷详情页', (tester) async {
@@ -174,35 +161,27 @@ void main() {
     expect(find.byType(SetDetailPage), findsOneWidget);
   });
 
-  testWidgets('R3 点按错题本行进错题页', (tester) async {
+  testWidgets('H2 首页栏目标题为“精选题库”，不再是“题库”', (tester) async {
     await loginToHome(tester);
 
-    await tester.scrollUntilVisible(
-      find.text('错题本'),
-      300,
-      scrollable: find.byType(Scrollable).first,
+    expect(find.text('精选题库'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(HomeContentPage),
+        matching: find.text('题库'),
+      ),
+      findsNothing,
     );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('错题本'));
-    await tester.pumpAndSettle();
-    expect(find.byType(WrongPage), findsOneWidget);
-    expect(find.text('暂无错题'), findsOneWidget);
   });
 
-  testWidgets('R3 点按收藏行进收藏页', (tester) async {
+  testWidgets('H1 问候语字号 28，昵称字号 32（层级 问候 < 昵称）', (tester) async {
     await loginToHome(tester);
 
-    await tester.scrollUntilVisible(
-      find.text('收藏'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('收藏'));
-    await tester.pumpAndSettle();
-    expect(find.byType(FavoritesPage), findsOneWidget);
-    expect(find.text('暂无收藏'), findsOneWidget);
+    final greeting = tester.widget<Text>(find.textContaining('好！'));
+    expect(greeting.style?.fontSize, 28);
+    final nickname = tester.widget<Text>(find.text('Max'));
+    expect(nickname.style?.fontSize, AppFontSizes.homeGreetingName);
+    expect(AppFontSizes.homeGreetingName, 32);
+    expect(greeting.style!.fontSize!, lessThan(nickname.style!.fontSize!));
   });
 }

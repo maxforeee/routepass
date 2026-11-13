@@ -316,8 +316,11 @@ class AppFontSizes {
   /// 套卷详情页“开始答题”按钮文字。
   static const double detailButton = 16;
 
-  /// 首页问候区昵称字号（逻辑像素，28 特粗）。
-  static const double homeGreetingName = 28;
+  /// 首页问候语字号（逻辑像素，28 粗体，小于昵称字号保持层级）。
+  static const double homeGreetingHi = 28;
+
+  /// 首页问候区昵称 / 题库页标题字号（逻辑像素，32 特粗）。
+  static const double homeGreetingName = 32;
 }
 
 /// 品牌动画时长。

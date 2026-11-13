@@ -28,49 +28,31 @@ class HomeContentPage extends StatefulWidget {
 
 class HomeContentPageState extends State<HomeContentPage> {
   User? _user;
-  int _wrongCount = 0;
-  int _favoriteCount = 0;
   StatsOverview? _overview;
   SyncStatus? _syncStatus;
   ContentVersion? _contentVersion;
 
-  /// 题库区懒加载：初始 3 行，滚到底部附近再补 3（最多 5）。
-  static const int _bankTotal = 5;
-  static const int _bankInitial = 3;
-  static const int _bankStep = 3;
-  int _visibleBankCount = _bankInitial;
+  /// 首页精选题库的候选套卷（题库页另有 10 题套卷，不进精选）。
+  static const List<int> _setDrawCounts = <int>[100, 200, 50];
 
-  final ScrollController _scrollController = ScrollController();
+  /// 首页最多展示的精选套卷数。
+  static const int _featuredLimit = 3;
+
+  /// 每套套卷的做题记录（完成度 / 正确率）。
+  ///
+  /// 这是接后端推荐的数据入口：现阶段数据源没有按套卷维度的记录（统计只有
+  /// 按模块的 ModuleStat），所以留空——全部套卷按“未开始”处理，精选结果
+  /// 就是默认顺序 100 / 200 / 50。后端接通后把真实记录填进这里即可，
+  /// 排序规则与页面渲染都不用改。
+  static const Map<int, _SetRecord> _practiceRecords = <int, _SetRecord>{};
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _load();
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  /// 滚到距底部 200px 内时补加载题库行（本地懒渲染，非网络请求）。
-  void _onScroll() {
-    final controller = _scrollController;
-    if (!controller.hasClients) return;
-    if (controller.position.maxScrollExtent - controller.position.pixels >
-        200) {
-      return;
-    }
-    if (_visibleBankCount >= _bankTotal) return;
-    setState(() {
-      final next = _visibleBankCount + _bankStep;
-      _visibleBankCount = next >= _bankTotal ? _bankTotal : next;
-    });
-  }
-
-  /// tab 切回时刷新（重拉用户 / 错题 / 知识点 / 统计）。
+  /// tab 切回时刷新（重拉用户 / 统计 / 同步状态）。
   Future<void> refresh() => _load();
 
   Future<void> _load() async {
@@ -79,20 +61,6 @@ class HomeContentPageState extends State<HomeContentPage> {
       user = await ServiceLocator.authService.getCurrentUser();
     } catch (_) {
       user = null;
-    }
-    int wrongCount = 0;
-    try {
-      final wrongItems = await ServiceLocator.wrongService.getWrongBook();
-      wrongCount = wrongItems.length;
-    } catch (_) {
-      wrongCount = 0;
-    }
-    int favoriteCount = 0;
-    try {
-      final favoriteIds = await ServiceLocator.favoriteService.getFavoriteIds();
-      favoriteCount = favoriteIds.length;
-    } catch (_) {
-      favoriteCount = 0;
     }
     StatsOverview? overview;
     try {
@@ -115,8 +83,6 @@ class HomeContentPageState extends State<HomeContentPage> {
     if (!mounted) return;
     setState(() {
       _user = user;
-      _wrongCount = wrongCount;
-      _favoriteCount = favoriteCount;
       _overview = overview;
       _syncStatus = syncStatus;
       _contentVersion = contentVersion;
@@ -227,75 +193,46 @@ class HomeContentPageState extends State<HomeContentPage> {
     );
   }
 
-  /// 首页题库区：100 / 200 / 50 套卷 + 错题本 + 收藏，全部复用 SetRowCard。
-  List<Widget> _bankItems(ThemeData theme) {
-    return [
-      SetRowCard(
-        title: '100 题套卷',
-        subtitle: '100 题 · 5 个模块 · 含解析',
-        trailing: _moduleTags(),
-        onTap: () => _openSetDetail(100),
-      ),
-      SetRowCard(
-        title: '200 题套卷',
-        subtitle: '200 题 · 5 个模块 · 含解析',
-        trailing: _moduleTags(),
-        onTap: () => _openSetDetail(200),
-      ),
-      SetRowCard(
-        title: '50 题套卷',
-        subtitle: '50 题 · 5 个模块 · 含解析',
-        trailing: _moduleTags(),
-        onTap: () => _openSetDetail(50),
-      ),
-      SetRowCard(
-        leading: Icon(
-          Icons.menu_book_outlined,
-          color: theme.colorScheme.error,
-          size: AppSizes.icon,
-        ),
-        title: '错题本',
-        subtitle: _wrongCount == 0
-            ? '暂无错题 · 做错的题自动收录'
-            : '$_wrongCount 道 · 做错的题自动收录',
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.brandCaption,
-        ),
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankWrong),
-      ),
-      SetRowCard(
-        leading: Icon(
-          Icons.star,
-          color: AppColors.warning(context),
-          size: AppSizes.icon,
-        ),
-        title: '收藏',
-        subtitle: '$_favoriteCount 道已收藏',
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.brandCaption,
-        ),
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
-      ),
-    ];
+  /// 首页精选题库的套卷选取：按做题记录推荐，优先未完成的套卷，其次
+  /// 正确率最低的，最多 [_featuredLimit] 套。记录缺失（如 Mock）的套卷
+  /// 视为“未开始 + 无正确率”，保持 [_setDrawCounts] 的默认顺序。
+  List<int> _featuredSets() {
+    final ranked = List<int>.of(_setDrawCounts);
+    ranked.sort((a, b) {
+      final recordA = _practiceRecords[a];
+      final recordB = _practiceRecords[b];
+      final finishedA = recordA?.finished ?? false;
+      final finishedB = recordB?.finished ?? false;
+      // 未完成优先。
+      if (finishedA != finishedB) return finishedA ? 1 : -1;
+      // 正确率低的优先。
+      final rateA = recordA?.correctRate ?? 0.0;
+      final rateB = recordB?.correctRate ?? 0.0;
+      if (rateA != rateB) return rateA.compareTo(rateB);
+      // 都相同时保持默认顺序，避免每次渲染顺序抖动。
+      return _setDrawCounts.indexOf(a).compareTo(_setDrawCounts.indexOf(b));
+    });
+    return ranked.take(_featuredLimit).toList();
   }
 
-  /// 题库区懒加载列表（只渲染前 _visibleBankCount 行，不嵌套滚动）。
-  Widget _buildBankList(ThemeData theme) {
-    final items = _bankItems(theme).take(_visibleBankCount).toList();
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: index == items.length - 1 ? 0 : AppSpacing.cardGap,
+  /// 首页精选题库列表：每个精选套卷一行（全部首屏渲染，无懒加载）。
+  Widget _buildFeaturedList() {
+    final sets = _featuredSets();
+    return Column(
+      children: [
+        for (var i = 0; i < sets.length; i++)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: i == sets.length - 1 ? 0 : AppSpacing.cardGap,
+            ),
+            child: SetRowCard(
+              title: '${sets[i]} 题套卷',
+              subtitle: '${sets[i]} 题 · 5 个模块 · 含解析',
+              trailing: _moduleTags(),
+              onTap: () => _openSetDetail(sets[i]),
+            ),
           ),
-          child: items[index],
-        );
-      },
+      ],
     );
   }
 
@@ -310,7 +247,6 @@ class HomeContentPageState extends State<HomeContentPage> {
           RefreshIndicator(
             onRefresh: _load,
             child: ListView(
-              controller: _scrollController,
               padding: const EdgeInsets.only(
                 top: AppSizes.homeTopPad,
                 left: AppSpacing.md,
@@ -325,9 +261,11 @@ class HomeContentPageState extends State<HomeContentPage> {
                     children: [
                       Text(
                         _greetingText,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
+                        style: TextStyle(
+                          fontSize: AppFontSizes.homeGreetingHi,
+                          fontWeight: FontWeight.w700,
                           color: AppColors.title(context),
+                          height: 1.2,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxs),
@@ -370,13 +308,13 @@ class HomeContentPageState extends State<HomeContentPage> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  '题库',
+                  '精选题库',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                _buildBankList(theme),
+                _buildFeaturedList(),
                 if (_showSyncTip) ...[
                   const SizedBox(height: AppSpacing.md),
                   _SyncTipStrip(onTap: _openSyncSheet),
@@ -397,6 +335,17 @@ class HomeContentPageState extends State<HomeContentPage> {
       ),
     );
   }
+}
+
+/// 单套套卷的做题记录（精选推荐的排序依据；字段由后端练习记录填充）。
+class _SetRecord {
+  const _SetRecord({required this.finished, required this.correctRate});
+
+  /// 是否已完成整套。
+  final bool finished;
+
+  /// 整套正确率（0–1）。
+  final double correctRate;
 }
 
 /// 卡片通用容器：圆角 16、浅灰边框、轻微阴影，点按有涟漪；高度随内容自适应。
