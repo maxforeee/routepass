@@ -156,9 +156,11 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// 按第 3 章 §22.2.3：作答页、交卷结果、工具全屏 sheet 隐藏底栏，其余显示。
+  /// 套卷详情页是做题前置页，同属做题流程（v0.2.3 Q1），一并隐藏。
   /// 知识详情页按文档显示底栏（高亮“知识”），不隐藏。
   bool _shouldHideNav(String? routeName) {
     return switch (routeName) {
+      AppRoutes.bankSetDetail ||
       AppRoutes.bankQuiz ||
       AppRoutes.bankExam ||
       AppRoutes.bankExamResult ||

@@ -54,6 +54,22 @@ void main() {
     expect(find.textContaining('暂未开放'), findsNothing);
   });
 
+  // Q1 只隐藏做题页；四个一级页面保持悬浮胶囊导航。
+  testWidgets('四个一级页面都保留胶囊导航', (tester) async {
+    await loginToHome(tester);
+    expect(find.byType(CapsuleNavBar), findsOneWidget);
+
+    for (final label in <String>['题库', '知识', '工具', '首页']) {
+      await tester.tap(_navTab(label));
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(CapsuleNavBar),
+        findsOneWidget,
+        reason: '$label 一级页面应保留导航',
+      );
+    }
+  });
+
   testWidgets('浮动胶囊导航：extendBody + Stack/Positioned 底部居中', (tester) async {
     await loginToHome(tester);
 

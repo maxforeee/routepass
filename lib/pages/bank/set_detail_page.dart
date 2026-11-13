@@ -113,13 +113,12 @@ class _SetDetailPageState extends State<SetDetailPage> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       AppSpacing.md,
                       AppSpacing.xs,
                       AppSpacing.md,
-                      AppSizes.homeBottomPad +
-                          AppSizes.buttonHeight +
-                          AppSpacing.md,
+                      // 底部只为本页钉住按钮留位（导航已按 Q1 隐藏）。
+                      AppSizes.buttonHeight + AppSpacing.md * 2,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +175,8 @@ class _SetDetailPageState extends State<SetDetailPage> {
             Positioned(
               left: AppSpacing.md,
               right: AppSpacing.md,
-              bottom: AppSizes.homeBottomPad,
+              // 导航已隐藏：按钮贴 SafeArea 底边，只留常规间距。
+              bottom: AppSpacing.md,
               child: SizedBox(
                 width: double.infinity,
                 height: AppSizes.buttonHeight,

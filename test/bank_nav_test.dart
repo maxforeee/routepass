@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/kv_store.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/models/practice.dart';
+import 'package:routepass/pages/bank/answer_page.dart';
 import 'package:routepass/pages/bank/favorites_page.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
@@ -75,6 +76,70 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SetDetailPage), findsOneWidget);
     expect(find.text('100 题套卷'), findsOneWidget);
+  });
+
+  // Q1：做题前置页（套卷详情）与答题页自动隐藏胶囊导航，返回后恢复。
+  testWidgets('套卷详情页隐藏胶囊导航，返回后恢复', (tester) async {
+    await loginToHome(tester);
+    await tester.tap(_navTab('题库'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapsuleNavBar), findsOneWidget);
+
+    await tester.tap(find.text('100 题套卷'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SetDetailPage), findsOneWidget);
+    expect(find.byType(CapsuleNavBar), findsNothing);
+
+    // 钉住的“开始答题”没有被导航遮挡，直接可点。
+    await tester.tap(find.widgetWithText(FilledButton, '开始答题'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnswerPage), findsOneWidget);
+    expect(find.byType(CapsuleNavBar), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.arrow_back),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '退出并保留进度'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SetDetailPage), findsOneWidget);
+    expect(find.byType(CapsuleNavBar), findsNothing);
+
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SetDetailPage), findsNothing);
+    expect(find.byType(CapsuleNavBar), findsOneWidget);
+  });
+
+  testWidgets('答题页隐藏胶囊导航，返回后恢复', (tester) async {
+    addTearDown(() => ServiceLocator.kvStore.remove(KvStore.keyHomeContinue));
+    await loginToHome(tester);
+    await tester.tap(_navTab('题库'));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(BankModuleListPage));
+    Navigator.of(context).pushNamed(
+      AppRoutes.bankQuiz,
+      arguments: <String, Object?>{'mode': 'practice', 'drawCount': 100},
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AnswerPage), findsOneWidget);
+    expect(find.byType(CapsuleNavBar), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.arrow_back),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '退出并保留进度'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnswerPage), findsNothing);
+    expect(find.byType(CapsuleNavBar), findsOneWidget);
   });
 
   testWidgets('错题本入口进错题本页（空态）', (tester) async {

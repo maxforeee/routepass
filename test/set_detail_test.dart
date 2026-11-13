@@ -81,7 +81,7 @@ void main() {
         matching: find.byType(Positioned),
       ),
     );
-    expect(pinned.bottom, AppSizes.homeBottomPad);
+    expect(pinned.bottom, AppSpacing.md);
 
     final button = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '开始答题'),
@@ -263,10 +263,7 @@ void main() {
     expect(buttonRect.bottom, lessThanOrEqualTo(screenRect.bottom));
     expect(buttonRect.left, closeTo(screenRect.left + AppSpacing.md, 1));
     expect(buttonRect.right, closeTo(screenRect.right - AppSpacing.md, 1));
-    expect(
-      screenRect.bottom - buttonRect.bottom,
-      closeTo(AppSizes.homeBottomPad, 1),
-    );
+    expect(screenRect.bottom - buttonRect.bottom, closeTo(AppSpacing.md, 1));
   });
 
   testWidgets('深色模式下元信息文字使用品牌说明色', (tester) async {
