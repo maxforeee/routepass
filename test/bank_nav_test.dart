@@ -33,12 +33,12 @@ void main() {
     expect(find.text('100 题套卷'), findsOneWidget);
   });
 
-  testWidgets('点套卷卡开始进套卷详情页', (tester) async {
+  testWidgets('点套卷卡进套卷详情页', (tester) async {
     await loginToHome(tester);
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '开始').first);
+    await tester.tap(find.text('100 题套卷'));
     await tester.pumpAndSettle();
     expect(find.byType(SetDetailPage), findsOneWidget);
     expect(find.text('100 题套卷'), findsOneWidget);

@@ -20,7 +20,7 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '开始').first);
+    await tester.tap(find.text('100 题套卷'));
     await tester.pumpAndSettle();
 
     expect(find.byType(SetDetailPage), findsOneWidget);
@@ -50,10 +50,14 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    // 三张套卷卡的“开始”依次是 100 / 200 / 50 题：进详情页点开始答题，
+    // 三套卷卡依次是 100 / 200 / 50 题：点行进详情页点开始答题，
     // 答题页参数必须是 exam + 对应题量。
-    for (final (count, index) in [(100, 0), (200, 1), (50, 2)]) {
-      await tester.tap(find.widgetWithText(FilledButton, '开始').at(index));
+    for (final (count, title) in [
+      (100, '100 题套卷'),
+      (200, '200 题套卷'),
+      (50, '50 题套卷'),
+    ]) {
+      await tester.tap(find.text(title));
       await tester.pumpAndSettle();
       await tester.tap(find.text('开始答题'));
       await tester.pumpAndSettle();
@@ -159,7 +163,7 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '开始').first);
+    await tester.tap(find.text('100 题套卷'));
     await tester.pumpAndSettle();
 
     expect(find.byType(SetDetailPage), findsOneWidget);
