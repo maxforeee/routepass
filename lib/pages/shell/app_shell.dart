@@ -12,6 +12,7 @@ import '../../core/flags.dart';
 import '../../core/kv_store.dart';
 import '../../core/page_transition.dart';
 import '../../core/service_locator.dart';
+import '../../core/theme.dart';
 import '../../router/app_router.dart';
 import '../../widgets/capsule_nav_bar.dart';
 import '../../widgets/coming_soon_view.dart';
@@ -321,31 +322,50 @@ class _AppShellState extends State<AppShell> {
         }
       },
       child: Scaffold(
-        body: Column(
+        extendBody: true,
+        body: Stack(
           children: [
-            const VersionBanner(),
-            Expanded(
-              child: AnimatedOpacity(
-                opacity: _tabOpacity,
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 200),
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: [
-                    _buildTab(0),
-                    _buildTab(1),
-                    _buildTab(2),
-                    _buildTab(3),
-                  ],
+            Column(
+              children: [
+                const VersionBanner(),
+                Expanded(
+                  child: AnimatedOpacity(
+                    opacity: _tabOpacity,
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    child: IndexedStack(
+                      index: _currentIndex,
+                      children: [
+                        _buildTab(0),
+                        _buildTab(1),
+                        _buildTab(2),
+                        _buildTab(3),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (showNav)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: AppSizes.navBarMaxWidth,
+                    ),
+                    child: CapsuleNavBar(
+                      currentIndex: _currentIndex,
+                      onSelect: _selectTab,
+                    ),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
-        bottomNavigationBar: showNav
-            ? CapsuleNavBar(currentIndex: _currentIndex, onSelect: _selectTab)
-            : null,
       ),
     );
   }

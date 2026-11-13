@@ -221,6 +221,9 @@ class AppSizes {
   /// 胶囊导航高（逻辑像素）。
   static const double navBarHeight = 64;
 
+  /// 胶囊导航最大宽度（逻辑像素：胶囊体 254 + 两侧留白，匹配 410 宽 mockup）。
+  static const double navBarMaxWidth = 286;
+
   /// 胶囊导航选中椭圆底宽（逻辑像素）。
   static const double navSelectedWidth = 56;
 

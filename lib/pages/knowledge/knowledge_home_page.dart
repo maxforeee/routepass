@@ -239,7 +239,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
                   AppSpacing.md,
                   AppSpacing.sm,
                   AppSpacing.md,
-                  AppSpacing.md,
+                  AppSizes.homeBottomPad,
                 ),
                 children: [
                   const PageHeader(

@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
+import 'package:routepass/pages/home/home_content.dart';
 import 'package:routepass/pages/knowledge/knowledge_home_page.dart';
 import 'package:routepass/pages/toolbox/toolbox_home_page.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
@@ -49,5 +52,69 @@ void main() {
     expect(find.byType(BankModuleListPage), findsOneWidget);
     expect(find.text('100 题套卷'), findsOneWidget);
     expect(find.textContaining('暂未开放'), findsNothing);
+  });
+
+  testWidgets('浮动胶囊导航：extendBody + Stack/Positioned 底部居中', (tester) async {
+    await loginToHome(tester);
+
+    // 壳：extendBody，无底部导航条（胶囊是浮动盖住的，非底部导航条）。
+    // 4 个 tab 页各有自己的 Scaffold，壳的取“胶囊导航祖先”那一个。
+    final scaffoldFinder = find.ancestor(
+      of: find.byType(CapsuleNavBar),
+      matching: find.byType(Scaffold),
+    );
+    expect(scaffoldFinder, findsOneWidget);
+    final scaffold = tester.widget<Scaffold>(scaffoldFinder);
+    expect(scaffold.extendBody, isTrue);
+    expect(scaffold.bottomNavigationBar, isNull);
+
+    // 胶囊导航在 Shell 的 Stack / Positioned 覆盖层里，贴屏幕底、水平居中。
+    final navFinder = find.byType(CapsuleNavBar);
+    expect(navFinder, findsOneWidget);
+
+    final positionedFinder = find.ancestor(
+      of: navFinder,
+      matching: find.byType(Positioned),
+    );
+    expect(positionedFinder, findsOneWidget);
+    final positioned = tester.widget<Positioned>(positionedFinder);
+    expect(positioned.left, equals(0.0));
+    expect(positioned.right, equals(0.0));
+    expect(positioned.bottom, equals(0.0));
+
+    // 胶囊在 Stack 里的 Positioned 中（盖在内容上方，非底部导航条）。
+    expect(
+      find.ancestor(of: positionedFinder, matching: find.byType(Stack)),
+      findsOneWidget,
+    );
+
+    final navRect = tester.getRect(find.byType(CapsuleNavBar));
+    final size = tester.getSize(scaffoldFinder);
+    // 胶囊比屏幕窄（两侧留白）。
+    expect(navRect.left, greaterThan(0.0));
+    expect(navRect.right, lessThan(size.width));
+    // 胶囊自带 12px 底部内边距：可见胶囊体（内层 Container）浮在屏幕底上方 12px，
+    // 而 getRect(CapsuleNavBar) 取到的是含内边距的外层 Padding（贴屏幕底）。
+    // 条目高亮底是 AnimatedContainer（同为 Container），胶囊体在树中排最前，取 .first。
+    final capsuleRect = tester.getRect(
+      find.descendant(of: navFinder, matching: find.byType(Container)).first,
+    );
+    expect(size.height - capsuleRect.bottom, equals(AppSpacing.sm));
+
+    // 首页列表顶部在胶囊顶部之上（内容可滚到胶囊下面）。首页有内外两个
+    // ListView（内层 shrinkWrap 嵌套），外层在前，取 .first。
+    final listFinder = find
+        .descendant(
+          of: find.byType(HomeContentPage),
+          matching: find.byType(ListView),
+        )
+        .first;
+    expect(listFinder, findsOneWidget);
+    expect(tester.getRect(listFinder).top, lessThan(navRect.top));
+
+    // 列表底部留白至少 homeBottomPad，底部条目不会被胶囊盖住。
+    final listPadding =
+        (tester.widget<ListView>(listFinder)).padding as EdgeInsets;
+    expect(listPadding.bottom, greaterThanOrEqualTo(AppSizes.homeBottomPad));
   });
 }

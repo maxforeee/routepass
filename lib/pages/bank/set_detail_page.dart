@@ -175,7 +175,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                 AppSpacing.lg,
                 AppSpacing.xs,
                 AppSpacing.lg,
-                AppSpacing.md,
+                AppSizes.homeBottomPad,
               ),
               child: SizedBox(
                 width: double.infinity,

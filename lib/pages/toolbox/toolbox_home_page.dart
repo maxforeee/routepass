@@ -50,7 +50,12 @@ class ToolboxHomePageState extends State<ToolboxHomePage> {
               maxWidth: AppSizes.contentMaxWidth,
             ),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSizes.homeBottomPad,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
