@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/service_locator.dart';
+import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/base/login_page.dart';
 import 'package:routepass/pages/shell/app_shell.dart';
 import 'package:routepass/router/app_router.dart';
@@ -137,4 +139,128 @@ void main() {
     expect(find.text('phone number'), findsOneWidget);
     expect(find.text('password'), findsOneWidget);
   });
+
+  // ---- F15：登录页保真度（Oswald / 标题宽度 / 胶囊尺寸 / 底部无黑带） ----
+
+  testWidgets('F15 title uses bundled Oswald 700 and fits 410dp with margin', (
+    tester,
+  ) async {
+    // 加载真实 Oswald 度量（离线打包的 TTF），宽度断言才有意义。
+    final bold = rootBundle.load('assets/fonts/Oswald-Bold.ttf');
+    final semiBold = rootBundle.load('assets/fonts/Oswald-SemiBold.ttf');
+    await (FontLoader('Oswald')..addFont(bold)..addFont(semiBold)).load();
+    await _pumpLoginScene(tester);
+
+    final title = tester.widget<Text>(find.text('login in / sign up'));
+    expect(title.style?.fontFamily, 'Oswald');
+    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(title.style?.fontSize, 40);
+
+    // Oswald-Bold 实测 6.956em：40px ≈ 269dp，远小于 410 - 2x24 的留白上限。
+    final titleSize = tester.getSize(find.text('login in / sign up'));
+    expect(titleSize.width, lessThanOrEqualTo(410 - 2 * 24));
+
+    final fields = tester.widgetList<TextField>(find.byType(TextField));
+    for (final field in fields) {
+      expect(field.style?.fontFamily, 'Oswald');
+      expect(field.decoration?.hintStyle?.fontFamily, 'Oswald');
+    }
+  });
+
+  testWidgets('F15 pills are 300x56 at 410dp, login button half-width centered', (
+    tester,
+  ) async {
+    await _pumpLoginScene(tester);
+
+    final fields = find.byType(TextField);
+    final phoneRect = tester.getRect(fields.first);
+    final passwordRect = tester.getRect(fields.last);
+    expect(phoneRect.width, 300);
+    expect(phoneRect.height, 56);
+    expect(passwordRect.width, 300);
+    expect(passwordRect.height, 56);
+
+    final buttonRect = tester.getRect(find.widgetWithText(FilledButton, 'login'));
+    expect(buttonRect.width, passwordRect.width / 2);
+    expect(buttonRect.height, 56);
+    expect(buttonRect.center.dx, passwordRect.center.dx);
+  });
+
+  testWidgets('F15 gradient covers bottom inset, nav bar transparent, bubbles glossed', (
+    tester,
+  ) async {
+    await _pumpLoginScene(
+      tester,
+      padding: const EdgeInsets.only(top: 28, bottom: 34),
+    );
+
+    // 背景渐变必须铺满整屏（含底部系统区域），否则露出黑带。
+    final background = find.byWidgetPredicate((widget) {
+      final decoration = widget is Container ? widget.decoration : null;
+      return decoration is BoxDecoration &&
+          decoration.gradient is LinearGradient;
+    });
+    expect(background, findsOneWidget);
+    final backgroundRect = tester.getRect(background);
+    expect(backgroundRect.top, 0);
+    expect(backgroundRect.bottom, 915);
+
+    // 导航栏透明 + 关闭系统对比度 scrim，渐变才能透进底部系统区域。
+    final annotation = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+      find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+    );
+    expect(annotation.value.systemNavigationBarColor, const Color(0x00000000));
+    expect(annotation.value.systemNavigationBarContrastEnforced, isFalse);
+
+    // P1-4：7 个深色气泡在 radial 底色上再叠内高光（左上白 → 右下深蓝）。
+    final bubbles = find.byWidgetPredicate((widget) {
+      final decoration = widget is Container ? widget.decoration : null;
+      return decoration is BoxDecoration &&
+          decoration.gradient is RadialGradient;
+    });
+    expect(bubbles, findsNWidgets(7));
+    for (final element in bubbles.evaluate()) {
+      final container = element.widget as Container;
+      final foreground = container.foregroundDecoration;
+      expect(foreground, isA<BoxDecoration>());
+      expect((foreground as BoxDecoration).gradient, isA<LinearGradient>());
+    }
+  });
+
+  testWidgets('F15 light blob is centered with the bump overhanging left', (
+    tester,
+  ) async {
+    await _pumpLoginScene(tester, brightness: Brightness.light);
+
+    final blob = find.byWidgetPredicate((widget) {
+      final decoration = widget is Container ? widget.decoration : null;
+      return decoration is BoxDecoration &&
+          decoration.color == AppColors.loginBlobViolet &&
+          decoration.borderRadius != null;
+    });
+    expect(blob, findsOneWidget);
+    expect(tester.getRect(blob).center.dx, 205);
+  });
+}
+
+/// F15 专用画幅：~410dp 宽真机 + 可注入系统 inset / 深浅色。
+Future<void> _pumpLoginScene(
+  WidgetTester tester, {
+  Brightness brightness = Brightness.dark,
+  EdgeInsets padding = EdgeInsets.zero,
+}) async {
+  const size = Size(410, 915);
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: ThemeData(brightness: brightness),
+      home: MediaQuery(
+        data: MediaQueryData(size: size, padding: padding),
+        child: const LoginPage(),
+      ),
+    ),
+  );
+  // 顶部图形无限动画，不能 pumpAndSettle，只推一帧。
+  await tester.pump();
 }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
@@ -33,16 +34,36 @@ const RadialGradient _bubbleGradient = RadialGradient(
   stops: [0.0, 0.22, 0.48, 0.78, 1.0],
 );
 
+/// F15（P1-4）：气泡内高光——左上白色高光 → 右下深蓝内阴影，对应参考稿
+/// inset 4px 6px 10px rgba(255,255,255,.45) 与 inset -6px -8px 14px rgba(0,0,40,.55)。
+/// Flutter 无 inset 阴影，用对角渐变叠层近似；中段全透明，露出 radial 底色。
+const LinearGradient _bubbleInnerLight = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    AppColors.loginBubbleGloss,
+    AppColors.loginBubbleGlossFade,
+    AppColors.loginBubbleInnerShadeFade,
+    AppColors.loginBubbleInnerShade,
+  ],
+  stops: [0.0, 0.35, 0.65, 1.0],
+);
+
 const double _graphicTop = 78;
 const double _graphicHeight = 230;
 const double _graphicToTitle = 52;
 const double _titleToPill = 64;
 const double _pillGap = 38;
-const double _pillHeight = 64;
-const double _pillMaxWidth = 322;
-const double _pillWidthFactor = 0.82;
-const double _pillFontSize = 27;
-const double _titleFontSize = 46;
+// F15：胶囊/按钮按参考比例收窄收矮（64→56 高、322→300 宽、27→24 字号）；
+// 标题 46→40：Oswald-Bold 实测 6.956em，40px ≈ 269dp，410dp 宽屏留足边距。
+const double _pillHeight = 56;
+const double _pillMaxWidth = 300;
+const double _pillWidthFactor = 0.74;
+const double _pillFontSize = 24;
+const double _titleFontSize = 40;
+
+/// F15：离线打包的 Oswald（用户提供的 TTF，见 pubspec fonts:），标题 700 / 胶囊 600。
+const String _loginFontFamily = 'Oswald';
 
 const double _blobWidth = 235;
 const double _blobHeight = 205;
@@ -230,6 +251,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   TextStyle _pillTextStyle(Color color) {
     return TextStyle(
+      fontFamily: _loginFontFamily,
       fontSize: _pillFontSize,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.2,
@@ -304,14 +326,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           offset: Offset(0, -_blobFloatRange * float),
           child: Transform.rotate(
             angle: _blobTilt * float,
+            // F15（P1-3）：居中 235 宽的 blob 本体，凸起挂在左缘外（left: -30），
+            // 与参考稿一致；旧实现居中 265 宽容器导致 blob 右偏 15px。
             child: SizedBox(
-              width: _blobWidth + _blobBumpOverhang,
+              width: _blobWidth,
               height: _blobHeight,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   Positioned(
-                    left: _blobBumpOverhang,
+                    left: 0,
                     top: 0,
                     child: Container(
                       width: _blobWidth,
@@ -323,7 +347,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                     ),
                   ),
                   Positioned(
-                    left: 0,
+                    left: -_blobBumpOverhang,
                     top: _blobBumpTop,
                     child: Container(
                       width: _blobBumpSize,
@@ -383,6 +407,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                           ),
                         ],
                       ),
+                      foregroundDecoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: _bubbleInnerLight,
+                      ),
                     ),
                   ),
               ],
@@ -411,86 +439,100 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     // 保证内容总偏移 = max(78, 系统 inset)，不会压到状态栏下面。
     final topInset = MediaQuery.paddingOf(context).top;
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDark ? _backgroundDark : _backgroundLight,
-        ),
-        child: SafeArea(
-          top: true,
-          bottom: false,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              top: math.max(0.0, _graphicTop - topInset),
-              bottom: 24,
-            ),
-            child: Column(
-              children: [
-                SizedBox(
-                  height: _graphicHeight,
-                  child: Center(child: isDark ? _buildBubbles() : _buildBlob()),
-                ),
-                const SizedBox(height: _graphicToTitle),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'login in / sign up',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: _titleFontSize,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      height: 1.1,
-                      color: textColor,
+    // F15：导航栏透明 + 关闭系统对比度 scrim，渐变才能透进底部系统区域。
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: Scaffold(
+        body: Container(
+          // F15：显式撑满整屏（含底部系统 inset）。Scaffold body 是松约束，
+          // 不指定尺寸时 Container 会收缩到内容高度，下方露出黑底。
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: isDark ? _backgroundDark : _backgroundLight,
+          ),
+          child: SafeArea(
+            top: true,
+            bottom: false,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                top: math.max(0.0, _graphicTop - topInset),
+                bottom: 24,
+              ),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: _graphicHeight,
+                    child: Center(
+                      child: isDark ? _buildBubbles() : _buildBlob(),
                     ),
                   ),
-                ),
-                const SizedBox(height: _titleToPill),
-                _buildPillField(
-                  controller: _phoneController,
-                  focusNode: _phoneFocus,
-                  hint: 'phone number',
-                  width: pillWidth,
-                  pillColor: pillColor,
-                  textColor: textColor,
-                  errorColor: errorColor,
-                  errorText: _phoneError,
-                  keyboardType: TextInputType.phone,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.telephoneNumber],
-                ),
-                const SizedBox(height: _pillGap),
-                _buildPillField(
-                  controller: _passwordController,
-                  focusNode: _passwordFocus,
-                  hint: 'password',
-                  width: pillWidth,
-                  pillColor: pillColor,
-                  textColor: textColor,
-                  errorColor: errorColor,
-                  errorText: _passwordError,
-                  obscureText: true,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submit(),
-                  autofillHints: const [AutofillHints.password],
-                ),
-                const SizedBox(height: _pillGap),
-                SizedBox(
-                  width: pillWidth / 2,
-                  height: _pillHeight,
-                  child: FilledButton(
-                    onPressed: _submit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: pillColor,
-                      foregroundColor: textColor,
-                      shape: const StadiumBorder(),
-                      padding: EdgeInsets.zero,
-                      textStyle: _pillTextStyle(textColor),
+                  const SizedBox(height: _graphicToTitle),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'login in / sign up',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: _loginFontFamily,
+                        fontSize: _titleFontSize,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                        height: 1.1,
+                        color: textColor,
+                      ),
                     ),
-                    child: const Text('login'),
                   ),
-                ),
-              ],
+                  const SizedBox(height: _titleToPill),
+                  _buildPillField(
+                    controller: _phoneController,
+                    focusNode: _phoneFocus,
+                    hint: 'phone number',
+                    width: pillWidth,
+                    pillColor: pillColor,
+                    textColor: textColor,
+                    errorColor: errorColor,
+                    errorText: _phoneError,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.telephoneNumber],
+                  ),
+                  const SizedBox(height: _pillGap),
+                  _buildPillField(
+                    controller: _passwordController,
+                    focusNode: _passwordFocus,
+                    hint: 'password',
+                    width: pillWidth,
+                    pillColor: pillColor,
+                    textColor: textColor,
+                    errorColor: errorColor,
+                    errorText: _passwordError,
+                    obscureText: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submit(),
+                    autofillHints: const [AutofillHints.password],
+                  ),
+                  const SizedBox(height: _pillGap),
+                  SizedBox(
+                    width: pillWidth / 2,
+                    height: _pillHeight,
+                    child: FilledButton(
+                      onPressed: _submit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: pillColor,
+                        foregroundColor: textColor,
+                        shape: const StadiumBorder(),
+                        padding: EdgeInsets.zero,
+                        textStyle: _pillTextStyle(textColor),
+                      ),
+                      child: const Text('login'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

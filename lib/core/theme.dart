@@ -76,6 +76,13 @@ class AppColors {
   static const Color loginBubbleAbyss = Color(0xFF061A4D);
   static const Color loginBubbleShadow = Color(0x59000000);
 
+  /// F15：深色气泡内高光（参考稿 inset 4px 6px 10px rgba(255,255,255,.45)
+  /// 与 inset -6px -8px 14px rgba(0,0,40,.55)），用对角渐变叠层近似。
+  static const Color loginBubbleGloss = Color(0x73FFFFFF);
+  static const Color loginBubbleGlossFade = Color(0x00FFFFFF);
+  static const Color loginBubbleInnerShade = Color(0x8C000028);
+  static const Color loginBubbleInnerShadeFade = Color(0x00000028);
+
   /// 登录浅色底渐变色标（CSS 105deg：左上偏绿 → 右下偏蓝）。
   static const List<Color> loginBackgroundLightColors = [
     loginMint,
