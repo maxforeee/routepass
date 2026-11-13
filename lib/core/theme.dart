@@ -55,6 +55,15 @@ class AppColors {
   /// 预览卡条目文字色（固定浅色面深字，不随深浅色模式）。
   static const Color previewItemText = Color(0xFF475569);
 
+  /// 每日一练选项：正确条浅绿底 / 深绿字，错误条深红字（底色复用
+  /// wrongIconBackground、边框复用 wrongIconForeground），字母圈浅灰底。
+  /// 卡片固定白底，这些色都不随深浅色模式变化。
+  static const Color dailyCorrectBackground = Color(0xFFDCFCE7);
+  static const Color dailyCorrectText = Color(0xFF14532D);
+  static const Color dailyWrongText = Color(0xFF7F1D1D);
+  static const Color dailyLetterBackground = Color(0xFFF1F5F9);
+  static const Color dailyLetterText = Color(0xFF475569);
+
   /// 阴影色（胶囊导航：Colors.black 8% 不透明度）。
   static const Color shadow = Color(0x14000000);
 
@@ -138,6 +147,30 @@ class AppSpacing {
 
   /// 预览项圆点与题干之间的间距（逻辑像素）。
   static const double previewItemGap = 8;
+
+  /// 首页每日一练卡片上内边距（逻辑像素，留出骑在边框上的标题）。
+  static const double dailyCardPadTop = 26;
+
+  /// 首页每日一练标题向上压边框的偏移量（逻辑像素）。
+  static const double dailyTitleOverhang = 11;
+
+  /// 首页每日一练标题距卡片左边缘（逻辑像素）。
+  static const double dailyTitleLeft = 20;
+
+  /// 首页每日一练标题左右内边距（逻辑像素，白底盖住边框）。
+  static const double dailyTitlePadH = 10;
+
+  /// 首页每日一练题干与选项之间的间距（逻辑像素）。
+  static const double dailyQuestionGap = 14;
+
+  /// 首页每日一练选项条之间的间距（逻辑像素）。
+  static const double dailyOptionGap = 10;
+
+  /// 首页每日一练选项条上下内边距（逻辑像素）。
+  static const double dailyOptionPadV = 13;
+
+  /// 首页每日一练选项条左右内边距（逻辑像素）。
+  static const double dailyOptionPadH = 16;
 }
 
 /// 品牌页尺寸（逻辑像素）。
@@ -293,6 +326,9 @@ class AppSizes {
 
   /// 预览项左缩进（逻辑像素）：对齐到入口图标右侧的标题下方。
   static const double previewItemIndent = previewIconSize + AppSpacing.sm;
+
+  /// 首页每日一练选项字母圈直径（逻辑像素）。
+  static const double dailyLetterSize = 26;
 }
 
 /// 品牌页圆角（逻辑像素）。
@@ -335,6 +371,9 @@ class AppRadii {
 
   /// 首页预览卡入口图标圆角（逻辑像素）。
   static const double previewIcon = 12;
+
+  /// 首页每日一练选项条圆角（逻辑像素）。
+  static const double dailyOption = 14;
 }
 
 /// 品牌页字号（逻辑像素）。textTheme 未覆盖的少量字号在这里定义。
@@ -382,6 +421,21 @@ class AppFontSizes {
 
   /// 首页预览卡条目（题干一行）字号（逻辑像素）。
   static const double previewItem = 13;
+
+  /// 首页每日一练标题字号（逻辑像素）。
+  static const double dailyTitle = 17;
+
+  /// 首页每日一练题干字号（逻辑像素）。
+  static const double dailyQuestion = 15;
+
+  /// 首页每日一练选项文字字号（逻辑像素）。
+  static const double dailyOption = 15;
+
+  /// 首页每日一练选项字母字号（逻辑像素）。
+  static const double dailyLetter = 13;
+
+  /// 首页每日一练锁定提示字号（逻辑像素）。
+  static const double dailyLockHint = 12;
 }
 
 /// 品牌动画时长。

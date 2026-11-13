@@ -8,6 +8,7 @@ import '../../core/modules.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/content.dart';
+import '../../models/daily_question.dart';
 import '../../models/question.dart';
 import '../../models/stats.dart';
 import '../../models/sync.dart';
@@ -39,6 +40,12 @@ class HomeContentPageState extends State<HomeContentPage> {
 
   /// 今天收藏的题目（条目 + 题目），供首页“收藏”预览卡展示。
   List<(Favorite, Question)> _todayFavorites = const <(Favorite, Question)>[];
+
+  /// 今天的每日一练题目；取题失败时为 null（整张卡隐藏，不影响首页）。
+  DailyQuestion? _dailyQuestion;
+
+  /// 今天每日一练已选的选项 key；null = 今天还没答（未锁定）。
+  String? _dailySelectedKey;
 
   /// 首页精选题库的候选套卷（题库页另有 10 题套卷，不进精选）。
   static const List<int> _setDrawCounts = <int>[100, 200, 50];
@@ -102,6 +109,19 @@ class HomeContentPageState extends State<HomeContentPage> {
     } catch (_) {
       todayFavorites = const <(Favorite, Question)>[];
     }
+    DailyQuestion? dailyQuestion;
+    String? dailySelectedKey;
+    try {
+      final today = DateTime.now();
+      dailyQuestion = await ServiceLocator.dailyPracticeService.questionForDate(
+        today,
+      );
+      dailySelectedKey = await ServiceLocator.dailyPracticeService
+          .answerForDate(today);
+    } catch (_) {
+      dailyQuestion = null;
+      dailySelectedKey = null;
+    }
     if (!mounted) return;
     setState(() {
       _user = user;
@@ -110,7 +130,26 @@ class HomeContentPageState extends State<HomeContentPage> {
       _contentVersion = contentVersion;
       _todayWrong = todayWrong;
       _todayFavorites = todayFavorites;
+      _dailyQuestion = dailyQuestion;
+      _dailySelectedKey = dailySelectedKey;
     });
+  }
+
+  /// 每日一练作答：一天一次，已锁定后忽略点按（锁定态由 [_dailySelectedKey]
+  /// 推导，不另存 bool，避免两处状态漂移）。
+  Future<void> _answerDaily(String selectedKey) async {
+    final question = _dailyQuestion;
+    if (question == null || _dailySelectedKey != null) return;
+    setState(() => _dailySelectedKey = selectedKey);
+    try {
+      await ServiceLocator.dailyPracticeService.saveAnswer(
+        date: DateTime.now(),
+        questionId: question.id,
+        selectedKey: selectedKey,
+      );
+    } catch (_) {
+      // 本地存储失败不影响当前页面的锁定展示；下次 _load 会按存储状态重算。
+    }
   }
 
   /// 是否今天（按本地日历日、0 点分界，与预览卡“今日”口径一致）。
@@ -393,6 +432,14 @@ class HomeContentPageState extends State<HomeContentPage> {
                   onStart: () => _openQuiz('quick', 10),
                 ),
                 const SizedBox(height: AppSpacing.md),
+                if (_dailyQuestion != null) ...[
+                  _DailyPracticeCard(
+                    question: _dailyQuestion!,
+                    selectedKey: _dailySelectedKey,
+                    onSelect: _answerDaily,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
                 Text(
                   '精选题库',
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -739,6 +786,224 @@ class _PreviewCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 每日一练选项条的视觉状态：未作答（白底）/ 正确（浅绿）/ 错误（浅红）。
+enum _DailyOptionState { idle, correct, wrong }
+
+/// 首页每日一练卡：标题“每日一练”骑在卡片上边框上，一道题 + 四条整条可点
+/// 的选项；答完即锁定，显示“已锁定，明天刷新”。
+///
+/// 卡片固定白底品牌样式（与 _PreviewCard 一致），卡内文字与选项颜色一律用
+/// 固定深色 token，不用 AppColors.title(context) 之类——深色模式下白卡配
+/// 固定深字才可读。
+class _DailyPracticeCard extends StatelessWidget {
+  const _DailyPracticeCard({
+    required this.question,
+    required this.selectedKey,
+    required this.onSelect,
+  });
+
+  final DailyQuestion question;
+
+  /// 今天已选的选项 key；null = 未作答（未锁定）。
+  final String? selectedKey;
+
+  final ValueChanged<String> onSelect;
+
+  bool get _locked => selectedKey != null;
+
+  _DailyOptionState _stateFor(QuestionOption option) {
+    if (!_locked) return _DailyOptionState.idle;
+    if (option.key == question.correctKey) return _DailyOptionState.correct;
+    if (option.key == selectedKey) return _DailyOptionState.wrong;
+    return _DailyOptionState.idle;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final options = question.options;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          key: const ValueKey('daily-practice-card'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.dailyOptionPadH,
+            AppSpacing.dailyCardPadTop,
+            AppSpacing.dailyOptionPadH,
+            AppSpacing.dailyOptionPadH,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.brandSurface,
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            border: Border.all(
+              color: AppColors.brandBorder,
+              width: AppSizes.borderWidth,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                question.stem,
+                style: const TextStyle(
+                  fontSize: AppFontSizes.dailyQuestion,
+                  fontWeight: FontWeight.bold,
+                  height: 1.6,
+                  color: AppColors.brandTitle,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.dailyQuestionGap),
+              for (var i = 0; i < options.length; i++)
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: i == options.length - 1
+                        ? 0
+                        : AppSpacing.dailyOptionGap,
+                  ),
+                  child: _DailyOptionStrip(
+                    option: options[i],
+                    state: _stateFor(options[i]),
+                    onTap: _locked ? null : () => onSelect(options[i].key),
+                  ),
+                ),
+              if (_locked) ...[
+                const SizedBox(height: AppSpacing.sm),
+                const Text(
+                  '已锁定，明天刷新',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: AppFontSizes.dailyLockHint,
+                    color: AppColors.brandSecondaryText,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Positioned(
+          top: -AppSpacing.dailyTitleOverhang,
+          left: AppSpacing.dailyTitleLeft,
+          child: const ColoredBox(
+            color: AppColors.brandSurface,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.dailyTitlePadH,
+              ),
+              child: Text(
+                '每日一练',
+                style: TextStyle(
+                  fontSize: AppFontSizes.dailyTitle,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.brandTitle,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 每日一练单条选项：整条长条可点按（字母圈 + 选项文字），颜色随状态整体变化。
+class _DailyOptionStrip extends StatelessWidget {
+  const _DailyOptionStrip({
+    required this.option,
+    required this.state,
+    this.onTap,
+  });
+
+  final QuestionOption option;
+  final _DailyOptionState state;
+
+  /// 锁定时为 null（点按无效）。
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final (
+      background,
+      border,
+      textColor,
+      letterBackground,
+      letterForeground,
+    ) = switch (state) {
+      _DailyOptionState.correct => (
+        AppColors.dailyCorrectBackground,
+        AppColors.successLight,
+        AppColors.dailyCorrectText,
+        AppColors.successLight,
+        AppColors.brandOnPrimary,
+      ),
+      _DailyOptionState.wrong => (
+        AppColors.wrongIconBackground,
+        AppColors.wrongIconForeground,
+        AppColors.dailyWrongText,
+        AppColors.wrongIconForeground,
+        AppColors.brandOnPrimary,
+      ),
+      _DailyOptionState.idle => (
+        AppColors.brandSurface,
+        AppColors.brandBorder,
+        AppColors.brandTitle,
+        AppColors.dailyLetterBackground,
+        AppColors.dailyLetterText,
+      ),
+    };
+    return Material(
+      key: ValueKey('daily-option-${option.key}'),
+      color: background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.dailyOption),
+        side: BorderSide(color: border, width: AppSizes.borderWidth),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.dailyOptionPadH,
+            vertical: AppSpacing.dailyOptionPadV,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: AppSizes.dailyLetterSize,
+                height: AppSizes.dailyLetterSize,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: letterBackground,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  option.key,
+                  style: TextStyle(
+                    fontSize: AppFontSizes.dailyLetter,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
+                    color: letterForeground,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  option.text,
+                  style: TextStyle(
+                    fontSize: AppFontSizes.dailyOption,
+                    height: 1.5,
+                    color: textColor,
+                  ),
+                ),
+              ),
             ],
           ),
         ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:routepass/core/kv_store.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/core/theme.dart';
+import 'package:routepass/models/daily_question.dart';
 import 'package:routepass/pages/bank/answer_page.dart';
 import 'package:routepass/pages/bank/favorites_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
@@ -33,9 +35,38 @@ String _todayMonthDay() {
       '${now.day.toString().padLeft(2, '0')}';
 }
 
+/// 今天的每日一练题（与页面同一取题规则：按日期确定性取题）。
+Future<DailyQuestion> _todayDailyQuestion() {
+  return ServiceLocator.dailyPracticeService.questionForDate(DateTime.now());
+}
+
+/// 每日一练某条选项整条的 Material（整条底色与边框都在它身上）。
+Material _dailyOption(WidgetTester tester, String key) {
+  return tester.widget<Material>(find.byKey(ValueKey('daily-option-$key')));
+}
+
+/// 每日一练某条选项的边框色。
+Color? _dailyOptionBorder(WidgetTester tester, String key) {
+  final shape = _dailyOption(tester, key).shape as RoundedRectangleBorder;
+  return shape.side.color;
+}
+
+/// 高视口：每日一练卡与其下方的精选题库同屏挂载。
+void _useTallViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   initTestServices();
+
+  setUp(() {
+    // KvStore 是进程级静态实例，清掉每日一练作答状态，避免测试间串扰。
+    ServiceLocator.kvStore.remove(KvStore.keyDailyAnswer);
+  });
 
   testWidgets('G1b 首页问候区：无 AppBar，问候块 + 钉住头像，无顶部同步 chip', (tester) async {
     await loginToHome(tester);
@@ -53,6 +84,8 @@ void main() {
   });
 
   testWidgets('R2 首页不显示工具箱标题或工具网格', (tester) async {
+    // 每日一练卡把精选题库推到首屏之外，用高视口让套卷行全部挂载。
+    _useTallViewport(tester);
     await loginToHome(tester);
 
     final home = find.byType(HomeContentPage);
@@ -146,6 +179,8 @@ void main() {
   });
 
   testWidgets('R3 精选题库区：3 个精选套卷行同高 76、同宽，全宽行非方块', (tester) async {
+    // 每日一练卡把精选题库推到首屏之外，用高视口让套卷行全部挂载。
+    _useTallViewport(tester);
     await loginToHome(tester);
     await tester.pumpAndSettle();
 
@@ -161,6 +196,7 @@ void main() {
   });
 
   testWidgets('R3 精选题库区：3 个精选套卷首屏全部渲染（无懒加载）', (tester) async {
+    _useTallViewport(tester);
     await loginToHome(tester);
     await tester.pumpAndSettle();
 
@@ -171,6 +207,7 @@ void main() {
   });
 
   testWidgets('R3 点按套卷行进套卷详情页', (tester) async {
+    _useTallViewport(tester);
     await loginToHome(tester);
 
     await tester.tap(find.text('100 题套卷'));
@@ -179,6 +216,7 @@ void main() {
   });
 
   testWidgets('H2 首页栏目标题为“精选题库”，不再是“题库”', (tester) async {
+    _useTallViewport(tester);
     await loginToHome(tester);
 
     expect(find.text('精选题库'), findsOneWidget);
@@ -350,5 +388,219 @@ void main() {
     );
     expect(item.style?.color, AppColors.previewItemText);
     expect(item.style?.color, isNot(AppColors.brandSurface));
+  });
+
+  testWidgets('F7 每日一练卡在精选题库上方，标题骑在卡片上边框上', (tester) async {
+    _useTallViewport(tester);
+    await loginToHome(tester);
+
+    expect(find.text('每日一练'), findsOneWidget);
+
+    final card = tester.getRect(
+      find.byKey(const ValueKey('daily-practice-card')),
+    );
+    final section = tester.getRect(find.text('精选题库'));
+    final firstRow = tester.getRect(find.byType(SetRowCard).first);
+
+    // 在横幅下方、精选题库（含第一个套卷行）上方。
+    expect(card.bottom, lessThan(section.top));
+    expect(card.bottom, lessThan(firstRow.top));
+
+    // fieldset legend 样式：标题纵向跨过卡片上边框，横向靠左不居中。
+    final title = tester.getRect(find.text('每日一练'));
+    expect(title.top, lessThan(card.top));
+    expect(title.bottom, greaterThan(card.top));
+    expect(title.left, greaterThan(card.left));
+    expect(title.center.dx, lessThan(card.center.dx));
+  });
+
+  testWidgets('F7 每日一练显示今日题干与 A–D 四条整条选项', (tester) async {
+    _useTallViewport(tester);
+    await loginToHome(tester);
+
+    final question = await _todayDailyQuestion();
+    expect(find.text(question.stem), findsOneWidget);
+    expect(question.options.map((option) => option.key).toList(), <String>[
+      'A',
+      'B',
+      'C',
+      'D',
+    ]);
+
+    for (final option in question.options) {
+      final strip = find.byKey(ValueKey('daily-option-${option.key}'));
+      expect(
+        find.descendant(of: strip, matching: find.text(option.text)),
+        findsOneWidget,
+      );
+      // 未作答：四条都是白底 + 浅灰边框。
+      expect(_dailyOption(tester, option.key).color, AppColors.brandSurface);
+      expect(_dailyOptionBorder(tester, option.key), AppColors.brandBorder);
+    }
+
+    expect(find.text('已锁定，明天刷新'), findsNothing);
+  });
+
+  testWidgets('F7 答对：整条变绿并锁定，再点其他选项无效', (tester) async {
+    _useTallViewport(tester);
+    await loginToHome(tester);
+
+    final question = await _todayDailyQuestion();
+    final correct = question.correctKey;
+    final other = question.options
+        .firstWhere((option) => option.key != correct)
+        .key;
+
+    await tester.tap(find.byKey(ValueKey('daily-option-$correct')));
+    await tester.pumpAndSettle();
+
+    expect(
+      _dailyOption(tester, correct).color,
+      AppColors.dailyCorrectBackground,
+    );
+    expect(_dailyOptionBorder(tester, correct), AppColors.successLight);
+    expect(find.text('已锁定，明天刷新'), findsOneWidget);
+
+    // 锁定后点另一条：不产生第二次选择，正确的绿条保持不变。
+    await tester.tap(find.byKey(ValueKey('daily-option-$other')));
+    await tester.pumpAndSettle();
+
+    expect(_dailyOption(tester, other).color, AppColors.brandSurface);
+    expect(
+      _dailyOption(tester, correct).color,
+      AppColors.dailyCorrectBackground,
+    );
+    expect(find.text('已锁定，明天刷新'), findsOneWidget);
+  });
+
+  testWidgets('F7 答错：点的整条变红，同时正确答案那条标绿并锁定', (tester) async {
+    _useTallViewport(tester);
+    await loginToHome(tester);
+
+    final question = await _todayDailyQuestion();
+    final correct = question.correctKey;
+    final wrong = question.options
+        .firstWhere((option) => option.key != correct)
+        .key;
+
+    await tester.tap(find.byKey(ValueKey('daily-option-$wrong')));
+    await tester.pumpAndSettle();
+
+    expect(_dailyOption(tester, wrong).color, AppColors.wrongIconBackground);
+    expect(_dailyOptionBorder(tester, wrong), AppColors.wrongIconForeground);
+    expect(
+      _dailyOption(tester, correct).color,
+      AppColors.dailyCorrectBackground,
+    );
+    expect(_dailyOptionBorder(tester, correct), AppColors.successLight);
+    expect(find.text('已锁定，明天刷新'), findsOneWidget);
+  });
+
+  testWidgets('F7 作答落盘：重新 _load 后当天仍是锁定状态', (tester) async {
+    _useTallViewport(tester);
+    await loginToHome(tester);
+
+    final question = await _todayDailyQuestion();
+    await tester.tap(
+      find.byKey(ValueKey('daily-option-${question.correctKey}')),
+    );
+    await tester.pumpAndSettle();
+
+    final raw = ServiceLocator.kvStore.getString(KvStore.keyDailyAnswer);
+    expect(raw, isNotNull);
+    // kv 里按 yyyy-MM-dd 存当天日期，换日自动视为未作答。
+    expect(raw, contains(_todayMonthDay()));
+
+    // 重新加载首页（等价于关掉 App 再进来重拉当天状态）。
+    final state = tester.state<HomeContentPageState>(
+      find.byType(HomeContentPage),
+    );
+    await state.refresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('已锁定，明天刷新'), findsOneWidget);
+    expect(
+      _dailyOption(tester, question.correctKey).color,
+      AppColors.dailyCorrectBackground,
+    );
+  });
+
+  testWidgets('F7 深色模式：每日一练固定白卡深字，选项状态色与白底可区分', (tester) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    _useTallViewport(tester);
+    await loginToHome(tester);
+
+    final question = await _todayDailyQuestion();
+
+    final title = tester.widget<Text>(find.text('每日一练'));
+    expect(title.style?.color, AppColors.brandTitle);
+    expect(title.style?.color, isNot(AppColors.brandSurface));
+
+    final stem = tester.widget<Text>(find.text(question.stem));
+    expect(stem.style?.color, AppColors.brandTitle);
+    expect(stem.style?.color, isNot(AppColors.brandSurface));
+
+    final optionText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(ValueKey('daily-option-${question.options.first.key}')),
+        matching: find.text(question.options.first.text),
+      ),
+    );
+    expect(optionText.style?.color, AppColors.brandTitle);
+    expect(optionText.style?.color, isNot(AppColors.brandSurface));
+
+    // 答错后：红条 / 绿条都与白色卡面不同，文字仍是固定深色。
+    final correct = question.correctKey;
+    final wrong = question.options
+        .firstWhere((option) => option.key != correct)
+        .key;
+    await tester.tap(find.byKey(ValueKey('daily-option-$wrong')));
+    await tester.pumpAndSettle();
+
+    expect(_dailyOption(tester, wrong).color, isNot(AppColors.brandSurface));
+    expect(_dailyOption(tester, wrong).color, AppColors.wrongIconBackground);
+    expect(_dailyOption(tester, correct).color, isNot(AppColors.brandSurface));
+    expect(
+      _dailyOption(tester, correct).color,
+      AppColors.dailyCorrectBackground,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(ValueKey('daily-option-$wrong')),
+              matching: find.text(
+                question.options.firstWhere((o) => o.key == wrong).text,
+              ),
+            ),
+          )
+          .style
+          ?.color,
+      AppColors.dailyWrongText,
+    );
+  });
+
+  test('F7 每日一练按日期确定性取题（同一天同题，隔天换题）', () async {
+    final service = ServiceLocator.dailyPracticeService;
+    final today = DateTime(2026, 11, 13);
+    final tomorrow = DateTime(2026, 11, 14);
+
+    final first = await service.questionForDate(today);
+    final again = await service.questionForDate(today);
+    expect(first.id, again.id);
+
+    final next = await service.questionForDate(tomorrow);
+    expect(next.id, isNot(first.id));
+
+    // 作答状态按日期隔离：今天答过，明天未答。
+    expect(await service.answerForDate(today), isNull);
+    await service.saveAnswer(
+      date: today,
+      questionId: first.id,
+      selectedKey: first.correctKey,
+    );
+    expect(await service.answerForDate(today), first.correctKey);
+    expect(await service.answerForDate(tomorrow), isNull);
   });
 }

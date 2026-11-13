@@ -21,6 +21,11 @@ abstract class KvStore {
   /// 下次启动恢复）。切 tab 时写入。
   static const String keyUiLastTab = 'ui.lastTab';
 
+  /// `daily.answer`：每日一练当天的作答（JSON 对象
+  /// `{date, questionId, selectedKey}`，date 为 `yyyy-MM-dd`）。设备本地，
+  /// 一天一条；日期不匹配当天即视为未作答（第二天自动刷新）。
+  static const String keyDailyAnswer = 'daily.answer';
+
   /// 读取字符串值，不存在时返回 null。
   String? getString(String key);
 

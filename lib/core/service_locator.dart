@@ -6,6 +6,7 @@
 library;
 
 import '../services/bank/bank_sync_service.dart';
+import '../services/bank/daily_practice_service.dart';
 import '../services/bank/exam_service.dart';
 import '../services/bank/favorite_service.dart';
 import '../services/bank/practice_service.dart';
@@ -31,6 +32,7 @@ class ServiceLocator {
   static late final QuestionRepository questionRepository;
   static late final PracticeService practiceService;
   static late final ExamService examService;
+  static late final DailyPracticeService dailyPracticeService;
   static late final WrongService wrongService;
   static late final FavoriteService favoriteService;
   static late final StatsService statsService;
@@ -54,6 +56,7 @@ class ServiceLocator {
     required QuestionRepository questionRepository,
     required PracticeService practiceService,
     required ExamService examService,
+    required DailyPracticeService dailyPracticeService,
     required WrongService wrongService,
     required FavoriteService favoriteService,
     required StatsService statsService,
@@ -72,6 +75,7 @@ class ServiceLocator {
     ServiceLocator.questionRepository = questionRepository;
     ServiceLocator.practiceService = practiceService;
     ServiceLocator.examService = examService;
+    ServiceLocator.dailyPracticeService = dailyPracticeService;
     ServiceLocator.wrongService = wrongService;
     ServiceLocator.favoriteService = favoriteService;
     ServiceLocator.statsService = statsService;

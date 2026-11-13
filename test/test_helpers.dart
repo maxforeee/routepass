@@ -6,6 +6,7 @@ import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 import 'package:routepass/services/mock/mock_cli_service.dart';
 import 'package:routepass/services/mock/mock_content_service.dart';
+import 'package:routepass/services/mock/mock_daily_practice_service.dart';
 import 'package:routepass/services/mock/mock_exam_service.dart';
 import 'package:routepass/services/mock/mock_favorite_service.dart';
 import 'package:routepass/services/mock/mock_knowledge_repository.dart';
@@ -25,6 +26,7 @@ void initTestServices() {
     questionRepository: MockQuestionRepository(),
     practiceService: MockPracticeService(),
     examService: MockExamService(),
+    dailyPracticeService: MockDailyPracticeService(),
     wrongService: MockWrongService(),
     favoriteService: MockFavoriteService(),
     statsService: MockStatsService(),

@@ -5,6 +5,7 @@ import 'core/service_locator.dart';
 import 'services/mock/mock_auth_service.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
+import 'services/mock/mock_daily_practice_service.dart';
 import 'services/mock/mock_exam_service.dart';
 import 'services/mock/mock_favorite_service.dart';
 import 'services/mock/mock_knowledge_repository.dart';
@@ -26,6 +27,7 @@ void main() {
     questionRepository: MockQuestionRepository(),
     practiceService: MockPracticeService(),
     examService: MockExamService(),
+    dailyPracticeService: MockDailyPracticeService(),
     wrongService: MockWrongService(),
     favoriteService: MockFavoriteService(),
     statsService: MockStatsService(),
