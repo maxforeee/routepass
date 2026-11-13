@@ -2,8 +2,8 @@
 ///
 /// 页头（题库 + 副标题）下是搜索条（保留的既有功能），默认显示 4 张套卷卡 +
 /// 错题本/收藏入口；输入搜索后切换为题目结果列表。（G2b：筛选 chips 已按
-/// canva 参考移除，文本搜索行为不变。G2c：标题“题库”28px 作为页面内容，
-/// 头像与首页同样钉在右上；四个套卷（含 10 题速练）全部进套卷详情模板。）
+/// canva 参考移除，文本搜索行为不变。F3：标题 32px 与搜索条左缘对齐，头像
+/// 只在首页，模块标签按 canva 参考排成 3 列两行。）
 library;
 
 import 'package:flutter/material.dart';
@@ -13,12 +13,9 @@ import '../../core/modules.dart';
 import '../../core/theme.dart';
 import '../../models/question.dart';
 import '../../models/stats.dart';
-import '../../models/user.dart';
 import '../../router/app_router.dart';
-import '../../widgets/account_sheet.dart';
-import '../../widgets/module_tag.dart';
 import '../../widgets/set_row_card.dart';
-import '../../widgets/user_avatar.dart';
+import '../../widgets/set_row_tags.dart';
 
 class BankModuleListPage extends StatefulWidget {
   const BankModuleListPage({super.key});
@@ -30,7 +27,6 @@ class BankModuleListPage extends StatefulWidget {
 class BankModuleListPageState extends State<BankModuleListPage> {
   List<ModuleStat> _modules = const <ModuleStat>[];
   List<Question> _samples = const <Question>[];
-  User? _user;
   int _wrongCount = 0;
   int _favoriteCount = 0;
   String _query = '';
@@ -45,12 +41,6 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   Future<void> refresh() => _load();
 
   Future<void> _load() async {
-    User? user;
-    try {
-      user = await ServiceLocator.authService.getCurrentUser();
-    } catch (_) {
-      user = null;
-    }
     try {
       final modules = await ServiceLocator.questionRepository.getModules();
       final samples = await ServiceLocator.questionRepository.drawQuestions(
@@ -61,7 +51,6 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       final favs = await ServiceLocator.favoriteService.getFavoriteIds();
       if (!mounted) return;
       setState(() {
-        _user = user;
         _modules = modules;
         _samples = samples;
         _wrongCount = wrong.length;
@@ -99,49 +88,37 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.pageBackground(context),
-      body: Stack(
+      body: Column(
+        // stretch：页头块宽度撑满，标题左缘与搜索条 / 卡片同为 16px。
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSizes.homeTopPad,
-                  AppSpacing.md,
-                  AppSpacing.xs,
-                ),
-                child: _buildHeader(theme),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSpacing.xxs,
-                  AppSpacing.md,
-                  AppSpacing.cardGap,
-                ),
-                child: _buildSearchBar(theme),
-              ),
-              Expanded(
-                child: _query.isNotEmpty
-                    ? _buildResults(theme)
-                    : _buildSets(theme),
-              ),
-            ],
-          ),
-          Positioned(
-            top: AppSizes.homeTopPad + AppSpacing.xs,
-            right: AppSpacing.md,
-            child: UserAvatar(
-              username: _user?.username ?? '',
-              onTap: () => showAccountSheet(context),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSizes.homeTopPad,
+              AppSpacing.md,
+              AppSpacing.xs,
             ),
+            child: _buildHeader(theme),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.xxs,
+              AppSpacing.md,
+              AppSpacing.cardGap,
+            ),
+            child: _buildSearchBar(theme),
+          ),
+          Expanded(
+            child: _query.isNotEmpty ? _buildResults(theme) : _buildSets(theme),
           ),
         ],
       ),
     );
   }
 
-  /// 页头（canva 参考：标题 28px 特粗作为页面内容 + 副标题 13px）。
+  /// 页头（canva 参考：标题 32px 特粗作为页面内容 + 副标题 13px）。
   Widget _buildHeader(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,20 +204,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     final modules = _modules.isEmpty
         ? kModuleOrder
         : _modules.map((m) => m.module).toList();
-
-    Widget moduleTags(List<String> mods) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: mods.map((m) {
-          return Flexible(
-            child: Padding(
-              padding: const EdgeInsets.only(left: AppSpacing.xxs),
-              child: ModuleTag(label: moduleLabel(m)),
-            ),
-          );
-        }).toList(),
-      );
-    }
+    final tags = SetRowTags(labels: modules.map(moduleLabel).toList());
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -253,28 +217,28 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         SetRowCard(
           title: '100 题套卷',
           subtitle: '100 题 · 5 个模块 · 含解析',
-          trailing: moduleTags(modules),
+          trailing: tags,
           onTap: () => _openSetDetail(100),
         ),
         const SizedBox(height: AppSpacing.cardGap),
         SetRowCard(
           title: '200 题套卷',
           subtitle: '200 题 · 5 个模块 · 含解析',
-          trailing: moduleTags(modules),
+          trailing: tags,
           onTap: () => _openSetDetail(200),
         ),
         const SizedBox(height: AppSpacing.cardGap),
         SetRowCard(
           title: '50 题套卷',
           subtitle: '50 题 · 5 个模块 · 含解析',
-          trailing: moduleTags(modules),
+          trailing: tags,
           onTap: () => _openSetDetail(50),
         ),
         const SizedBox(height: AppSpacing.cardGap),
         SetRowCard(
           title: '10 题速练',
           subtitle: '10 题 · 5 个模块 · 含解析',
-          trailing: moduleTags(modules),
+          trailing: tags,
           onTap: () => _openSetDetail(10),
         ),
         const SizedBox(height: AppSpacing.cardGap),

@@ -67,9 +67,11 @@ class SetRowCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxs),
+                      // 右侧标签组占位后副标题仍须完整显示：允许折成两行
+                      // （76 高卡片内标题 23 + 间距 4 + 两行 36 = 63）。
                       Text(
                         subtitle,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: subtitleStyle,
                       ),

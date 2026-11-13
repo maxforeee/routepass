@@ -30,7 +30,7 @@ void main() {
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
     expect(find.byType(BankModuleListPage), findsOneWidget);
-    // G2c：标题“题库”28px 特粗作为页面内容（非 AppBar）；副标题总数由模块
+    // B1：标题“题库”32px 特粗作为页面内容（非 AppBar）；副标题总数由模块
     // 题量数据求和得出（Mock 各模块题量为 0，故显示 0，不再是写死的 300）。
     expect(
       find.descendant(
@@ -40,13 +40,13 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('H3CNE 0 道 · 每套含解析'), findsOneWidget);
-    // G2c：头像与首页同一 UserAvatar，钉在右上不随列表滚动。
+    // H3：头像入口只在首页，题库页不再有 UserAvatar。
     expect(
       find.descendant(
         of: find.byType(BankModuleListPage),
         matching: find.byType(UserAvatar),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('100 题套卷'), findsOneWidget);
   });
@@ -109,7 +109,7 @@ void main() {
     expect(find.text('暂无收藏'), findsOneWidget);
   });
 
-  testWidgets('410 宽视口下套卷卡模块标签单行不溢出', (tester) async {
+  testWidgets('410 宽视口下套卷卡模块标签按 3 列网格排布不溢出', (tester) async {
     tester.view.physicalSize = const Size(410, 890);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -119,7 +119,8 @@ void main() {
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
 
-    // 5 个模块标签都渲染；若标签换行会撑破套卷卡 104 固定高，触发 RenderFlex 溢出。
+    // 5 个模块标签都渲染；F3 起按 canva 参考排成 3 列两行（3 + 2），
+    // 若溢出会撑破套卷卡 76 固定高，触发 RenderFlex 溢出。
     for (final label in const ['VLAN', 'OSPF', 'ACL', 'NAT', '子网划分']) {
       expect(find.text(label), findsWidgets);
     }

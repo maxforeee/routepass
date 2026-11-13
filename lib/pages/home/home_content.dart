@@ -13,8 +13,8 @@ import '../../models/sync.dart';
 import '../../models/user.dart';
 import '../../router/app_router.dart';
 import '../../widgets/account_sheet.dart';
-import '../../widgets/module_tag.dart';
 import '../../widgets/set_row_card.dart';
+import '../../widgets/set_row_tags.dart';
 import '../../widgets/user_avatar.dart';
 
 class HomeContentPage extends StatefulWidget {
@@ -182,15 +182,9 @@ class HomeContentPageState extends State<HomeContentPage> {
     );
   }
 
-  /// 套卷行的 5 个模块小标签（与题库页共用 ModuleTag）。
+  /// 套卷行的 5 个模块小标签（与题库页共用 SetRowTags 3 列网格）。
   Widget _moduleTags() {
-    return Wrap(
-      spacing: AppSpacing.xxs,
-      runSpacing: AppSpacing.xxs,
-      children: kModuleOrder
-          .map((module) => ModuleTag(label: moduleLabel(module)))
-          .toList(),
-    );
+    return SetRowTags(labels: kModuleOrder.map(moduleLabel).toList());
   }
 
   /// 首页精选题库的套卷选取：按做题记录推荐，优先未完成的套卷，其次
