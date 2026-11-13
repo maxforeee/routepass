@@ -148,7 +148,10 @@ void main() {
     // 加载真实 Oswald 度量（离线打包的 TTF），宽度断言才有意义。
     final bold = rootBundle.load('assets/fonts/Oswald-Bold.ttf');
     final semiBold = rootBundle.load('assets/fonts/Oswald-SemiBold.ttf');
-    await (FontLoader('Oswald')..addFont(bold)..addFont(semiBold)).load();
+    await (FontLoader('Oswald')
+          ..addFont(bold)
+          ..addFont(semiBold))
+        .load();
     await _pumpLoginScene(tester);
 
     final title = tester.widget<Text>(find.text('login in / sign up'));
@@ -167,65 +170,72 @@ void main() {
     }
   });
 
-  testWidgets('F15 pills are 300x56 at 410dp, login button half-width centered', (
-    tester,
-  ) async {
-    await _pumpLoginScene(tester);
+  testWidgets(
+    'F15 pills are 300x56 at 410dp, login button half-width centered',
+    (tester) async {
+      await _pumpLoginScene(tester);
 
-    final fields = find.byType(TextField);
-    final phoneRect = tester.getRect(fields.first);
-    final passwordRect = tester.getRect(fields.last);
-    expect(phoneRect.width, 300);
-    expect(phoneRect.height, 56);
-    expect(passwordRect.width, 300);
-    expect(passwordRect.height, 56);
+      final fields = find.byType(TextField);
+      final phoneRect = tester.getRect(fields.first);
+      final passwordRect = tester.getRect(fields.last);
+      expect(phoneRect.width, 300);
+      expect(phoneRect.height, 56);
+      expect(passwordRect.width, 300);
+      expect(passwordRect.height, 56);
 
-    final buttonRect = tester.getRect(find.widgetWithText(FilledButton, 'login'));
-    expect(buttonRect.width, passwordRect.width / 2);
-    expect(buttonRect.height, 56);
-    expect(buttonRect.center.dx, passwordRect.center.dx);
-  });
+      final buttonRect = tester.getRect(
+        find.widgetWithText(FilledButton, 'login'),
+      );
+      expect(buttonRect.width, passwordRect.width / 2);
+      expect(buttonRect.height, 56);
+      expect(buttonRect.center.dx, passwordRect.center.dx);
+    },
+  );
 
-  testWidgets('F15 gradient covers bottom inset, nav bar transparent, bubbles glossed', (
-    tester,
-  ) async {
-    await _pumpLoginScene(
-      tester,
-      padding: const EdgeInsets.only(top: 28, bottom: 34),
-    );
+  testWidgets(
+    'F15 gradient covers bottom inset, nav bar transparent, bubbles glossed',
+    (tester) async {
+      await _pumpLoginScene(
+        tester,
+        padding: const EdgeInsets.only(top: 28, bottom: 34),
+      );
 
-    // 背景渐变必须铺满整屏（含底部系统区域），否则露出黑带。
-    final background = find.byWidgetPredicate((widget) {
-      final decoration = widget is Container ? widget.decoration : null;
-      return decoration is BoxDecoration &&
-          decoration.gradient is LinearGradient;
-    });
-    expect(background, findsOneWidget);
-    final backgroundRect = tester.getRect(background);
-    expect(backgroundRect.top, 0);
-    expect(backgroundRect.bottom, 915);
+      // 背景渐变必须铺满整屏（含底部系统区域），否则露出黑带。
+      final background = find.byWidgetPredicate((widget) {
+        final decoration = widget is Container ? widget.decoration : null;
+        return decoration is BoxDecoration &&
+            decoration.gradient is LinearGradient;
+      });
+      expect(background, findsOneWidget);
+      final backgroundRect = tester.getRect(background);
+      expect(backgroundRect.top, 0);
+      expect(backgroundRect.bottom, 915);
 
-    // 导航栏透明 + 关闭系统对比度 scrim，渐变才能透进底部系统区域。
-    final annotation = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
-      find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
-    );
-    expect(annotation.value.systemNavigationBarColor, const Color(0x00000000));
-    expect(annotation.value.systemNavigationBarContrastEnforced, isFalse);
+      // 导航栏透明 + 关闭系统对比度 scrim，渐变才能透进底部系统区域。
+      final annotation = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+      );
+      expect(
+        annotation.value.systemNavigationBarColor,
+        const Color(0x00000000),
+      );
+      expect(annotation.value.systemNavigationBarContrastEnforced, isFalse);
 
-    // P1-4：7 个深色气泡在 radial 底色上再叠内高光（左上白 → 右下深蓝）。
-    final bubbles = find.byWidgetPredicate((widget) {
-      final decoration = widget is Container ? widget.decoration : null;
-      return decoration is BoxDecoration &&
-          decoration.gradient is RadialGradient;
-    });
-    expect(bubbles, findsNWidgets(7));
-    for (final element in bubbles.evaluate()) {
-      final container = element.widget as Container;
-      final foreground = container.foregroundDecoration;
-      expect(foreground, isA<BoxDecoration>());
-      expect((foreground as BoxDecoration).gradient, isA<LinearGradient>());
-    }
-  });
+      // P1-4：7 个深色气泡在 radial 底色上再叠内高光（左上白 → 右下深蓝）。
+      final bubbles = find.byWidgetPredicate((widget) {
+        final decoration = widget is Container ? widget.decoration : null;
+        return decoration is BoxDecoration &&
+            decoration.gradient is RadialGradient;
+      });
+      expect(bubbles, findsNWidgets(7));
+      for (final element in bubbles.evaluate()) {
+        final container = element.widget as Container;
+        final foreground = container.foregroundDecoration;
+        expect(foreground, isA<BoxDecoration>());
+        expect((foreground as BoxDecoration).gradient, isA<LinearGradient>());
+      }
+    },
+  );
 
   testWidgets('F15 light blob is centered with the bump overhanging left', (
     tester,
