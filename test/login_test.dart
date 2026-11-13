@@ -9,21 +9,27 @@ import 'package:routepass/services/mock/mock_auth_service.dart';
 import 'test_helpers.dart';
 
 Future<void> _pumpLogin(WidgetTester tester) async {
+  // 1:1 参考稿的 390x844 画幅，保证两个胶囊与 login 按钮都在视口内。
+  await tester.binding.setSurfaceSize(const Size(390, 844));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
       home: const LoginPage(),
       onGenerateRoute: AppRouter.onGenerateRoute,
     ),
   );
-  await tester.pumpAndSettle();
+  // 顶部图形无限动画，不能 pumpAndSettle，只推一帧。
+  await tester.pump();
 }
 
 Future<void> _submitPhone(WidgetTester tester, String phone) async {
   final fields = find.byType(TextField);
   await tester.enterText(fields.at(0), phone);
   await tester.enterText(fields.at(1), 'Demo1234');
-  await tester.tap(find.widgetWithText(FilledButton, '登录 / 注册'));
-  await tester.pumpAndSettle();
+  await tester.tap(find.text('login'));
+  await tester.pump();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
 }
 
 void main() {
@@ -91,12 +97,11 @@ void main() {
   ) async {
     await _pumpLogin(tester);
 
-    expect(find.widgetWithText(FilledButton, '登录 / 注册'), findsOneWidget);
+    expect(find.text('login'), findsOneWidget);
+    expect(find.text('登录 / 注册'), findsNothing);
     expect(find.text('注册'), findsNothing);
     expect(find.text('还没有账号？'), findsNothing);
     expect(find.widgetWithText(TextButton, '注册'), findsNothing);
-    expect(find.text('手机号码'), findsOneWidget);
-    expect(find.text('请输入 11 位手机号码'), findsOneWidget);
 
     final fields = tester
         .widgetList<TextField>(find.byType(TextField))
@@ -107,5 +112,29 @@ void main() {
       expect(field.decoration?.labelText, isNull);
       expect(field.decoration?.floatingLabelStyle, isNull);
     }
+
+    expect(find.text('phone number'), findsOneWidget);
+    expect(find.text('password'), findsOneWidget);
+  });
+
+  testWidgets('placeholders hide on focus and return when unfocused', (
+    tester,
+  ) async {
+    await _pumpLogin(tester);
+
+    await tester.tap(find.byType(TextField).first);
+    await tester.pump();
+    expect(find.text('phone number'), findsNothing);
+    expect(find.text('password'), findsOneWidget);
+
+    await tester.tap(find.byType(TextField).last);
+    await tester.pump();
+    expect(find.text('phone number'), findsOneWidget);
+    expect(find.text('password'), findsNothing);
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    expect(find.text('phone number'), findsOneWidget);
+    expect(find.text('password'), findsOneWidget);
   });
 }

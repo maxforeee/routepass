@@ -1,10 +1,121 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
-import '../../core/theme.dart';
 import '../../router/app_router.dart';
-import '../../widgets/route_pass_logo.dart';
+
+// F14a 登录页 1:1 参考稿（routepass_login_1to1.html）专用色值与尺寸；
+// 后续任务会把它们提升为全局主题 token，本页先私有。
+
+const Color _inkLight = Color(0xFF111111);
+const Color _inkDark = Color(0xFFFFFFFF);
+const Color _pillLight = Color(0xFFD2D2D2);
+const Color _pillDark = Color(0xFF777777);
+const Color _errorLight = Color(0xFFB91C1C);
+const Color _errorDark = Color(0xFFFCA5A5);
+const Color _blobPurple = Color(0xFF8B5CF6);
+
+/// 浅色底：CSS 105deg 对角渐变（左上偏绿 → 右下偏蓝）。
+const LinearGradient _backgroundLight = LinearGradient(
+  begin: Alignment(-0.97, -0.26),
+  end: Alignment(0.97, 0.26),
+  colors: [
+    Color(0xFFC6F5C6),
+    Color(0xFFB9E6D6),
+    Color(0xFFA9C6F2),
+    Color(0xFF8FB4F2),
+  ],
+  stops: [0.0, 0.30, 0.68, 1.0],
+);
+
+/// 深色底：CSS 90deg 水平渐变（近黑 → 中灰）。
+const LinearGradient _backgroundDark = LinearGradient(
+  begin: Alignment.centerLeft,
+  end: Alignment.centerRight,
+  colors: [Color(0xFF050505), Color(0xFF2B2B2B), Color(0xFF6E6E6E)],
+  stops: [0.0, 0.52, 1.0],
+);
+
+/// 深色气泡高光：radial-gradient(circle at 32% 28%, ...)。
+const RadialGradient _bubbleGradient = RadialGradient(
+  center: Alignment(-0.36, -0.44),
+  colors: [
+    Color(0xFFBFE9FF),
+    Color(0xFF38BDF8),
+    Color(0xFF1D6FE0),
+    Color(0xFF0B2F7A),
+    Color(0xFF061A4D),
+  ],
+  stops: [0.0, 0.22, 0.48, 0.78, 1.0],
+);
+
+const double _graphicTop = 78;
+const double _graphicHeight = 230;
+const double _graphicToTitle = 52;
+const double _titleToPill = 64;
+const double _pillGap = 38;
+const double _pillHeight = 64;
+const double _pillMaxWidth = 322;
+const double _pillWidthFactor = 0.82;
+const double _pillFontSize = 27;
+const double _titleFontSize = 46;
+
+const double _blobWidth = 235;
+const double _blobHeight = 205;
+const double _blobBumpSize = 92;
+const double _blobBumpOverhang = 30;
+const double _blobBumpTop = 52;
+const double _blobFloatRange = 14;
+const double _blobTilt = 1.5 * math.pi / 180;
+
+/// 参考稿 border-radius 48% 52% 46% 54% / 58% 60% 40% 42%（235x205）。
+const BorderRadius _blobRadiusA = BorderRadius.only(
+  topLeft: Radius.elliptical(112.8, 118.9),
+  topRight: Radius.elliptical(122.2, 123.0),
+  bottomRight: Radius.elliptical(108.1, 82.0),
+  bottomLeft: Radius.elliptical(126.9, 86.1),
+);
+
+/// 形变目标 55% 45% 52% 48% / 50% 55% 45% 50%。
+const BorderRadius _blobRadiusB = BorderRadius.only(
+  topLeft: Radius.elliptical(129.25, 102.5),
+  topRight: Radius.elliptical(105.75, 112.75),
+  bottomRight: Radius.elliptical(122.2, 92.25),
+  bottomLeft: Radius.elliptical(112.8, 102.5),
+);
+
+const double _clusterWidth = 210;
+const double _clusterHeight = 180;
+const double _clusterFloatRange = 10;
+const double _bubbleBobRange = 9;
+const double _bubbleBobPeriod = 4;
+
+class _BubbleSpec {
+  const _BubbleSpec(this.size, this.left, this.top, this.delay);
+
+  final double size;
+  final double left;
+  final double top;
+  final double delay;
+}
+
+/// 深色气泡簇：直径 / 位置 / 起伏延迟均取自参考稿 b1–b7。
+const List<_BubbleSpec> _bubbleSpecs = [
+  _BubbleSpec(88, 0, 52, 0),
+  _BubbleSpec(64, 58, 8, 0.5),
+  _BubbleSpec(76, 82, 38, 1.0),
+  _BubbleSpec(58, 138, 0, 1.4),
+  _BubbleSpec(66, 142, 66, 0.8),
+  _BubbleSpec(60, 96, 104, 1.8),
+  _BubbleSpec(44, 44, 120, 2.2),
+];
+
+const OutlineInputBorder _pillBorder = OutlineInputBorder(
+  borderRadius: BorderRadius.all(Radius.circular(999)),
+  borderSide: BorderSide.none,
+);
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,19 +124,76 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
+  final _phoneFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   String? _phoneError;
   String? _passwordError;
+
+  late final AnimationController _blobFloat;
+  late final AnimationController _blobMorph;
+  late final AnimationController _clusterFloat;
+  late final AnimationController _bubbleBob;
+  late final Animation<double> _blobFloatCurve;
+  late final Animation<double> _blobMorphCurve;
+  late final Animation<double> _clusterFloatCurve;
 
   static final RegExp _phoneRegExp = RegExp(r'^1[3-9]\d{9}$');
   static final RegExp _letterRegExp = RegExp(r'[A-Za-z]');
   static final RegExp _digitRegExp = RegExp(r'[0-9]');
 
   @override
+  void initState() {
+    super.initState();
+    _phoneFocus.addListener(_onFocusChange);
+    _passwordFocus.addListener(_onFocusChange);
+    // CSS 关键帧 0%/100% 同值、50% 到峰值：用 repeat(reverse) 的半周期表达。
+    _blobFloat = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    )..repeat(reverse: true);
+    _blobMorph = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3500),
+    )..repeat(reverse: true);
+    _clusterFloat = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    )..repeat(reverse: true);
+    _bubbleBob = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4000),
+    )..repeat();
+    _blobFloatCurve = CurvedAnimation(
+      parent: _blobFloat,
+      curve: Curves.easeInOut,
+    );
+    _blobMorphCurve = CurvedAnimation(
+      parent: _blobMorph,
+      curve: Curves.easeInOut,
+    );
+    _clusterFloatCurve = CurvedAnimation(
+      parent: _clusterFloat,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _onFocusChange() {
+    setState(() {});
+  }
+
+  @override
   void dispose() {
+    _phoneFocus.removeListener(_onFocusChange);
+    _passwordFocus.removeListener(_onFocusChange);
+    _phoneFocus.dispose();
+    _passwordFocus.dispose();
+    _blobFloat.dispose();
+    _blobMorph.dispose();
+    _clusterFloat.dispose();
+    _bubbleBob.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -78,239 +246,269 @@ class _LoginPageState extends State<LoginPage> {
     Navigator.of(context).pushReplacementNamed(AppRoutes.home);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.pageBackgroundLight,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppSizes.contentMaxWidth,
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.only(
-                    top: AppSpacing.pageTop,
-                    left: AppSpacing.pageHorizontal,
-                    right: AppSpacing.pageHorizontal,
-                    bottom: AppSpacing.pageBottom,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight:
-                          constraints.maxHeight -
-                          AppSpacing.pageTop -
-                          AppSpacing.pageBottom,
+  TextStyle _pillTextStyle(Color color) {
+    return TextStyle(
+      fontSize: _pillFontSize,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.2,
+      height: 1.0,
+      color: color,
+    );
+  }
+
+  Widget _buildPillField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String hint,
+    required double width,
+    required Color pillColor,
+    required Color textColor,
+    required Color errorColor,
+    String? errorText,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
+    Iterable<String>? autofillHints,
+  }) {
+    // 聚焦即隐藏占位符（Flutter 默认聚焦仍显示 hint，这里必须覆盖）。
+    final decoration = InputDecoration(
+      hintText: focusNode.hasFocus ? null : hint,
+      hintStyle: _pillTextStyle(textColor),
+      errorText: errorText,
+      errorStyle: TextStyle(fontSize: 12, color: errorColor),
+      filled: true,
+      fillColor: pillColor,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 28,
+        vertical: (_pillHeight - _pillFontSize) / 2,
+      ),
+      border: _pillBorder,
+      enabledBorder: _pillBorder,
+      focusedBorder: _pillBorder,
+      errorBorder: _pillBorder,
+      focusedErrorBorder: _pillBorder,
+    );
+    return SizedBox(
+      width: width,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        onSubmitted: onSubmitted,
+        autofillHints: autofillHints,
+        textAlign: TextAlign.center,
+        textAlignVertical: TextAlignVertical.center,
+        style: _pillTextStyle(textColor),
+        decoration: decoration,
+      ),
+    );
+  }
+
+  Widget _buildBlob() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_blobFloatCurve, _blobMorphCurve]),
+      builder: (context, _) {
+        final float = _blobFloatCurve.value;
+        final radius = BorderRadius.lerp(
+          _blobRadiusA,
+          _blobRadiusB,
+          _blobMorphCurve.value,
+        )!;
+        return Transform.translate(
+          offset: Offset(0, -_blobFloatRange * float),
+          child: Transform.rotate(
+            angle: _blobTilt * float,
+            child: SizedBox(
+              width: _blobWidth + _blobBumpOverhang,
+              height: _blobHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: _blobBumpOverhang,
+                    top: 0,
+                    child: Container(
+                      width: _blobWidth,
+                      height: _blobHeight,
+                      decoration: BoxDecoration(
+                        color: _blobPurple,
+                        borderRadius: radius,
+                      ),
                     ),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Center(
-                            child: RoutePassLogo(size: AppSizes.logo),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          Text(
-                            '欢迎回来',
-                            textAlign: TextAlign.center,
-                            style: AppTheme.brandTitleStyle,
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            '登录后开始刷题（演示模式，不会发送任何请求）',
-                            textAlign: TextAlign.center,
-                            style: AppTheme.brandSubtitleStyle,
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          _LoginTextField(
-                            label: '手机号码',
-                            hint: '请输入 11 位手机号码',
-                            controller: _phoneController,
-                            errorText: _phoneError,
-                            keyboardType: TextInputType.phone,
-                            textInputAction: TextInputAction.next,
-                            autofillHints: const [
-                              AutofillHints.telephoneNumber,
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.formBlock),
-                          _LoginTextField(
-                            label: '密码',
-                            hint: '8–32 位，含字母与数字',
-                            controller: _passwordController,
-                            errorText: _passwordError,
-                            obscureText: _obscurePassword,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _submit(),
-                            autofillHints: const [AutofillHints.password],
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                                size: AppSizes.icon,
-                                color: AppColors.brandCaption,
-                              ),
-                              tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.formBlock),
-                          SizedBox(
-                            height: AppSizes.buttonHeight,
-                            child: FilledButton(
-                              onPressed: _submit,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.brandPrimary,
-                                foregroundColor: AppColors.brandOnPrimary,
-                                textStyle: AppTheme.brandButtonStyle,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadii.button,
-                                  ),
-                                ),
-                              ),
-                              child: const Text('登录 / 注册'),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xxl),
-                          const Spacer(),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: AppSpacing.md,
-                            children: [
-                              _LoginLink(
-                                label: '先看看知识库',
-                                route: AppRoutes.knowledge,
-                              ),
-                              _LoginLink(
-                                label: '打开工具箱',
-                                route: AppRoutes.toolbox,
-                              ),
-                            ],
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: _blobBumpTop,
+                    child: Container(
+                      width: _blobBumpSize,
+                      height: _blobBumpSize,
+                      decoration: const BoxDecoration(
+                        color: _blobPurple,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 单个气泡的起伏：余弦波保证 0 → -9 → 0 平滑循环，delay 制造错峰。
+  double _bobOffset(double phase) {
+    final t = phase % 1.0;
+    return -_bubbleBobRange * (0.5 - 0.5 * math.cos(2 * math.pi * t));
+  }
+
+  Widget _buildBubbles() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_clusterFloatCurve, _bubbleBob]),
+      builder: (context, _) {
+        return Transform.translate(
+          offset: Offset(0, -_clusterFloatRange * _clusterFloatCurve.value),
+          child: SizedBox(
+            width: _clusterWidth,
+            height: _clusterHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final bubble in _bubbleSpecs)
+                  Positioned(
+                    left: bubble.left,
+                    top:
+                        bubble.top +
+                        _bobOffset(
+                          _bubbleBob.value + bubble.delay / _bubbleBobPeriod,
+                        ),
+                    child: Container(
+                      width: bubble.size,
+                      height: bubble.size,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: _bubbleGradient,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x59000000),
+                            offset: Offset(0, 6),
+                            blurRadius: 14,
                           ),
                         ],
                       ),
                     ),
                   ),
-                );
-              },
+              ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginTextField extends StatelessWidget {
-  const _LoginTextField({
-    required this.label,
-    required this.hint,
-    required this.controller,
-    this.errorText,
-    this.obscureText = false,
-    this.suffixIcon,
-    this.keyboardType,
-    this.textInputAction,
-    this.onSubmitted,
-    this.autofillHints,
-  });
-
-  final String label;
-  final String hint;
-  final TextEditingController controller;
-  final String? errorText;
-  final bool obscureText;
-  final Widget? suffixIcon;
-  final TextInputType? keyboardType;
-  final TextInputAction? textInputAction;
-  final ValueChanged<String>? onSubmitted;
-  final Iterable<String>? autofillHints;
-
-  OutlineInputBorder _border(
-    Color color, {
-    double width = AppSizes.borderWidth,
-  }) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppRadii.input),
-      borderSide: BorderSide(color: color, width: width),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: AppTheme.brandFieldLabelStyle),
-        const SizedBox(height: AppSpacing.fieldLabelGap),
-        TextField(
-          controller: controller,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          style: AppTheme.brandFieldTextStyle,
-          textInputAction: textInputAction,
-          onSubmitted: onSubmitted,
-          autofillHints: autofillHints,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: AppTheme.brandFieldHintStyle,
-            errorText: errorText,
-            filled: true,
-            fillColor: AppColors.brandSurface,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.fieldHorizontal,
-              vertical: AppSpacing.fieldVertical,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pillColor = isDark ? _pillDark : _pillLight;
+    final textColor = isDark ? _inkDark : _inkLight;
+    final errorColor = isDark ? _errorDark : _errorLight;
+    final pillWidth = math.min(
+      MediaQuery.sizeOf(context).width * _pillWidthFactor,
+      _pillMaxWidth,
+    );
+    // 参考稿图形距屏幕顶 78（含状态栏区域）；SafeArea 之外先取真实 inset，
+    // 保证内容总偏移 = max(78, 系统 inset)，不会压到状态栏下面。
+    final topInset = MediaQuery.paddingOf(context).top;
+
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark ? _backgroundDark : _backgroundLight,
+        ),
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              top: math.max(0.0, _graphicTop - topInset),
+              bottom: 24,
             ),
-            border: _border(AppColors.brandBorder),
-            enabledBorder: _border(AppColors.brandBorder),
-            focusedBorder: _border(
-              AppColors.brandPrimary,
-              width: AppSizes.focusedBorderWidth,
+            child: Column(
+              children: [
+                SizedBox(
+                  height: _graphicHeight,
+                  child: Center(child: isDark ? _buildBubbles() : _buildBlob()),
+                ),
+                const SizedBox(height: _graphicToTitle),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'login in / sign up',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: _titleFontSize,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      height: 1.1,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: _titleToPill),
+                _buildPillField(
+                  controller: _phoneController,
+                  focusNode: _phoneFocus,
+                  hint: 'phone number',
+                  width: pillWidth,
+                  pillColor: pillColor,
+                  textColor: textColor,
+                  errorColor: errorColor,
+                  errorText: _phoneError,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.telephoneNumber],
+                ),
+                const SizedBox(height: _pillGap),
+                _buildPillField(
+                  controller: _passwordController,
+                  focusNode: _passwordFocus,
+                  hint: 'password',
+                  width: pillWidth,
+                  pillColor: pillColor,
+                  textColor: textColor,
+                  errorColor: errorColor,
+                  errorText: _passwordError,
+                  obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submit(),
+                  autofillHints: const [AutofillHints.password],
+                ),
+                const SizedBox(height: _pillGap),
+                SizedBox(
+                  width: pillWidth / 2,
+                  height: _pillHeight,
+                  child: FilledButton(
+                    onPressed: _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: pillColor,
+                      foregroundColor: textColor,
+                      shape: const StadiumBorder(),
+                      padding: EdgeInsets.zero,
+                      textStyle: _pillTextStyle(textColor),
+                    ),
+                    child: const Text('login'),
+                  ),
+                ),
+              ],
             ),
-            errorBorder: _border(theme.colorScheme.error),
-            focusedErrorBorder: _border(
-              theme.colorScheme.error,
-              width: AppSizes.focusedBorderWidth,
-            ),
-            suffixIcon: suffixIcon,
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _LoginLink extends StatelessWidget {
-  const _LoginLink({required this.label, required this.route});
-
-  final String label;
-  final String route;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: () => Navigator.of(context).pushNamed(route),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.brandPrimary,
-        textStyle: AppTheme.brandLinkStyle,
-        minimumSize: Size.zero,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.xs,
-        ),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
-      child: Text(label),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/app.dart';
 import 'package:routepass/core/service_locator.dart';
+import 'package:routepass/pages/base/login_page.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 import 'package:routepass/services/mock/mock_bank_manifest_service.dart';
@@ -51,14 +52,21 @@ Future<void> loginToHome(WidgetTester tester) async {
   // Splash dwells ~2s: pumpAndSettle stops while the dwell timer is pending
   // (no frame scheduled), so advance fake time past it explicitly.
   await tester.pump(const Duration(seconds: 2));
-  await tester.pumpAndSettle();
+  // 登录页顶部图形无限动画，不能 pumpAndSettle：显式推帧走完 splash→login 转场。
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
 
-  if (find.text('欢迎回来').tryEvaluate()) {
+  if (find.byType(LoginPage).tryEvaluate()) {
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), '13800138000');
     await tester.enterText(fields.at(1), 'Demo1234');
-    await tester.tap(find.widgetWithText(FilledButton, '登录 / 注册'));
-    await tester.pumpAndSettle();
+    // 默认 800x600 视口下 login 按钮在折叠线以下，先滚进视口再点。
+    await tester.ensureVisible(find.text('login'));
+    await tester.pump();
+    await tester.tap(find.text('login'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     // Walk past the login-success Snackbar's 4s auto-dismiss timer.
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
