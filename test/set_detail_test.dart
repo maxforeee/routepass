@@ -2,14 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/bank/answer_page.dart';
+import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/widgets/reserved_slot.dart';
+import 'package:routepass/widgets/set_row_card.dart';
 
 import 'test_helpers.dart';
 
 Finder _navTab(String label) =>
     find.descendant(of: find.byType(CapsuleNavBar), matching: find.text(label));
+
+/// F10：练习 tab 唯一一张套卷卡（线上 practiceByModule = H3CNE / 100 题）。
+/// 卡片标签里也有 “H3CNE”，首页精选题库也渲染 SetRowCard，所以限定在题库页
+/// 内按卡片定位。
+Finder get _practiceCard => find.descendant(
+  of: find.byType(BankModuleListPage),
+  matching: find.widgetWithText(SetRowCard, 'H3CNE'),
+);
+
+/// 考试 tab 第一张模拟卷卡（同样限定在题库页内）。
+Finder get _paperCard => find.descendant(
+  of: find.byType(BankModuleListPage),
+  matching: find.widgetWithText(SetRowCard, 'H3CNE 模拟卷 A'),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +36,7 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('100 题套卷'));
+    await tester.tap(_practiceCard);
     await tester.pumpAndSettle();
 
     expect(find.byType(SetDetailPage), findsOneWidget);
@@ -103,20 +119,21 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    // 三套卷卡依次是 100 / 200 / 50 题：点行进详情页点开始答题，
-    // 答题页参数必须是 exam + 对应题量。
-    for (final (count, title) in [
-      (100, '100 题套卷'),
-      (200, '200 题套卷'),
-      (50, '50 题套卷'),
-    ]) {
-      await tester.tap(find.text(title));
+    // F10：练习卡（practiceByModule → 100 题）与考试卷一（exams → 100 题）
+    // 都进详情页点开始答题，答题页参数必须是 exam + 对应题量。
+    for (var i = 0; i < 2; i++) {
+      if (i == 1) {
+        await tester.tap(find.text('考试'));
+        await tester.pumpAndSettle();
+      }
+      final card = i == 0 ? _practiceCard : _paperCard;
+      await tester.tap(card);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('开始答题'));
+      await tester.tap(find.widgetWithText(FilledButton, '开始答题'));
       await tester.pumpAndSettle();
       final answer = tester.widget<AnswerPage>(find.byType(AnswerPage));
       expect(answer.args['mode'], 'exam');
-      expect(answer.args['drawCount'], count);
+      expect(answer.args['drawCount'], 100);
       expect(find.text('第 1/3 题'), findsOneWidget);
       // 返回是自定义控件，pageBack 找不到标准 BackButton：答题页点
       // AppBar 的 arrow_back，弹退出确认后点“退出并保留进度”，再点
@@ -249,7 +266,7 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('100 题套卷'));
+    await tester.tap(_practiceCard);
     await tester.pumpAndSettle();
 
     expect(find.byType(SetDetailPage), findsOneWidget);

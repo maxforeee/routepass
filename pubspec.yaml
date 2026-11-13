@@ -21,6 +21,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # F10: 题库页拉取 /api/v1/bank/manifest（公开接口）。
+  http: ^1.6.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

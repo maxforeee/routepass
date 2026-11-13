@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'app.dart';
 import 'core/service_locator.dart';
+import 'services/bank/bank_manifest_service_http.dart';
 import 'services/mock/mock_auth_service.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
@@ -25,6 +26,7 @@ void main() {
   // config.dart 的 baseUrl，UI 文件不动。
   ServiceLocator.init(
     questionRepository: MockQuestionRepository(),
+    bankManifestService: HttpBankManifestService(),
     practiceService: MockPracticeService(),
     examService: MockExamService(),
     dailyPracticeService: MockDailyPracticeService(),

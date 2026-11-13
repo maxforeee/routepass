@@ -4,6 +4,7 @@ import 'package:routepass/app.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
+import 'package:routepass/services/mock/mock_bank_manifest_service.dart';
 import 'package:routepass/services/mock/mock_cli_service.dart';
 import 'package:routepass/services/mock/mock_content_service.dart';
 import 'package:routepass/services/mock/mock_daily_practice_service.dart';
@@ -24,6 +25,7 @@ import 'package:routepass/services/toolbox/subnet_calc_service_impl.dart';
 void initTestServices() {
   ServiceLocator.init(
     questionRepository: MockQuestionRepository(),
+    bankManifestService: MockBankManifestService(),
     practiceService: MockPracticeService(),
     examService: MockExamService(),
     dailyPracticeService: MockDailyPracticeService(),

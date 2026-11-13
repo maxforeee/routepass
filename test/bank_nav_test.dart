@@ -13,6 +13,7 @@ import 'package:routepass/pages/bank/stats_page.dart';
 import 'package:routepass/pages/bank/wrong_page.dart';
 import 'package:routepass/router/app_router.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
+import 'package:routepass/widgets/set_row_card.dart';
 import 'package:routepass/widgets/user_avatar.dart';
 
 import 'test_helpers.dart';
@@ -20,6 +21,14 @@ import 'test_helpers.dart';
 /// 首页快捷入口也有同名文字，切 tab 必须把 finder 限定在胶囊导航里。
 Finder _navTab(String label) =>
     find.descendant(of: find.byType(CapsuleNavBar), matching: find.text(label));
+
+/// F10：练习 tab 唯一一张套卷卡（线上 practiceByModule = H3CNE / 100 题）。
+/// 卡片标签里也有 “H3CNE”，首页精选题库也渲染 SetRowCard，所以限定在题库页
+/// 内按卡片定位。
+Finder get _practiceCard => find.descendant(
+  of: find.byType(BankModuleListPage),
+  matching: find.widgetWithText(SetRowCard, 'H3CNE'),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -53,20 +62,18 @@ void main() {
       ),
       findsNothing,
     );
-    expect(find.text('100 题套卷'), findsOneWidget);
+    expect(find.text('100 题套卷'), findsNothing);
+    // F10：练习 tab 渲染线上清单的唯一套卷卡（H3CNE / 100 题）。
+    expect(_practiceCard, findsOneWidget);
+    expect(find.text('100 题 · 含解析'), findsOneWidget);
   });
 
-  testWidgets('10 题速练进套卷详情页（G2c：不再直达答题页）', (tester) async {
-    // 同错题本：入口行在默认视口下位置偏下，用 1400 高视口保证可点。
-    tester.view.physicalSize = const Size(800, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('练习套卷卡进套卷详情页（G2c：不再直达答题页）', (tester) async {
     await loginToHome(tester);
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('10 题速练'));
+    await tester.tap(_practiceCard);
     await tester.pumpAndSettle();
     expect(find.byType(SetDetailPage), findsOneWidget);
   });
@@ -76,9 +83,10 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('100 题套卷'));
+    await tester.tap(_practiceCard);
     await tester.pumpAndSettle();
     expect(find.byType(SetDetailPage), findsOneWidget);
+    // 详情页标题由 drawCount 推导：练习卡 100 题。
     expect(find.text('100 题套卷'), findsOneWidget);
   });
 
@@ -89,7 +97,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CapsuleNavBar), findsOneWidget);
 
-    await tester.tap(find.text('100 题套卷'));
+    await tester.tap(_practiceCard);
     await tester.pumpAndSettle();
     expect(find.byType(SetDetailPage), findsOneWidget);
     expect(find.byType(CapsuleNavBar), findsNothing);
@@ -190,7 +198,7 @@ void main() {
     );
   });
 
-  testWidgets('410 宽视口下套卷卡模块标签按 3 列网格排布不溢出', (tester) async {
+  testWidgets('410 宽视口下套卷卡标签排布不溢出（练习 / 考试两个 tab）', (tester) async {
     tester.view.physicalSize = const Size(410, 890);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -200,10 +208,19 @@ void main() {
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
 
-    // 5 个模块标签都渲染；F3 起按 canva 参考排成 3 列两行（3 + 2），
-    // 若溢出会撑破套卷卡 76 固定高，触发 RenderFlex 溢出。
-    for (final label in const ['VLAN', 'OSPF', 'ACL', 'NAT', '子网划分']) {
-      expect(find.text(label), findsWidgets);
+    // F10 起练习 tab 只有一张卡（H3CNE + 100题 两个标签），考试 tab 两张
+    // 卡各三个标签（H3CNE / 模拟 / 100题）。旧 5 个模块标签（VLAN 等）随
+    // 占位数据一起删除，这里守住窄视口下标签行不撑破套卷卡。
+    expect(find.text('H3CNE'), findsWidgets);
+    expect(find.text('100题'), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('考试'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SetRowCard), findsNWidgets(2));
+    for (final label in const ['H3CNE', '模拟', '100题']) {
+      expect(find.text(label), findsWidgets, reason: label);
     }
     expect(tester.takeException(), isNull);
   });

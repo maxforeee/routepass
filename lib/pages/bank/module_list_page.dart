@@ -1,8 +1,11 @@
 /// 题库页（规格文档第 3 章 §22.5：Q-01–Q-09；R4 按 04_bank mockup 重绘）。
 ///
 /// 页头只有「题库」标题，下面是搜索条（保留的既有功能），再下面是「练习 /
-/// 考试」切换行（F5 按用户 1:1 参考稿新增，只做排版）：练习 tab 显示 4 张
-/// 套卷卡，考试 tab 显示 6 张模拟卷占位卡；输入搜索后切换为题目结果列表。
+/// 考试」切换行（F5 按用户 1:1 参考稿新增）：练习 / 考试两个 tab 的套卷卡
+/// 现在都来自后端 `GET /api/v1/bank/manifest`（F10）：练习 = practiceByModule
+/// 每个模块一条，考试 = exams[] 每卷一条，异步加载并复用 SetRowCard 渲染；
+/// 加载中显示进度圈，失败显示错误 + 重试，绝不静默回退到占位数据。
+/// 输入搜索后切换为题目结果列表。
 /// （G2b：筛选 chips 已按 canva 参考移除，文本搜索行为不变。F8：标题改为与
 /// 知识库 / 工具箱相同的 PageHeader（22 粗体 + 副标题），与搜索条左缘对齐，
 /// 头像只在首页，模块标签按 canva 参考排成 3 列两行。）
@@ -13,9 +16,10 @@ import 'package:flutter/material.dart';
 import '../../core/service_locator.dart';
 import '../../core/modules.dart';
 import '../../core/theme.dart';
+import '../../models/bank_manifest.dart';
 import '../../models/question.dart';
-import '../../models/stats.dart';
 import '../../router/app_router.dart';
+import '../../services/bank/bank_manifest_service.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/set_row_card.dart';
 import '../../widgets/set_row_tags.dart';
@@ -24,37 +28,67 @@ import '../../widgets/set_row_tags.dart';
 enum _BankTab { practice, exam }
 
 class BankModuleListPage extends StatefulWidget {
-  const BankModuleListPage({super.key});
+  const BankModuleListPage({super.key, this.manifestService});
+
+  /// 测试可注入 Mock；生产环境不传，走 ServiceLocator 里的 HTTP 实现。
+  final BankManifestService? manifestService;
 
   @override
   State<BankModuleListPage> createState() => BankModuleListPageState();
 }
 
 class BankModuleListPageState extends State<BankModuleListPage> {
-  List<ModuleStat> _modules = const <ModuleStat>[];
   List<Question> _samples = const <Question>[];
   String _query = '';
   _BankTab _tab = _BankTab.practice;
 
+  late final BankManifestService _manifestService;
+  BankManifest? _manifest;
+  bool _manifestLoading = true;
+  String? _manifestError;
+
   @override
   void initState() {
     super.initState();
+    _manifestService =
+        widget.manifestService ?? ServiceLocator.bankManifestService;
+    _loadManifest();
     _load();
   }
 
   /// tab 切回时刷新（重拉模块 / 样题）。
   Future<void> refresh() => _load();
 
+  /// 拉取题库清单（练习 / 考试 tab 的数据源）。失败时保留错误信息供重试。
+  Future<void> _loadManifest() async {
+    setState(() {
+      _manifestLoading = true;
+      _manifestError = null;
+    });
+    try {
+      final manifest = await _manifestService.fetchManifest();
+      if (!mounted) return;
+      setState(() {
+        _manifest = manifest;
+        _manifestLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _manifestLoading = false;
+        _manifestError = '题库清单加载失败';
+      });
+    }
+  }
+
   Future<void> _load() async {
     try {
-      final modules = await ServiceLocator.questionRepository.getModules();
       final samples = await ServiceLocator.questionRepository.drawQuestions(
         mode: 'practice',
         drawCount: 100,
       );
       if (!mounted) return;
       setState(() {
-        _modules = modules;
         _samples = samples;
       });
     } catch (_) {}
@@ -211,7 +245,10 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (_tab != tab) setState(() => _tab = tab);
+        if (_tab == tab) return;
+        setState(() => _tab = tab);
+        // 切 tab 时重拉清单（也支持下拉刷新）；失败保留错误态可重试。
+        _loadManifest();
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -243,85 +280,110 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   }
 
   Widget _buildSets() {
-    return _tab == _BankTab.exam ? _buildExamSets() : _buildPracticeSets();
-  }
-
-  Widget _buildPracticeSets() {
-    final modules = _modules.isEmpty
-        ? kModuleOrder
-        : _modules.map((m) => m.module).toList();
-    final tags = SetRowTags(labels: modules.map(moduleLabel).toList());
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
-        AppSizes.homeBottomPad,
+    if (_manifestLoading && _manifest == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final error = _manifestError;
+    if (error != null) {
+      return _buildScrollableState(
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_outlined,
+              size: AppSizes.emptyStateIcon,
+              color: AppColors.cardCaption(context),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(error, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton(onPressed: _loadManifest, child: const Text('重试')),
+          ],
+        ),
+      );
+    }
+    final manifest = _manifest;
+    if (manifest == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final entries = _tab == _BankTab.exam
+        ? _examEntries(manifest)
+        : _practiceEntries(manifest);
+    if (entries.isEmpty) {
+      return _buildScrollableState(
+        Text('暂无套卷', style: Theme.of(context).textTheme.bodyMedium),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadManifest,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSizes.homeBottomPad,
+        ),
+        itemCount: entries.length,
+        separatorBuilder: (context, index) =>
+            const SizedBox(height: AppSpacing.cardGap),
+        itemBuilder: (context, index) {
+          final entry = entries[index];
+          return SetRowCard(
+            title: entry.title,
+            subtitle: entry.subtitle,
+            trailing: SetRowTags(labels: entry.tags),
+            onTap: () => _openSetDetail(entry.drawCount),
+          );
+        },
       ),
-      children: [
-        SetRowCard(
-          title: '100 题套卷',
-          subtitle: '100 题 · 5 个模块 · 含解析',
-          trailing: tags,
-          onTap: () => _openSetDetail(100),
-        ),
-        const SizedBox(height: AppSpacing.cardGap),
-        SetRowCard(
-          title: '200 题套卷',
-          subtitle: '200 题 · 5 个模块 · 含解析',
-          trailing: tags,
-          onTap: () => _openSetDetail(200),
-        ),
-        const SizedBox(height: AppSpacing.cardGap),
-        SetRowCard(
-          title: '50 题套卷',
-          subtitle: '50 题 · 5 个模块 · 含解析',
-          trailing: tags,
-          onTap: () => _openSetDetail(50),
-        ),
-        const SizedBox(height: AppSpacing.cardGap),
-        SetRowCard(
-          title: '10 题速练',
-          subtitle: '10 题 · 5 个模块 · 含解析',
-          trailing: tags,
-          onTap: () => _openSetDetail(10),
-        ),
-      ],
     );
   }
 
-  /// 考试 tab：模拟卷卡。卷名与标签是占位排版内容（真实卷子等后端题库
-  /// 数据），不接数据源、不做异步加载。
-  Widget _buildExamSets() {
-    const titles = <String>[
-      'H3CNE 模拟卷 01',
-      'H3CNE 模拟卷 02',
-      'H3CNE 模拟卷 03',
-      'H3CNE 模拟卷 04',
-      'H3CNE 模拟卷 05',
-      'H3CNE 模拟卷 06',
+  /// 练习 tab：practiceByModule 每个模块一条。
+  List<_BankSetEntry> _practiceEntries(BankManifest manifest) {
+    return [
+      for (final set in manifest.practiceSets)
+        _BankSetEntry(
+          title: moduleLabel(set.module),
+          subtitle: '${set.questionCount} 题 · 含解析',
+          tags: [moduleLabel(set.module), '${set.questionCount}题'],
+          drawCount: set.questionCount,
+        ),
     ];
-    const tags = SetRowTags(labels: ['综合', 'H3CNE', '模拟', '60分钟', '100题']);
+  }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
-        AppSizes.homeBottomPad,
+  /// 考试 tab：exams[] 每卷一条，卷名与题量均来自接口。
+  List<_BankSetEntry> _examEntries(BankManifest manifest) {
+    final module = manifest.practiceSets.isEmpty
+        ? 'H3CNE'
+        : moduleLabel(manifest.practiceSets.first.module);
+    return [
+      for (final set in manifest.examSets)
+        _BankSetEntry(
+          title: set.title,
+          subtitle: '${set.questionCount} 题 · 含解析',
+          tags: [module, '模拟', '${set.questionCount}题'],
+          drawCount: set.questionCount,
+        ),
+    ];
+  }
+
+  /// 空态 / 错误态也放进可滚动容器，确保下拉刷新可用。
+  Widget _buildScrollableState(Widget child) {
+    return RefreshIndicator(
+      onRefresh: _loadManifest,
+      child: LayoutBuilder(
+        builder: (context, constraints) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(
+              height: constraints.maxHeight,
+              child: Center(child: child),
+            ),
+          ],
+        ),
       ),
-      children: [
-        for (var i = 0; i < titles.length; i++) ...[
-          if (i > 0) const SizedBox(height: AppSpacing.cardGap),
-          SetRowCard(
-            title: titles[i],
-            subtitle: '100 题 · 60 分钟 · 含解析',
-            trailing: tags,
-            onTap: () => _openSetDetail(100),
-          ),
-        ],
-      ],
     );
   }
 
@@ -376,6 +438,21 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       },
     );
   }
+}
+
+/// 一张 tab 内套卷卡的展示数据（标题 / 副标题 / 标签 / 点按抽题数）。
+class _BankSetEntry {
+  const _BankSetEntry({
+    required this.title,
+    required this.subtitle,
+    required this.tags,
+    required this.drawCount,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<String> tags;
+  final int drawCount;
 }
 
 /// tab 下方的渐隐虚线指示线（虚线段 + 两端平滑渐隐）。

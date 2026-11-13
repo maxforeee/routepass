@@ -3,9 +3,12 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/core/theme.dart';
+import 'package:routepass/models/bank_manifest.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/pages/knowledge/knowledge_home_page.dart';
 import 'package:routepass/pages/toolbox/toolbox_home_page.dart';
+import 'package:routepass/services/bank/bank_manifest_service.dart';
+import 'package:routepass/services/mock/mock_bank_manifest_service.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/widgets/module_tag.dart';
 import 'package:routepass/widgets/page_header.dart';
@@ -14,29 +17,19 @@ import 'package:routepass/widgets/user_avatar.dart';
 
 import 'test_helpers.dart';
 
-/// F3（用户反馈 B1 / H3 / B3 / O1）回归 + F5（练习/考试切换、去副标题、
-/// 移除错题本/收藏入口）回归：题库页标题字号与左对齐、头像只在首页、套卷行
-/// 标题与副标题完整显示、两个 tab 切换下方列表。两个视口（手机 410 / 平板
-/// 800）各跑一遍。
+/// F3（用户反馈 B1 / H3 / B3 / O1）回归 + F5（练习/考试切换）回归 + F10
+/// （题库页两个 tab 接后端 manifest）：题库页标题字号与左对齐、头像只在首页、
+/// 套卷行标题与副标题完整显示、两个 tab 切换下方列表。两个视口（手机 410 /
+/// 平板 800）各跑一遍。
 const _viewports = <Size>[Size(410, 890), Size(800, 1400)];
 
-const _setTitles = <String>['100 题套卷', '200 题套卷', '50 题套卷', '10 题速练'];
+/// F10：练习 tab 来自 practiceByModule（线上 1 条：H3CNE / 100 题）。
+const _practiceTitles = <String>['H3CNE'];
 
-const _setSubtitles = <String>[
-  '100 题 · 5 个模块 · 含解析',
-  '200 题 · 5 个模块 · 含解析',
-  '50 题 · 5 个模块 · 含解析',
-  '10 题 · 5 个模块 · 含解析',
-];
+/// F10：考试 tab 来自 exams[]（线上 2 卷）。
+const _paperTitles = <String>['H3CNE 模拟卷 A', 'H3CNE 模拟卷 B'];
 
-const _paperTitles = <String>[
-  'H3CNE 模拟卷 01',
-  'H3CNE 模拟卷 02',
-  'H3CNE 模拟卷 03',
-  'H3CNE 模拟卷 04',
-  'H3CNE 模拟卷 05',
-  'H3CNE 模拟卷 06',
-];
+const _setSubtitle = '100 题 · 含解析';
 
 Future<void> _openBank(WidgetTester tester, Size size) async {
   tester.view.physicalSize = size;
@@ -127,6 +120,20 @@ Future<void> _pumpStandalonePage(
   tester.view.devicePixelRatio = 1.0;
   await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: page));
   await tester.pumpAndSettle();
+}
+
+/// 统计 fetchManifest 调用次数的包装，用于验证下拉刷新确实重新拉清单。
+class _CountingManifestService implements BankManifestService {
+  _CountingManifestService(this._inner);
+
+  final BankManifestService _inner;
+  int fetchCount = 0;
+
+  @override
+  Future<BankManifest> fetchManifest() {
+    fetchCount++;
+    return _inner.fetchManifest();
+  }
 }
 
 void main() {
@@ -230,70 +237,74 @@ void main() {
       expect(titleLeft, searchLeft);
     });
 
-    testWidgets('O1 四张套卷行标题与副标题不截断（$label）', (tester) async {
+    testWidgets('O1 练习套卷行标题与副标题不截断（$label）', (tester) async {
       await _openBank(tester, size);
 
-      for (final t in _setTitles) {
-        expect(_paragraph(tester, t).didExceedMaxLines, isFalse, reason: t);
+      expect(_inBank(find.byType(SetRowCard)), findsOneWidget);
+      for (final t in _practiceTitles) {
+        expect(_inBank(find.text(t)), findsWidgets, reason: t);
       }
-      for (final s in _setSubtitles) {
-        expect(_paragraph(tester, s).didExceedMaxLines, isFalse, reason: s);
-      }
+      expect(_paragraph(tester, _setSubtitle).didExceedMaxLines, isFalse);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('F5 默认显示 4 张练习套卷卡与练习/考试两个 tab（$label）', (tester) async {
+    testWidgets('F5/F10 默认显示 1 张练习套卷卡与练习/考试两个 tab（$label）', (tester) async {
       await _openBank(tester, size);
 
       expect(_inBank(find.text('搜索题目')), findsOneWidget);
       expect(_inBank(find.text('练习')), findsOneWidget);
       expect(_inBank(find.text('考试')), findsOneWidget);
 
-      for (final t in _setTitles) {
-        expect(_inBank(find.text(t)), findsOneWidget);
+      expect(_inBank(find.byType(SetRowCard)), findsOneWidget);
+      for (final t in _practiceTitles) {
+        expect(_inBank(find.text(t)), findsWidgets);
       }
+      expect(_inBank(find.text(_setSubtitle)), findsOneWidget);
+      expect(_inBank(find.text('100题')), findsWidgets);
       for (final t in const ['错题本', '收藏']) {
         expect(_inBank(find.text(t)), findsNothing);
       }
-      for (final tag in const ['VLAN', 'OSPF', 'ACL', 'NAT', '子网划分']) {
-        expect(_inBank(find.text(tag)), findsWidgets);
-      }
-      expect(_inBank(find.text('H3CNE 模拟卷 01')), findsNothing);
+      expect(_inBank(find.text('H3CNE 模拟卷 A')), findsNothing);
     });
 
-    testWidgets('F5 点考试显示 6 张模拟卷卡并隐藏练习卡（$label）', (tester) async {
+    testWidgets('F5/F10 点考试显示 2 张真实模拟卷卡并隐藏练习卡（$label）', (tester) async {
       await _openBank(tester, size);
 
       await tester.tap(_inBank(find.text('考试')));
       await tester.pumpAndSettle();
 
+      expect(_inBank(find.byType(SetRowCard)), findsNWidgets(2));
       for (final t in _paperTitles) {
         expect(_inBank(find.text(t)), findsOneWidget);
       }
-      expect(_inBank(find.text('100 题 · 60 分钟 · 含解析')), findsWidgets);
-      for (final tag in const ['综合', 'H3CNE', '模拟', '60分钟', '100题']) {
+      expect(_inBank(find.text(_setSubtitle)), findsNWidgets(2));
+      for (final tag in const ['H3CNE', '模拟', '100题']) {
         expect(_inBank(find.text(tag)), findsWidgets);
       }
-      for (final t in _setTitles) {
-        expect(_inBank(find.text(t)), findsNothing);
-      }
+      // 练习卡不在考试 tab：按卡片标题判，不能按文本判（模拟卷卡的标签
+      // 里也有 “H3CNE”）。
+      final examCards = tester
+          .widgetList<SetRowCard>(_inBank(find.byType(SetRowCard)))
+          .toList();
+      expect(examCards.map((card) => card.title), _paperTitles);
       expect(_inBank(find.text('练习')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('F5 点练习切回 4 张练习套卷卡（$label）', (tester) async {
+    testWidgets('F5/F10 点练习切回练习套卷卡（$label）', (tester) async {
       await _openBank(tester, size);
 
       await tester.tap(_inBank(find.text('考试')));
       await tester.pumpAndSettle();
-      expect(_inBank(find.text('H3CNE 模拟卷 01')), findsOneWidget);
+      expect(_inBank(find.text('H3CNE 模拟卷 A')), findsOneWidget);
 
       await tester.tap(_inBank(find.text('练习')));
       await tester.pumpAndSettle();
-      for (final t in _setTitles) {
-        expect(_inBank(find.text(t)), findsOneWidget);
+      expect(_inBank(find.byType(SetRowCard)), findsOneWidget);
+      for (final t in _practiceTitles) {
+        expect(_inBank(find.text(t)), findsWidgets);
       }
-      expect(_inBank(find.text('H3CNE 模拟卷 01')), findsNothing);
+      expect(_inBank(find.text('H3CNE 模拟卷 A')), findsNothing);
     });
 
     testWidgets('H 标题下副标题为“练习考试”（$label）', (tester) async {
@@ -348,9 +359,12 @@ void main() {
         .color;
     expect(surface, scheme.surface);
     expect(surface, isNot(AppColors.brandSurface));
-    final cardTitle = tester.widget<Text>(_inBank(find.text('100 题套卷')));
+    final card = find.byType(SetRowCard).first;
+    final cardTitle = tester.widget<Text>(
+      find.descendant(of: card, matching: find.text('H3CNE')).first,
+    );
     final cardSubtitle = tester.widget<Text>(
-      _inBank(find.text('100 题 · 5 个模块 · 含解析')),
+      find.descendant(of: card, matching: find.text(_setSubtitle)),
     );
     expect(cardTitle.style?.color, scheme.onSurface);
     expect(cardSubtitle.style?.color, scheme.onSurfaceVariant);
@@ -367,5 +381,33 @@ void main() {
       find.descendant(of: firstTag, matching: find.byType(Text)),
     );
     expect(tagText.style?.color, isNot(tagSurface));
+  });
+
+  testWidgets('F10 下拉刷新重新拉取练习 / 考试清单', (tester) async {
+    tester.view.physicalSize = const Size(410, 890);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final service = _CountingManifestService(MockBankManifestService());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: BankModuleListPage(manifestService: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(service.fetchCount, 1);
+    expect(find.byType(SetRowCard), findsOneWidget);
+
+    // 下拉 -> RefreshIndicator 出现并重新调用 fetchManifest。
+    await tester.fling(find.byType(ListView), const Offset(0, 400), 1000);
+    await tester.pumpAndSettle();
+
+    expect(service.fetchCount, 2);
+    expect(find.byType(RefreshIndicator), findsOneWidget);
+    expect(find.byType(SetRowCard), findsOneWidget);
+    expect(find.text(_setSubtitle), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

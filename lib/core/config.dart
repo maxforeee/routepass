@@ -6,8 +6,8 @@ class AppConfig {
   static const String version = '0.1.0';
   static const int buildNumber = 1;
 
-  /// 后端尚未接入，暂时为空字符串。
-  static const String baseUrl = '';
+  /// 题库后端地址（F10 接入 manifest 接口）。
+  static const String baseUrl = 'http://198.23.213.22';
 
   static const bool moduleBank = false;
   static const bool moduleKnowledge = false;
