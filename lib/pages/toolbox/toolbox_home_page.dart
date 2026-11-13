@@ -61,28 +61,40 @@ class ToolboxHomePageState extends State<ToolboxHomePage> {
                 children: [
                   const PageHeader(title: '工具箱', subtitle: '网工常用小工具 · 全部本地运行'),
                   const SizedBox(height: AppSpacing.md),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: AppSpacing.md,
-                          crossAxisSpacing: AppSpacing.md,
-                          mainAxisExtent: AppSizes.toolboxCardHeight,
-                        ),
-                    itemCount: toolboxTools.length,
-                    itemBuilder: (context, index) {
-                      final tool = toolboxTools[index];
-                      return _ToolCard(
-                        tool: tool,
-                        onTap: () => _openTool(tool),
-                      );
-                    },
+                  // 页头保持 md 页边距；工具网格与最近使用行每侧再内缩
+                  // contentInset（网格内部间距不变）。
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.contentInset,
+                    ),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: AppSpacing.md,
+                            crossAxisSpacing: AppSpacing.md,
+                            mainAxisExtent: AppSizes.toolboxCardHeight,
+                          ),
+                      itemCount: toolboxTools.length,
+                      itemBuilder: (context, index) {
+                        final tool = toolboxTools[index];
+                        return _ToolCard(
+                          tool: tool,
+                          onTap: () => _openTool(tool),
+                        );
+                      },
+                    ),
                   ),
                   if (recent.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.md),
-                    _RecentRow(recent: recent),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.contentInset,
+                      ),
+                      child: _RecentRow(recent: recent),
+                    ),
                   ],
                 ],
               ),

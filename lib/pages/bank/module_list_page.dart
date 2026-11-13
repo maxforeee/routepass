@@ -122,7 +122,9 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       backgroundColor: AppColors.pageBackground(context),
       body: SafeArea(
         child: Column(
-          // stretch：页头块宽度撑满，标题左缘与搜索条 / 卡片同为 16px。
+          // stretch：页头块宽度撑满，标题左缘保持 16px；搜索条属页头区域，
+          // 同样保持 16px 与标题左缘对齐；再往下的切换行 / 套卷卡每侧内缩
+          // contentInset。
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
@@ -212,9 +214,9 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   Widget _buildTabs() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
+        AppSpacing.md + AppSpacing.contentInset,
         AppSpacing.bankTabsPaddingTop,
-        AppSpacing.md,
+        AppSpacing.md + AppSpacing.contentInset,
         AppSpacing.bankTabsPaddingBottom,
       ),
       child: Row(
@@ -319,9 +321,9 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
+          AppSpacing.md + AppSpacing.contentInset,
           AppSpacing.sm,
-          AppSpacing.md,
+          AppSpacing.md + AppSpacing.contentInset,
           AppSizes.homeBottomPad,
         ),
         itemCount: entries.length,
@@ -407,9 +409,9 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     }
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
+        AppSpacing.md + AppSpacing.contentInset,
         AppSpacing.sm,
-        AppSpacing.md,
+        AppSpacing.md + AppSpacing.contentInset,
         AppSizes.homeBottomPad,
       ),
       itemCount: results.length,

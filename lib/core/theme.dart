@@ -215,6 +215,10 @@ class AppSpacing {
   static const double fieldHorizontal = 16;
   static const double fieldVertical = 14;
 
+  /// 标题以下内容元素每侧额外内缩（逻辑像素）：页面内边距 md(16) 之上再叠
+  /// 15，内容离屏幕边 31；页头 / 标题 / 首页问候区与头像不加这层内缩。
+  static const double contentInset = 15;
+
   /// 题库页卡片/入口行之间的间距（逻辑像素）。
   static const double cardGap = 14;
 

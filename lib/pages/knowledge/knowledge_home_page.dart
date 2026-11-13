@@ -247,6 +247,8 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
                     subtitle: 'H3CNE 考点 · 章 / 节 / 知识点',
                   ),
                   const SizedBox(height: AppSpacing.md),
+                  // 页头与搜索条保持 md 页边距（左缘对齐）；章卡片每侧再内缩
+                  // contentInset。
                   _buildSearch(),
                   const SizedBox(height: AppSpacing.md),
                   if (_searching && _visibleTotal == 0)
@@ -266,7 +268,15 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     final chapters = _visibleChapters();
     final widgets = <Widget>[];
     for (var i = 0; i < chapters.length; i++) {
-      widgets.add(_buildChapter(chapters[i]));
+      // 章卡片（含内部节 / 知识点行）整体再内缩 contentInset；卡内边距不变。
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.contentInset,
+          ),
+          child: _buildChapter(chapters[i]),
+        ),
+      );
       if (i < chapters.length - 1) {
         widgets.add(const SizedBox(height: AppSpacing.chapterGap));
       }

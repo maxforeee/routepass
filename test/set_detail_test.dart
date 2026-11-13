@@ -278,8 +278,15 @@ void main() {
     final screenRect = tester.getRect(find.byType(SetDetailPage));
     expect(screenRect.overlaps(buttonRect), isTrue);
     expect(buttonRect.bottom, lessThanOrEqualTo(screenRect.bottom));
-    expect(buttonRect.left, closeTo(screenRect.left + AppSpacing.md, 1));
-    expect(buttonRect.right, closeTo(screenRect.right - AppSpacing.md, 1));
+    // F13：按钮是标题以下的内容元素，左右各 md + contentInset。
+    expect(
+      buttonRect.left,
+      closeTo(screenRect.left + AppSpacing.md + AppSpacing.contentInset, 1),
+    );
+    expect(
+      buttonRect.right,
+      closeTo(screenRect.right - AppSpacing.md - AppSpacing.contentInset, 1),
+    );
     expect(screenRect.bottom - buttonRect.bottom, closeTo(AppSpacing.md, 1));
   });
 

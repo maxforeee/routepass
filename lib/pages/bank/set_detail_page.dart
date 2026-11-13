@@ -132,32 +132,59 @@ class _SetDetailPageState extends State<SetDetailPage> {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
-                        _MetaRow(
-                          single: _singleCount,
-                          multiple: _multipleCount,
+                        // 大标题保持 md 页边距；标题以下内容每侧再内缩
+                        // contentInset，离屏幕边 md + contentInset。
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.contentInset,
+                          ),
+                          child: _MetaRow(
+                            single: _singleCount,
+                            multiple: _multipleCount,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        Container(
-                          height: AppSizes.divider,
-                          color: AppColors.brandBorder,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.contentInset,
+                          ),
+                          child: Container(
+                            height: AppSizes.divider,
+                            color: AppColors.brandBorder,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        const ReservedSlot(),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.contentInset,
+                          ),
+                          child: const ReservedSlot(),
+                        ),
                         const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          '知识点考察',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontSize: AppFontSizes.detailSectionTitle,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.title(context),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.contentInset,
+                          ),
+                          child: Text(
+                            '知识点考察',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontSize: AppFontSizes.detailSectionTitle,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.title(context),
+                            ),
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         for (final module in modules) ...[
-                          _ModuleRow(
-                            name: moduleLabel(module),
-                            count: _perModuleCount,
-                            progress: _moduleProgress(module),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.contentInset,
+                            ),
+                            child: _ModuleRow(
+                              name: moduleLabel(module),
+                              count: _perModuleCount,
+                              progress: _moduleProgress(module),
+                            ),
                           ),
                           if (module != modules.last)
                             const SizedBox(
@@ -165,7 +192,12 @@ class _SetDetailPageState extends State<SetDetailPage> {
                             ),
                         ],
                         const SizedBox(height: AppSpacing.lg),
-                        _InstructionsCard(minutes: _minutes),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.contentInset,
+                          ),
+                          child: _InstructionsCard(minutes: _minutes),
+                        ),
                       ],
                     ),
                   ),
@@ -173,8 +205,8 @@ class _SetDetailPageState extends State<SetDetailPage> {
               ],
             ),
             Positioned(
-              left: AppSpacing.md,
-              right: AppSpacing.md,
+              left: AppSpacing.md + AppSpacing.contentInset,
+              right: AppSpacing.md + AppSpacing.contentInset,
               // 导航已隐藏：按钮贴 SafeArea 底边，只留常规间距。
               bottom: AppSpacing.md,
               child: SizedBox(

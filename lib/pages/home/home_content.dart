@@ -452,43 +452,80 @@ class HomeContentPageState extends State<HomeContentPage> {
                 ],
               ),
               const SizedBox(height: sectionGap),
-              _Banner(
-                summary: _todaySummary,
-                onStart: () => _openQuiz('quick', 10),
+              // 问候区（含头像）保持 md 页边距；下面的内容每侧再内缩
+              // contentInset，离屏幕边 md + contentInset。
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.contentInset,
+                ),
+                child: _Banner(
+                  summary: _todaySummary,
+                  onStart: () => _openQuiz('quick', 10),
+                ),
               ),
               const SizedBox(height: sectionGap),
               if (_dailyQuestion != null) ...[
                 // 标题骑在上边框上、向上探出 overhang，补偿后再留统一间距，
                 // 让横幅到标题的视觉间距与其他组件一致。
                 const SizedBox(height: AppSpacing.dailyTitleOverhang),
-                _DailyPracticeCard(
-                  question: _dailyQuestion!,
-                  selectedKey: _dailySelectedKey,
-                  onSelect: _answerDaily,
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.contentInset,
+                  ),
+                  child: _DailyPracticeCard(
+                    question: _dailyQuestion!,
+                    selectedKey: _dailySelectedKey,
+                    onSelect: _answerDaily,
+                  ),
                 ),
                 const SizedBox(height: sectionGap),
               ],
-              Text(
-                '精选题库',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.contentInset,
+                ),
+                child: Text(
+                  '精选题库',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              _buildFeaturedList(),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.contentInset,
+                ),
+                child: _buildFeaturedList(),
+              ),
               if (_showSyncTip) ...[
                 const SizedBox(height: sectionGap),
-                _SyncTipStrip(onTap: _openSyncSheet),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.contentInset,
+                  ),
+                  child: _SyncTipStrip(onTap: _openSyncSheet),
+                ),
               ],
               const SizedBox(height: sectionGap),
-              Text(
-                '错题本 · 收藏',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.contentInset,
+                ),
+                child: Text(
+                  '错题本 · 收藏',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              _buildPreviewCards(),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.contentInset,
+                ),
+                child: _buildPreviewCards(),
+              ),
               const SizedBox(height: sectionGap),
             ],
           ),
