@@ -286,4 +286,24 @@ void main() {
     expect(statColor, isNot(const Color(0xFF334155)));
     expect(statColor, const Color(0xFF94A3B8));
   });
+
+  testWidgets('深色模式下套卷详情标题使用自适应浅色', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: SetDetailPage(
+          args: <String, Object?>{'mode': 'exam', 'drawCount': 100},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final BuildContext context = tester.element(find.text('100 题套卷'));
+    for (final title in <String>['100 题套卷', '知识点考察', 'VLAN', '答题说明']) {
+      final text = tester.widget<Text>(find.text(title));
+      expect(text.style?.color, AppColors.title(context));
+      expect(text.style?.color, isNot(AppColors.brandTitle));
+    }
+    expect(AppColors.title(context), const Color(0xFFF1F5F9));
+  });
 }

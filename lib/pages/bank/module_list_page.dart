@@ -151,7 +151,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
           style: TextStyle(
             fontSize: AppFontSizes.homeGreetingName,
             fontWeight: FontWeight.w800,
-            color: AppColors.brandTitle,
+            color: AppColors.title(context),
             height: 1.2,
           ),
         ),

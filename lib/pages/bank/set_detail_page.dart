@@ -129,7 +129,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                           style: theme.textTheme.headlineLarge?.copyWith(
                             fontSize: AppFontSizes.detailTitle,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.brandTitle,
+                            color: AppColors.title(context),
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
@@ -150,7 +150,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontSize: AppFontSizes.detailSectionTitle,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.brandTitle,
+                            color: AppColors.title(context),
                           ),
                         ),
                         const SizedBox(height: AppSpacing.md),
@@ -268,7 +268,7 @@ class _ModuleRow extends StatelessWidget {
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontSize: AppFontSizes.detailBody,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.brandTitle,
+                  color: AppColors.title(context),
                 ),
               ),
             ),
@@ -334,7 +334,7 @@ class _InstructionsCard extends StatelessWidget {
             '答题说明',
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.bold,
-              color: AppColors.brandTitle,
+              color: AppColors.title(context),
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
