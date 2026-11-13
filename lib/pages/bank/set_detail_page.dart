@@ -121,28 +121,16 @@ class _SetDetailPageState extends State<SetDetailPage> {
                       '$_drawCount 题套卷',
                       style: theme.textTheme.headlineLarge?.copyWith(
                         fontSize: AppFontSizes.detailTitle,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.brandTitle,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'H3CNE 模拟套卷 · 每题含解析',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: AppFontSizes.detailBody,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _StatsRow(
-                      drawCount: _drawCount,
-                      single: _singleCount,
-                      multiple: _multipleCount,
-                      minutes: _minutes,
-                    ),
+                    _MetaRow(single: _singleCount, multiple: _multipleCount),
                     const SizedBox(height: AppSpacing.md),
                     Container(
                       height: AppSizes.divider,
-                      color: theme.colorScheme.outlineVariant,
+                      color: AppColors.brandBorder,
                     ),
                     const SizedBox(height: AppSpacing.md),
                     const ReservedSlot(),
@@ -206,39 +194,37 @@ class _SetDetailPageState extends State<SetDetailPage> {
   }
 }
 
-/// 统计行：三列等宽，13px #334155。
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({
-    required this.drawCount,
-    required this.single,
-    required this.multiple,
-    required this.minutes,
-  });
+/// 元信息行：左副标题，右“单选 X · 多选 Y”（13px），基线对齐。
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.single, required this.multiple});
 
-  final int drawCount;
   final int single;
   final int multiple;
-  final int minutes;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
-        Expanded(child: _stat(context, theme, '$drawCount 题')),
-        Expanded(child: _stat(context, theme, '单选 $single · 多选 $multiple')),
-        Expanded(child: _stat(context, theme, '约 $minutes 分钟')),
+        Expanded(
+          child: Text(
+            'H3CNE-RS+ 模拟套卷 · 含解析',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: AppFontSizes.detailBody,
+              color: AppColors.brandCaption,
+            ),
+          ),
+        ),
+        Text(
+          '单选 $single · 多选 $multiple',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontSize: AppFontSizes.detailStat,
+            color: AppColors.brandCaption,
+          ),
+        ),
       ],
-    );
-  }
-
-  Widget _stat(BuildContext context, ThemeData theme, String text) {
-    return Text(
-      text,
-      style: theme.textTheme.bodyMedium?.copyWith(
-        fontSize: AppFontSizes.detailStat,
-        color: AppColors.label(context),
-      ),
     );
   }
 }

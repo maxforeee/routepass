@@ -25,10 +25,8 @@ void main() {
 
     expect(find.byType(SetDetailPage), findsOneWidget);
     expect(find.text('100 题套卷'), findsOneWidget);
-    expect(find.text('H3CNE 模拟套卷 · 每题含解析'), findsOneWidget);
-    expect(find.text('100 题'), findsOneWidget);
+    expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
     expect(find.text('单选 75 · 多选 25'), findsOneWidget);
-    expect(find.text('约 60 分钟'), findsOneWidget);
     expect(find.text('知识点考察'), findsOneWidget);
     expect(find.text('VLAN'), findsOneWidget);
     expect(find.text('OSPF'), findsOneWidget);
@@ -94,9 +92,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('200 题套卷'), findsOneWidget);
-    expect(find.text('200 题'), findsOneWidget);
+    expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
     expect(find.text('单选 150 · 多选 50'), findsOneWidget);
-    expect(find.text('约 120 分钟'), findsOneWidget);
     expect(find.text('40 题 · 0%'), findsNWidgets(5));
     expect(find.text('限时 120 分钟，超时自动交卷'), findsOneWidget);
   });
@@ -113,9 +110,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('50 题套卷'), findsOneWidget);
-    expect(find.text('50 题'), findsOneWidget);
+    expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
     expect(find.text('单选 37 · 多选 13'), findsOneWidget);
-    expect(find.text('约 30 分钟'), findsOneWidget);
     expect(find.text('10 题 · 0%'), findsNWidgets(5));
     expect(find.text('限时 30 分钟，超时自动交卷'), findsOneWidget);
   });
@@ -175,7 +171,7 @@ void main() {
     expect(buttonRect.bottom, lessThanOrEqualTo(screenRect.bottom));
   });
 
-  testWidgets('深色模式下统计文字使用深色标签色', (tester) async {
+  testWidgets('深色模式下元信息文字使用品牌说明色', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
@@ -186,7 +182,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final statText = tester.widget<Text>(find.text('100 题'));
+    final statText = tester.widget<Text>(find.text('单选 75 · 多选 25'));
     final statColor = statText.style?.color;
     expect(statColor, isNotNull);
     expect(statColor, isNot(const Color(0xFF334155)));
