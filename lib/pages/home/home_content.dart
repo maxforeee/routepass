@@ -1,4 +1,4 @@
-/// 首页 tab 内容（问候区 + 继续学习横幅 + 工具方阵 + 套卷）。
+/// 首页 tab 内容（问候区 + 继续学习横幅 + 套卷）。
 library;
 
 import 'package:flutter/material.dart';
@@ -17,7 +17,6 @@ import '../../widgets/app_card.dart';
 import '../../widgets/app_progress_ring.dart';
 import '../../widgets/module_tag.dart';
 import '../../widgets/user_avatar.dart';
-import '../toolbox/toolbox_tools.dart';
 
 class HomeContentPage extends StatefulWidget {
   const HomeContentPage({super.key, required this.onSelectTab});
@@ -268,28 +267,6 @@ class HomeContentPageState extends State<HomeContentPage> {
                   onStart: () => _openQuiz('quick', 10),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text(
-                  '工具箱',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppColors.brandTitle,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: toolboxTools.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 1,
-                    crossAxisSpacing: AppSpacing.sm,
-                    mainAxisSpacing: AppSpacing.sm,
-                  ),
-                  itemBuilder: (context, index) =>
-                      _ToolGridCard(tool: toolboxTools[index]),
-                ),
-                const SizedBox(height: AppSpacing.md),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -470,46 +447,6 @@ class _SyncTipStrip extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ToolGridCard extends StatelessWidget {
-  const _ToolGridCard({required this.tool});
-
-  final ToolboxTool tool;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AspectRatio(
-      aspectRatio: 1,
-      child: AppCard(
-        onTap: () => Navigator.of(context).pushNamed(tool.route),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              tool.icon,
-              size: AppSizes.toolGridIconSize,
-              color: switch (tool.iconTone) {
-                ToolIconTone.blue => AppColors.brandPrimary,
-                ToolIconTone.green => AppColors.success(context),
-                ToolIconTone.orange => AppColors.warning(context),
-              },
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              tool.name,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: AppColors.brandTitle,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],

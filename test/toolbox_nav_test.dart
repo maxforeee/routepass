@@ -132,14 +132,9 @@ void main() {
     expect(find.byType(OsiPage), findsOneWidget);
   });
 
-  testWidgets('首页子网计算器方块进子网页', (tester) async {
+  testWidgets('R2 首页不再显示子网计算器入口', (tester) async {
     await loginToHome(tester);
 
-    await tester.ensureVisible(find.text('子网计算器'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('子网计算器'));
-    await tester.pumpAndSettle();
-    expect(find.byType(SubnetPage), findsOneWidget);
-    expect(find.byType(CapsuleNavBar), findsNothing);
+    expect(find.text('子网计算器'), findsNothing);
   });
 }
