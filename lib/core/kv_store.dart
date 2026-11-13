@@ -3,6 +3,12 @@
 /// 以下键是设备本地 UI 状态，换手机不跟随账号，现在和以后都只存本地、
 /// 不走账号同步。背后的 DAO 为 `lib/dao/kv_dao.dart`（v3.1 第 12 章 `kv`
 /// 表，主键 `(owner_user_id, key)`，同一 key 不同账号互不覆盖）。
+library;
+
+import 'dart:async';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 abstract class KvStore {
   /// `kb.expandedIds`：知识库页同节单开手风琴的展开态（JSON 数组，
   /// 如 `["VLAN-01-03"]`）。用户点倒三角展开/收起时写入。
@@ -25,6 +31,12 @@ abstract class KvStore {
   /// `{date, questionId, selectedKey}`，date 为 `yyyy-MM-dd`）。设备本地，
   /// 一天一条；日期不匹配当天即视为未作答（第二天自动刷新）。
   static const String keyDailyAnswer = 'daily.answer';
+
+  /// `daily.drawn`：每日一练当天抽中的题（F17，JSON 对象
+  /// `{date, question}`，date 为 `yyyy-MM-dd`，question 为 DailyQuestion
+  /// JSON）。日期锁：同一天直接返回存好的题（不重抽、不走网络），
+  /// 第二天重抽并覆盖。必须持久化（重启不丢），见 SharedPreferencesKvStore。
+  static const String keyDailyDrawn = 'daily.drawn';
 
   /// 读取字符串值，不存在时返回 null。
   String? getString(String key);
@@ -71,5 +83,41 @@ class InMemoryKvStore implements KvStore {
   void remove(String key) {
     _strings.remove(key);
     _stringLists.remove(key);
+  }
+}
+
+/// shared_preferences -backed 持久实现（F17）：重启不丢，每日一练的
+/// 日期锁（`daily.drawn`）与作答（`daily.answer`）等本地状态用它落盘。
+/// main.dart 在 runApp 前用 [create] 装配进 ServiceLocator.kvStore；
+/// 测试仍用 [InMemoryKvStore]。接口与内存实现完全一致，调用方不动。
+class SharedPreferencesKvStore implements KvStore {
+  SharedPreferencesKvStore._(this._prefs);
+
+  final SharedPreferences _prefs;
+
+  /// 异步加载平台存储；在 runApp 前调用一次。
+  static Future<SharedPreferencesKvStore> create() async {
+    return SharedPreferencesKvStore._(await SharedPreferences.getInstance());
+  }
+
+  @override
+  String? getString(String key) => _prefs.getString(key);
+
+  @override
+  void setString(String key, String value) {
+    unawaited(_prefs.setString(key, value));
+  }
+
+  @override
+  List<String>? getStringList(String key) => _prefs.getStringList(key);
+
+  @override
+  void setStringList(String key, List<String> value) {
+    unawaited(_prefs.setStringList(key, value));
+  }
+
+  @override
+  void remove(String key) {
+    unawaited(_prefs.remove(key));
   }
 }

@@ -50,8 +50,9 @@ class ServiceLocator {
   static late final ContentService contentService;
 
   /// 本地 kv（设备本地 UI 状态，见规格文档 §4.9.1；不是 16 个后端服务接口之一）。
-  /// 现在用内存实现；以后接 SQLite kv 表时只换这里，调用方不动。
-  static final KvStore kvStore = InMemoryKvStore();
+  /// 默认内存实现（测试用）；main.dart 在 runApp 前升级为 shared_preferences
+  /// 持久实现（F17：每日一练日期锁必须重启不丢），调用方不动。
+  static KvStore kvStore = InMemoryKvStore();
 
   /// 由 main.dart 在 runApp 之前调用一次；重复调用直接返回，不重复装配。
   static void init({

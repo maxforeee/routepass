@@ -24,6 +24,9 @@ dependencies:
   # F10: 题库页拉取 /api/v1/bank/manifest（公开接口）。
   http: ^1.6.0
 
+  # F17: 每日一练日期锁的本地持久化（kv backing，重启不丢）。
+  shared_preferences: ^2.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
