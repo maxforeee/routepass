@@ -116,6 +116,41 @@ void main() {
     expect(find.text('限时 30 分钟，超时自动交卷'), findsOneWidget);
   });
 
+  testWidgets('四套卷共用模板，数字全由 drawCount 推导', (tester) async {
+    // 100/200/50/10 同一模板：标题、单选多选、每模块题量、时长
+    // 全部按 drawCount 公式推导，不许出现写死的单套数字。
+    for (final (count, meta, perModule, minutes)
+        in <(int, String, String, String)>[
+          (100, '单选 75 · 多选 25', '20 题 · 0%', '限时 60 分钟，超时自动交卷'),
+          (200, '单选 150 · 多选 50', '40 题 · 0%', '限时 120 分钟，超时自动交卷'),
+          (50, '单选 37 · 多选 13', '10 题 · 0%', '限时 30 分钟，超时自动交卷'),
+          (10, '单选 7 · 多选 3', '2 题 · 0%', '限时 6 分钟，超时自动交卷'),
+        ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SetDetailPage(
+            args: <String, Object?>{'mode': 'exam', 'drawCount': count},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('$count 题套卷'),
+        findsOneWidget,
+        reason: 'drawCount=$count 标题',
+      );
+      expect(find.text(meta), findsOneWidget, reason: 'drawCount=$count 元信息');
+      expect(
+        find.text(perModule),
+        findsNWidgets(5),
+        reason: 'drawCount=$count 每模块题量',
+      );
+      expect(find.text(minutes), findsOneWidget, reason: 'drawCount=$count 时长');
+    }
+  });
+
   testWidgets('首页套卷卡进详情页，快速 10 题直达答题页', (tester) async {
     await loginToHome(tester);
 

@@ -1,7 +1,8 @@
 /// 套卷详情页（R5：09_set_detail mockup）。
 ///
 /// 从题库/首页的套卷“开始”进入，展示套卷规模、模块进度与答题说明；
-/// “开始答题”再进答题页。套卷规模由路由参数 drawCount（100/200/50）推导。
+/// “开始答题”再进答题页。四套卷（100/200/50/10）共用本模板，
+/// 规模数字全部由路由参数 drawCount 推导。
 library;
 
 import 'package:flutter/material.dart';
@@ -25,7 +26,7 @@ class SetDetailPage extends StatefulWidget {
 class _SetDetailPageState extends State<SetDetailPage> {
   List<ModuleStat> _modules = const <ModuleStat>[];
 
-  /// 套卷规模：路由参数 drawCount（100/200/50）。
+  /// 套卷规模：路由参数 drawCount（100/200/50/10）。
   int get _drawCount =>
       widget.args['drawCount'] is int ? widget.args['drawCount'] as int : 100;
 
