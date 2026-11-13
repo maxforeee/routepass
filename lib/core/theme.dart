@@ -73,6 +73,13 @@ class AppColors {
         ? const Color(0xFF94A3B8)
         : brandLabel;
   }
+
+  /// 页面主标题色（浅色 brandTitle #0F172A，深色 #F1F5F9 保证可读）。
+  static Color title(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFF1F5F9)
+        : brandTitle;
+  }
 }
 
 /// 品牌页间距（逻辑像素）。

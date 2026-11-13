@@ -226,16 +226,16 @@ class HomeContentPageState extends State<HomeContentPage> {
                         _greetingText,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.brandTitle,
+                          color: AppColors.title(context),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxs),
                       Text(
                         nickname,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: AppFontSizes.homeGreetingName,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.brandTitle,
+                          color: AppColors.title(context),
                           height: 1.2,
                         ),
                       ),
@@ -246,16 +246,16 @@ class HomeContentPageState extends State<HomeContentPage> {
                           children: [
                             TextSpan(
                               text: '${_overview?.todayAnswered ?? 0}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.brandTitle,
+                                color: AppColors.title(context),
                               ),
                             ),
                           ],
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: AppFontSizes.pageSubtitle,
-                          color: AppColors.brandSecondaryText,
+                          color: AppColors.label(context),
                           height: 1.5,
                         ),
                       ),
@@ -353,7 +353,7 @@ class HomeContentPageState extends State<HomeContentPage> {
             ),
           ),
           Positioned(
-            top: AppSpacing.sm,
+            top: AppSizes.homeTopPad + AppSpacing.xs,
             right: AppSpacing.md,
             child: UserAvatar(
               username: user?.username ?? '',

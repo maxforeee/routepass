@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/bank/answer_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
 import 'package:routepass/pages/home/home_content.dart';
@@ -119,5 +120,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(IpConvertPage), findsOneWidget);
     expect(find.byType(CapsuleNavBar), findsNothing);
+  });
+
+  testWidgets('R1 深色模式：问候语与昵称用深色标题色（#F1F5F9）', (tester) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await loginToHome(tester);
+
+    const darkTitle = Color(0xFFF1F5F9);
+    final greeting = tester.widget<Text>(find.textContaining('好！'));
+    expect(greeting.style?.color, darkTitle);
+    final nickname = tester.widget<Text>(find.text('Max'));
+    expect(nickname.style?.color, darkTitle);
+  });
+
+  testWidgets('R1 头像顶部与问候首行平齐（top = homeTopPad + xs = 76）', (tester) async {
+    await loginToHome(tester);
+
+    final positioned = tester.widget<Positioned>(
+      find.descendant(
+        of: find.byType(HomeContentPage),
+        matching: find.ancestor(
+          of: find.byType(UserAvatar),
+          matching: find.byType(Positioned),
+        ),
+      ),
+    );
+    expect(positioned.top, AppSizes.homeTopPad + AppSpacing.xs);
+    expect(positioned.top, 76);
+    expect(positioned.right, AppSpacing.md);
   });
 }
