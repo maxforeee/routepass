@@ -46,6 +46,15 @@ class AppColors {
   static const Color brandLabel = Color(0xFF334155);
   static const Color brandTransparent = Color(0x00000000);
 
+  /// 错题本 / 收藏预览卡入口图标：错题本红底红图标、收藏琥珀底琥珀图标。
+  static const Color wrongIconBackground = Color(0xFFFEE2E2);
+  static const Color wrongIconForeground = Color(0xFFDC2626);
+  static const Color favoriteIconBackground = Color(0xFFFEF3C7);
+  static const Color favoriteIconForeground = Color(0xFFD97706);
+
+  /// 预览卡条目文字色（固定浅色面深字，不随深浅色模式）。
+  static const Color previewItemText = Color(0xFF475569);
+
   /// 阴影色（胶囊导航：Colors.black 8% 不透明度）。
   static const Color shadow = Color(0x14000000);
 
@@ -123,6 +132,12 @@ class AppSpacing {
 
   /// 题库页两个切换 tab 之间的距离（逻辑像素）。
   static const double bankTabGap = 72;
+
+  /// 首页错题本 / 收藏预览卡的上下内边距（逻辑像素，左右用 md）。
+  static const double previewCardPadV = 14;
+
+  /// 预览项圆点与题干之间的间距（逻辑像素）。
+  static const double previewItemGap = 8;
 }
 
 /// 品牌页尺寸（逻辑像素）。
@@ -272,6 +287,12 @@ class AppSizes {
 
   /// 题库页未选中 tab 指示线不透明度（canva 参考 .45）。
   static const double bankTabLineInactiveOpacity = 0.45;
+
+  /// 首页错题本 / 收藏预览卡入口图标尺寸（逻辑像素，圆角方底）。
+  static const double previewIconSize = 44;
+
+  /// 预览项左缩进（逻辑像素）：对齐到入口图标右侧的标题下方。
+  static const double previewItemIndent = previewIconSize + AppSpacing.sm;
 }
 
 /// 品牌页圆角（逻辑像素）。
@@ -311,6 +332,9 @@ class AppRadii {
 
   /// 底部 sheet 顶部圆角（逻辑像素）。
   static const double bottomSheet = 24;
+
+  /// 首页预览卡入口图标圆角（逻辑像素）。
+  static const double previewIcon = 12;
 }
 
 /// 品牌页字号（逻辑像素）。textTheme 未覆盖的少量字号在这里定义。
@@ -352,6 +376,12 @@ class AppFontSizes {
 
   /// 题库页练习/考试切换标签字号（逻辑像素）。
   static const double bankTabLabel = 20;
+
+  /// 首页预览卡“今日新增 N 道”计数字号（逻辑像素）。
+  static const double previewCount = 12;
+
+  /// 首页预览卡条目（题干一行）字号（逻辑像素）。
+  static const double previewItem = 13;
 }
 
 /// 品牌动画时长。

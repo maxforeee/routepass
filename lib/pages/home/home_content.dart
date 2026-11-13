@@ -8,9 +8,11 @@ import '../../core/modules.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/content.dart';
+import '../../models/question.dart';
 import '../../models/stats.dart';
 import '../../models/sync.dart';
 import '../../models/user.dart';
+import '../../models/wrong_favorite.dart';
 import '../../router/app_router.dart';
 import '../../widgets/account_sheet.dart';
 import '../../widgets/set_row_card.dart';
@@ -31,6 +33,12 @@ class HomeContentPageState extends State<HomeContentPage> {
   StatsOverview? _overview;
   SyncStatus? _syncStatus;
   ContentVersion? _contentVersion;
+
+  /// 今天加入错题本的题目（条目 + 题目），供首页“错题本”预览卡展示。
+  List<(WrongItem, Question)> _todayWrong = const <(WrongItem, Question)>[];
+
+  /// 今天收藏的题目（条目 + 题目），供首页“收藏”预览卡展示。
+  List<(Favorite, Question)> _todayFavorites = const <(Favorite, Question)>[];
 
   /// 首页精选题库的候选套卷（题库页另有 10 题套卷，不进精选）。
   static const List<int> _setDrawCounts = <int>[100, 200, 50];
@@ -80,13 +88,70 @@ class HomeContentPageState extends State<HomeContentPage> {
     } catch (_) {
       contentVersion = null;
     }
+    List<(WrongItem, Question)> todayWrong = const <(WrongItem, Question)>[];
+    try {
+      final wrong = await ServiceLocator.wrongService.getWrongBook();
+      todayWrong = await _resolveTodayWrong(wrong);
+    } catch (_) {
+      todayWrong = const <(WrongItem, Question)>[];
+    }
+    List<(Favorite, Question)> todayFavorites = const <(Favorite, Question)>[];
+    try {
+      final favorites = await ServiceLocator.favoriteService.getFavorites();
+      todayFavorites = await _resolveTodayFavorites(favorites);
+    } catch (_) {
+      todayFavorites = const <(Favorite, Question)>[];
+    }
     if (!mounted) return;
     setState(() {
       _user = user;
       _overview = overview;
       _syncStatus = syncStatus;
       _contentVersion = contentVersion;
+      _todayWrong = todayWrong;
+      _todayFavorites = todayFavorites;
     });
+  }
+
+  /// 是否今天（按本地日历日、0 点分界，与预览卡“今日”口径一致）。
+  static bool _isToday(int milliseconds) {
+    final time = DateTime.fromMillisecondsSinceEpoch(milliseconds);
+    final now = DateTime.now();
+    return time.year == now.year &&
+        time.month == now.month &&
+        time.day == now.day;
+  }
+
+  /// 只留今天的错题；题目解析不到（如题库更新失效）的条目跳过，与错题本页一致。
+  Future<List<(WrongItem, Question)>> _resolveTodayWrong(
+    List<WrongItem> wrong,
+  ) async {
+    final list = <(WrongItem, Question)>[];
+    for (final item in wrong) {
+      if (!_isToday(item.last_wrong_at)) continue;
+      final question = await ServiceLocator.questionRepository.getQuestionById(
+        item.question_id,
+      );
+      if (question == null) continue;
+      list.add((item, question));
+    }
+    return list;
+  }
+
+  /// 只留今天的收藏；题目解析不到的条目跳过，与收藏页一致。
+  Future<List<(Favorite, Question)>> _resolveTodayFavorites(
+    List<Favorite> favorites,
+  ) async {
+    final list = <(Favorite, Question)>[];
+    for (final item in favorites) {
+      if (!_isToday(item.created_at)) continue;
+      final question = await ServiceLocator.questionRepository.getQuestionById(
+        item.question_id,
+      );
+      if (question == null) continue;
+      list.add((item, question));
+    }
+    return list;
   }
 
   /// 时段问候：早上好 / 下午好 / 晚上好。
@@ -230,6 +295,33 @@ class HomeContentPageState extends State<HomeContentPage> {
     );
   }
 
+  /// 首页底部今日预览：错题本在上、收藏在下，只列今天新增的题。
+  Widget _buildPreviewCards() {
+    return Column(
+      children: [
+        _PreviewCard(
+          title: '错题本',
+          countLabel: '今日新增 ${_todayWrong.length} 道',
+          icon: Icons.menu_book_outlined,
+          iconBackground: AppColors.wrongIconBackground,
+          iconForeground: AppColors.wrongIconForeground,
+          stems: [for (final (_, question) in _todayWrong) question.stem],
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankWrong),
+        ),
+        const SizedBox(height: AppSpacing.cardGap),
+        _PreviewCard(
+          title: '收藏',
+          countLabel: '今日收藏 ${_todayFavorites.length} 道',
+          icon: Icons.star_border_rounded,
+          iconBackground: AppColors.favoriteIconBackground,
+          iconForeground: AppColors.favoriteIconForeground,
+          stems: [for (final (_, question) in _todayFavorites) question.stem],
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -313,6 +405,15 @@ class HomeContentPageState extends State<HomeContentPage> {
                   const SizedBox(height: AppSpacing.md),
                   _SyncTipStrip(onTap: _openSyncSheet),
                 ],
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  '错题本 · 收藏',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _buildPreviewCards(),
                 const SizedBox(height: AppSpacing.md),
               ],
             ),
@@ -480,6 +581,167 @@ class _SyncRow extends StatelessWidget {
           ),
           Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
+      ),
+    );
+  }
+}
+
+/// 首页今日预览卡：入口行（图标 + 左对齐标题 + 今日数量 + 箭头）+ 今日条目。
+///
+/// 卡片沿用 SetRowCard 的固定白底品牌样式（不随深浅色模式变化），所以卡内
+/// 文字一律用固定深色 token；若改用 AppColors.title(context) 之类，深色模式
+/// 会变成浅字压在纯白卡面上（v0.2.2 报过的白底白字）。
+class _PreviewCard extends StatelessWidget {
+  const _PreviewCard({
+    required this.title,
+    required this.countLabel,
+    required this.icon,
+    required this.iconBackground,
+    required this.iconForeground,
+    required this.stems,
+    required this.onTap,
+  });
+
+  /// 入口标题（错题本 / 收藏）。
+  final String title;
+
+  /// 今日数量文案（今日新增 N 道 / 今日收藏 N 道）。
+  final String countLabel;
+
+  final IconData icon;
+  final Color iconBackground;
+  final Color iconForeground;
+
+  /// 今日条目的题干（一行截断）。
+  final List<String> stems;
+
+  /// 整卡点按：进完整页（预览项不单独点按）。
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.brandSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        side: const BorderSide(
+          color: AppColors.brandBorder,
+          width: AppSizes.borderWidth,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.previewCardPadV,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: AppSizes.previewIconSize,
+                    height: AppSizes.previewIconSize,
+                    decoration: BoxDecoration(
+                      color: iconBackground,
+                      borderRadius: BorderRadius.circular(AppRadii.previewIcon),
+                    ),
+                    child: Icon(
+                      icon,
+                      size: AppSizes.iconLarge,
+                      color: iconForeground,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: AppFontSizes.entryTitle,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.brandTitle,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    countLabel,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: AppFontSizes.previewCount,
+                      color: AppColors.brandSecondaryText,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xxs),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: AppSizes.iconLarge,
+                    color: AppColors.brandCaption,
+                  ),
+                ],
+              ),
+              if (stems.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.only(
+                    top: AppSpacing.sm,
+                    bottom: AppSpacing.xxs,
+                  ),
+                  child: SizedBox(
+                    height: AppSizes.divider,
+                    width: double.infinity,
+                    child: ColoredBox(color: AppColors.brandBorder),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppSizes.previewItemIndent,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final stem in stems)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.xxs,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              const Text(
+                                '·',
+                                style: TextStyle(
+                                  fontSize: AppFontSizes.previewItem,
+                                  color: AppColors.brandCaption,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.previewItemGap),
+                              Expanded(
+                                child: Text(
+                                  stem,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: AppFontSizes.previewItem,
+                                    height: 1.5,
+                                    color: AppColors.previewItemText,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

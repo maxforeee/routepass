@@ -1,12 +1,15 @@
 /// 收藏页（规格文档第 3 章 §22.5 Q-06；第 4 章 FavoriteService）。
 ///
-/// Mock 下收藏列表为空，显示空态，不编造题目。
+/// 列表来自 FavoriteService（带收藏时间，条目显示加入日期）；Mock 预置了两条
+/// 今天的演示收藏（首页预览卡同源），真实收藏接口接上后自动换成接口数据。
 library;
 
 import 'package:flutter/material.dart';
 
 import '../../core/service_locator.dart';
+import '../../core/util/md_date.dart';
 import '../../models/question.dart';
+import '../../models/wrong_favorite.dart';
 import '../../router/app_router.dart';
 
 class FavoritesPage extends StatefulWidget {
@@ -18,7 +21,7 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPageState extends State<FavoritesPage> {
   bool _loading = true;
-  List<Question> _questions = const <Question>[];
+  List<(Favorite, Question)> _items = const <(Favorite, Question)>[];
 
   @override
   void initState() {
@@ -28,15 +31,17 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   Future<void> _load() async {
     try {
-      final ids = await ServiceLocator.favoriteService.getFavoriteIds();
-      final list = <Question>[];
-      for (final id in ids) {
-        final q = await ServiceLocator.questionRepository.getQuestionById(id);
-        if (q != null) list.add(q);
+      final favorites = await ServiceLocator.favoriteService.getFavorites();
+      final list = <(Favorite, Question)>[];
+      for (final favorite in favorites) {
+        final q = await ServiceLocator.questionRepository.getQuestionById(
+          favorite.question_id,
+        );
+        if (q != null) list.add((favorite, q));
       }
       if (!mounted) return;
       setState(() {
-        _questions = list;
+        _items = list;
         _loading = false;
       });
     } catch (_) {
@@ -59,7 +64,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
       appBar: AppBar(title: const Text('收藏')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _questions.isEmpty
+          : _items.isEmpty
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -92,9 +97,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                    itemCount: _questions.length,
+                    itemCount: _items.length,
                     itemBuilder: (context, index) {
-                      final q = _questions[index];
+                      final (favorite, q) = _items[index];
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
@@ -103,7 +108,10 @@ class _FavoritesPageState extends State<FavoritesPage> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(q.module),
+                          subtitle: Text(
+                            '${q.module} · 加入 '
+                            '${formatMonthDay(favorite.created_at)}',
+                          ),
                           trailing: IconButton(
                             icon: const Icon(Icons.bookmark),
                             tooltip: '取消收藏',

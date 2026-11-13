@@ -1,11 +1,13 @@
 /// 错题本页（规格文档第 3 章 §22.5 Q-05；第 4 章 §4.4.2 WrongService）。
 ///
-/// Mock 下错题列表为空，显示空态，不编造题目。
+/// 列表来自 WrongService；Mock 预置了几条今天的演示错题（首页预览卡同源），
+/// 真实错题接口接上后自动换成接口数据，页面本身不改。
 library;
 
 import 'package:flutter/material.dart';
 
 import '../../core/service_locator.dart';
+import '../../core/util/md_date.dart';
 import '../../models/question.dart';
 import '../../models/wrong_favorite.dart';
 import '../../router/app_router.dart';
@@ -121,7 +123,9 @@ class _WrongPageState extends State<WrongPage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            '错 ${item.wrong_count} 次${item.mastered ? ' · 已掌握' : ''}',
+                            '错 ${item.wrong_count} 次'
+                            '${item.mastered ? ' · 已掌握' : ''}'
+                            ' · 加入 ${formatMonthDay(item.last_wrong_at)}',
                           ),
                           trailing: PopupMenuButton<String>(
                             onSelected: (v) {

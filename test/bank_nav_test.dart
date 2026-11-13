@@ -157,7 +157,15 @@ void main() {
     Navigator.of(context).pushNamed(AppRoutes.bankWrong);
     await tester.pumpAndSettle();
     expect(find.byType(WrongPage), findsOneWidget);
-    expect(find.text('暂无错题'), findsOneWidget);
+    // F6：Mock 预置了今天的演示错题，页面显示条目而不是空态。
+    expect(find.text('暂无错题'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(WrongPage),
+        matching: find.textContaining('加入 '),
+      ),
+      findsWidgets,
+    );
   });
 
   testWidgets('收藏路由仍可用（入口已按 F5 从题库页移除）', (tester) async {
@@ -171,7 +179,15 @@ void main() {
     Navigator.of(context).pushNamed(AppRoutes.bankFavorites);
     await tester.pumpAndSettle();
     expect(find.byType(FavoritesPage), findsOneWidget);
-    expect(find.text('暂无收藏'), findsOneWidget);
+    // F6：Mock 预置了今天的演示收藏，页面显示条目而不是空态。
+    expect(find.text('暂无收藏'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(FavoritesPage),
+        matching: find.textContaining('加入 '),
+      ),
+      findsWidgets,
+    );
   });
 
   testWidgets('410 宽视口下套卷卡模块标签按 3 列网格排布不溢出', (tester) async {
