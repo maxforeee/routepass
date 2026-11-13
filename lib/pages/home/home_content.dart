@@ -13,9 +13,8 @@ import '../../models/sync.dart';
 import '../../models/user.dart';
 import '../../router/app_router.dart';
 import '../../widgets/account_sheet.dart';
-import '../../widgets/app_card.dart';
-import '../../widgets/app_progress_ring.dart';
 import '../../widgets/module_tag.dart';
+import '../../widgets/set_row_card.dart';
 import '../../widgets/user_avatar.dart';
 
 class HomeContentPage extends StatefulWidget {
@@ -30,15 +29,45 @@ class HomeContentPage extends StatefulWidget {
 class HomeContentPageState extends State<HomeContentPage> {
   User? _user;
   int _wrongCount = 0;
+  int _favoriteCount = 0;
   StatsOverview? _overview;
   SyncStatus? _syncStatus;
   ContentVersion? _contentVersion;
-  List<ModuleStat> _modules = const <ModuleStat>[];
+
+  /// 题库区懒加载：初始 3 行，滚到底部附近再补 3（最多 5）。
+  static const int _bankTotal = 5;
+  static const int _bankInitial = 3;
+  static const int _bankStep = 3;
+  int _visibleBankCount = _bankInitial;
+
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 滚到距底部 200px 内时补加载题库行（本地懒渲染，非网络请求）。
+  void _onScroll() {
+    final controller = _scrollController;
+    if (!controller.hasClients) return;
+    if (controller.position.maxScrollExtent - controller.position.pixels >
+        200) {
+      return;
+    }
+    if (_visibleBankCount >= _bankTotal) return;
+    setState(() {
+      final next = _visibleBankCount + _bankStep;
+      _visibleBankCount = next >= _bankTotal ? _bankTotal : next;
+    });
   }
 
   /// tab 切回时刷新（重拉用户 / 错题 / 知识点 / 统计）。
@@ -58,6 +87,13 @@ class HomeContentPageState extends State<HomeContentPage> {
     } catch (_) {
       wrongCount = 0;
     }
+    int favoriteCount = 0;
+    try {
+      final favoriteIds = await ServiceLocator.favoriteService.getFavoriteIds();
+      favoriteCount = favoriteIds.length;
+    } catch (_) {
+      favoriteCount = 0;
+    }
     StatsOverview? overview;
     try {
       overview = await ServiceLocator.statsService.getOverview();
@@ -76,20 +112,14 @@ class HomeContentPageState extends State<HomeContentPage> {
     } catch (_) {
       contentVersion = null;
     }
-    List<ModuleStat> modules = const <ModuleStat>[];
-    try {
-      modules = await ServiceLocator.questionRepository.getModules();
-    } catch (_) {
-      modules = const <ModuleStat>[];
-    }
     if (!mounted) return;
     setState(() {
       _user = user;
       _wrongCount = wrongCount;
+      _favoriteCount = favoriteCount;
       _overview = overview;
       _syncStatus = syncStatus;
       _contentVersion = contentVersion;
-      _modules = modules;
     });
   }
 
@@ -107,18 +137,6 @@ class HomeContentPageState extends State<HomeContentPage> {
       return '今天还没有完成任务';
     }
     return '今日已完成 ${overview.todayAnswered} 题 · 答对 ${overview.todayCorrect} 题';
-  }
-
-  /// 套卷进度：由各模块题量聚合得到（总题量 ≤ 0 时视为 0%）。
-  double get _setProgress {
-    var total = 0;
-    var answered = 0;
-    for (final m in _modules) {
-      total += m.total;
-      answered += m.answered;
-    }
-    if (total <= 0) return 0.0;
-    return (answered / total).clamp(0.0, 1.0);
   }
 
   /// 本地模式时显示同步提示条（未连接服务器 / 未同步）。
@@ -198,6 +216,89 @@ class HomeContentPageState extends State<HomeContentPage> {
     );
   }
 
+  /// 套卷行的 5 个模块小标签（与题库页共用 ModuleTag）。
+  Widget _moduleTags() {
+    return Wrap(
+      spacing: AppSpacing.xxs,
+      runSpacing: AppSpacing.xxs,
+      children: kModuleOrder
+          .map((module) => ModuleTag(label: moduleLabel(module)))
+          .toList(),
+    );
+  }
+
+  /// 首页题库区：100 / 200 / 50 套卷 + 错题本 + 收藏，全部复用 SetRowCard。
+  List<Widget> _bankItems(ThemeData theme) {
+    return [
+      SetRowCard(
+        title: '100 题套卷',
+        subtitle: '100 题 · 5 个模块 · 含解析',
+        trailing: _moduleTags(),
+        onTap: () => _openSetDetail(100),
+      ),
+      SetRowCard(
+        title: '200 题套卷',
+        subtitle: '200 题 · 5 个模块 · 含解析',
+        trailing: _moduleTags(),
+        onTap: () => _openSetDetail(200),
+      ),
+      SetRowCard(
+        title: '50 题套卷',
+        subtitle: '50 题 · 5 个模块 · 含解析',
+        trailing: _moduleTags(),
+        onTap: () => _openSetDetail(50),
+      ),
+      SetRowCard(
+        leading: Icon(
+          Icons.menu_book_outlined,
+          color: theme.colorScheme.error,
+          size: AppSizes.icon,
+        ),
+        title: '错题本',
+        subtitle: _wrongCount == 0
+            ? '暂无错题 · 做错的题自动收录'
+            : '$_wrongCount 道 · 做错的题自动收录',
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: AppColors.brandCaption,
+        ),
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankWrong),
+      ),
+      SetRowCard(
+        leading: Icon(
+          Icons.star,
+          color: AppColors.warning(context),
+          size: AppSizes.icon,
+        ),
+        title: '收藏',
+        subtitle: '$_favoriteCount 道已收藏',
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: AppColors.brandCaption,
+        ),
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
+      ),
+    ];
+  }
+
+  /// 题库区懒加载列表（只渲染前 _visibleBankCount 行，不嵌套滚动）。
+  Widget _buildBankList(ThemeData theme) {
+    final items = _bankItems(theme).take(_visibleBankCount).toList();
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index == items.length - 1 ? 0 : AppSpacing.cardGap,
+          ),
+          child: items[index],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -209,11 +310,12 @@ class HomeContentPageState extends State<HomeContentPage> {
           RefreshIndicator(
             onRefresh: _load,
             child: ListView(
+              controller: _scrollController,
               padding: const EdgeInsets.only(
                 top: AppSizes.homeTopPad,
                 left: AppSpacing.md,
                 right: AppSpacing.md,
-                bottom: AppSpacing.md,
+                bottom: AppSizes.homeBottomPad,
               ),
               children: [
                 Padding(
@@ -267,60 +369,14 @@ class HomeContentPageState extends State<HomeContentPage> {
                   onStart: () => _openQuiz('quick', 10),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        children: [
-                          _IconCard(
-                            icon: Icons.bolt,
-                            iconColor: theme.colorScheme.primary,
-                            title: '快速 10 题',
-                            subtitle: '随机 10 题 · 约 5 分钟',
-                            onTap: () => _openQuiz('quick', 10),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _ExamSetCard(
-                            count: 200,
-                            progress: _setProgress,
-                            onTap: () => _openSetDetail(200),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _IconCard(
-                            icon: Icons.menu_book_outlined,
-                            iconColor: theme.colorScheme.error,
-                            title: '错题本',
-                            subtitle: _wrongCount == 0
-                                ? '暂无错题'
-                                : '$_wrongCount 道',
-                            onTap: () =>
-                                Navigator.of(context)
-                                    .pushNamed(AppRoutes.bankWrong),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          _ExamSetCard(
-                            count: 100,
-                            progress: _setProgress,
-                            onTap: () => _openSetDetail(100),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          _ExamSetCard(
-                            count: 50,
-                            progress: _setProgress,
-                            onTap: () => _openSetDetail(50),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                Text(
+                  '题库',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                _buildBankList(theme),
                 if (_showSyncTip) ...[
                   const SizedBox(height: AppSpacing.md),
                   _SyncTipStrip(onTap: _openSyncSheet),
@@ -454,105 +510,6 @@ class _SyncTipStrip extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 图标 + 标题 + 副标型卡片（快速 10 题 / 错题本）。
-class _IconCard extends StatelessWidget {
-  const _IconCard({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: AppSizes.iconXLarge, color: iconColor),
-          const SizedBox(height: AppSpacing.xs),
-          Text(title, style: _cardTitleStyle(theme)),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            subtitle,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 套卷卡片（100/200/50 题）：进度环 + 列表图标 + 标题 + 时长 + 5 个模块小标签。
-class _ExamSetCard extends StatelessWidget {
-  const _ExamSetCard({
-    required this.count,
-    required this.progress,
-    required this.onTap,
-  });
-
-  final int count;
-  final double progress;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AppProgressRing(value: progress),
-              const Spacer(),
-              Icon(
-                Icons.list_alt_outlined,
-                size: AppSizes.icon,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text('$count 题套卷', style: _cardTitleStyle(theme)),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            '$count 题 · 约 ${(count * 0.6).round()} 分钟',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Wrap(
-            spacing: AppSpacing.xxs,
-            runSpacing: AppSpacing.xxs,
-            children: kModuleOrder
-                .map((module) => ModuleTag(label: moduleLabel(module)))
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 卡片标题样式：约 15px 加粗、深色。
-TextStyle _cardTitleStyle(ThemeData theme) {
-  return theme.textTheme.titleSmall!.copyWith(fontWeight: FontWeight.bold);
 }
 
 /// 同步诊断 sheet 里的一行。

@@ -119,14 +119,14 @@ void main() {
   testWidgets('首页套卷卡进详情页，快速 10 题直达答题页', (tester) async {
     await loginToHome(tester);
 
-    // G1c: 工具箱网格把套卷行推到首屏之下，分段向下滚再点。
-    // 测试视口 800 宽时正方形卡片很大，内容约 3300 高，须多滚几段。
+    // R3：题库区改为懒加载行列表，首页有两个 ListView（外层 + 内层
+    // shrinkWrap），拖拽须用 Scrollable.first 定位外层。
     for (var i = 0; i < 8 && find.text('100 题套卷').evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
       await tester.pumpAndSettle();
     }
     // 再向上滚一段，让卡片离开底部悬浮导航的遮挡区再点。
-    await tester.drag(find.byType(ListView), const Offset(0, -200));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
     await tester.pumpAndSettle();
     await tester.tap(find.text('100 题套卷'));
     await tester.pumpAndSettle();
@@ -136,14 +136,17 @@ void main() {
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
 
-    for (var i = 0; i < 8 && find.text('快速 10 题').evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView), const Offset(0, -300));
+    // R3：快速 10 题入口卡已删；横幅“开始”按钮直达快速 10 题答题页。
+    // 先向上滚回顶部，让横幅按钮可见再点。
+    for (
+      var i = 0;
+      i < 8 && find.widgetWithText(FilledButton, '开始').evaluate().isEmpty;
+      i++
+    ) {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 300));
       await tester.pumpAndSettle();
     }
-    // 再向上滚一段，让卡片离开底部悬浮导航的遮挡区再点。
-    await tester.drag(find.byType(ListView), const Offset(0, -200));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('快速 10 题'));
+    await tester.tap(find.widgetWithText(FilledButton, '开始'));
     await tester.pumpAndSettle();
     expect(find.text('第 1/3 题'), findsOneWidget);
   });

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/theme.dart';
 import 'package:routepass/pages/bank/answer_page.dart';
+import 'package:routepass/pages/bank/favorites_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
+import 'package:routepass/pages/bank/wrong_page.dart';
 import 'package:routepass/pages/home/home_content.dart';
+import 'package:routepass/widgets/set_row_card.dart';
 import 'package:routepass/widgets/user_avatar.dart';
 
 import 'test_helpers.dart';
@@ -45,12 +48,12 @@ void main() {
     expect(find.text('今日知识点'), findsNothing);
     expect(find.text('学习统计'), findsNothing);
 
-    // 套卷与入口卡保持原样。
-    expect(find.text('快速 10 题'), findsOneWidget);
+    // R3：快速 10 题入口卡已删（横幅“开始”按钮直达快速 10 题）；错题本改为懒加载行（初始不可见）。
+    expect(find.text('快速 10 题'), findsNothing);
     expect(find.text('100 题套卷'), findsOneWidget);
     expect(find.text('200 题套卷'), findsOneWidget);
     expect(find.text('50 题套卷'), findsOneWidget);
-    expect(find.text('错题本'), findsOneWidget);
+    expect(find.text('错题本'), findsNothing);
 
     // Mock 无继续会话 → H-B1 隐藏。
     expect(find.text('继续学习'), findsNothing);
@@ -119,5 +122,87 @@ void main() {
     expect(positioned.top, AppSizes.homeTopPad + AppSpacing.xs);
     expect(positioned.top, 76);
     expect(positioned.right, AppSpacing.md);
+  });
+
+  testWidgets('R3 题库区：5 行 SetRowCard 同高 76、同宽，全宽行非方块', (tester) async {
+    await loginToHome(tester);
+
+    await tester.scrollUntilVisible(
+      find.text('收藏'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    final rows = find.byType(SetRowCard);
+    expect(rows, findsNWidgets(5));
+    final sizes = [for (var i = 0; i < 5; i++) tester.getSize(rows.at(i))];
+    for (final size in sizes) {
+      expect(size.height, 76);
+    }
+    expect(sizes.map((size) => size.width).toSet().length, 1);
+    // 错题本 / 收藏是长条，不是小方块。
+    expect(sizes[3].width, greaterThan(sizes[3].height * 2));
+    expect(sizes[4].width, greaterThan(sizes[4].height * 2));
+  });
+
+  testWidgets('R3 题库区懒加载：初始只渲染 3 行，滚到底部附近再补齐', (tester) async {
+    await loginToHome(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SetRowCard), findsNWidgets(3));
+    expect(find.text('错题本'), findsNothing);
+    expect(find.text('收藏'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('收藏'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SetRowCard), findsNWidgets(5));
+    expect(find.text('错题本'), findsOneWidget);
+    expect(find.text('收藏'), findsOneWidget);
+  });
+
+  testWidgets('R3 点按套卷行进套卷详情页', (tester) async {
+    await loginToHome(tester);
+
+    await tester.tap(find.text('100 题套卷'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SetDetailPage), findsOneWidget);
+  });
+
+  testWidgets('R3 点按错题本行进错题页', (tester) async {
+    await loginToHome(tester);
+
+    await tester.scrollUntilVisible(
+      find.text('错题本'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('错题本'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WrongPage), findsOneWidget);
+    expect(find.text('暂无错题'), findsOneWidget);
+  });
+
+  testWidgets('R3 点按收藏行进收藏页', (tester) async {
+    await loginToHome(tester);
+
+    await tester.scrollUntilVisible(
+      find.text('收藏'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FavoritesPage), findsOneWidget);
+    expect(find.text('暂无收藏'), findsOneWidget);
   });
 }
