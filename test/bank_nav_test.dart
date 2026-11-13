@@ -93,23 +93,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('只看错题空态 / 只看未做显示样题列表', (tester) async {
+  testWidgets('搜索框按题干过滤；无匹配显示空态', (tester) async {
     await loginToHome(tester);
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
 
-    // Mock 错题本为空：只看错题 -> 空态。
-    await tester.tap(find.text('只看错题'));
-    await tester.pumpAndSettle();
-    expect(find.text('暂无符合条件的题目'), findsOneWidget);
+    // canva 参考保留搜索条；筛选 chips 已移除。
+    expect(find.text('搜索题目'), findsOneWidget);
+    expect(find.text('只看错题'), findsNothing);
+    expect(find.text('只看未做'), findsNothing);
 
-    // 关掉“只看错题”，再开“只看未做”（样题全部未做 -> 列表照常显示）。
-    await tester.tap(find.text('只看错题'));
+    final searchField = find.descendant(
+      of: find.byType(BankModuleListPage),
+      matching: find.byType(TextField),
+    );
+    final resultTiles = find.descendant(
+      of: find.byType(BankModuleListPage),
+      matching: find.byType(ListTile),
+    );
+
+    // 命中题干：切换到题目结果列表。
+    final samples = await ServiceLocator.questionRepository.drawQuestions(
+      mode: 'practice',
+      drawCount: 100,
+    );
+    await tester.enterText(searchField, samples.first.stem);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('只看未做'));
+    expect(resultTiles, findsWidgets);
+    expect(find.text('没有找到相关题目'), findsNothing);
+
+    // 无匹配：空态。
+    await tester.enterText(searchField, '不存在的题干关键词');
     await tester.pumpAndSettle();
-    expect(find.text('暂无符合条件的题目'), findsNothing);
-    expect(find.byType(ListTile), findsWidgets);
+    expect(find.text('没有找到相关题目'), findsOneWidget);
+    expect(resultTiles, findsNothing);
   });
 
   // “快速 10 题直达答题页”已在 set_detail_test.dart（首页套卷卡进详情页，

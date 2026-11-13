@@ -1,8 +1,8 @@
 /// 题库页（规格文档第 3 章 §22.5：Q-01–Q-09；R4 按 04_bank mockup 重绘）。
 ///
-/// 页头（题库 + 副标题）下是搜索/筛选行（mockup 未展示，属保留的既有功能，
-/// 见任务报告），默认显示 4 张套卷卡 + 错题本/收藏入口；输入搜索或点筛选
-/// chips 后切换为题目结果列表。
+/// 页头（题库 + 副标题）下是搜索条（保留的既有功能），默认显示 4 张套卷卡 +
+/// 错题本/收藏入口；输入搜索后切换为题目结果列表。（G2b：筛选 chips 已按
+/// canva 参考移除，文本搜索行为不变。）
 library;
 
 import 'package:flutter/material.dart';
@@ -27,17 +27,9 @@ class BankModuleListPage extends StatefulWidget {
 class BankModuleListPageState extends State<BankModuleListPage> {
   List<ModuleStat> _modules = const <ModuleStat>[];
   List<Question> _samples = const <Question>[];
-  List<String> _wrongIds = const <String>[];
-
-  /// 已作答题目 id 集合（当前无作答记录源，恒为空；接后端后按练习记录填充）。
-  final Set<String> _answeredIds = <String>{};
   int _wrongCount = 0;
   int _favoriteCount = 0;
   String _query = '';
-  String? _moduleFilter;
-  String? _typeFilter;
-  bool _onlyUnanswered = false;
-  bool _onlyWrong = false;
 
   @override
   void initState() {
@@ -61,39 +53,15 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       setState(() {
         _modules = modules;
         _samples = samples;
-        _wrongIds = wrong.map((w) => w.question_id).toList();
         _wrongCount = wrong.length;
         _favoriteCount = favs.length;
       });
     } catch (_) {}
   }
 
-  bool get _filtering =>
-      _query.isNotEmpty ||
-      _moduleFilter != null ||
-      _typeFilter != null ||
-      _onlyUnanswered ||
-      _onlyWrong;
-
-  List<Question> get _filtered {
-    var list = _samples;
-    if (_query.isNotEmpty) {
-      list = list.where((q) => q.stem.contains(_query)).toList();
-    }
-    if (_moduleFilter != null) {
-      list = list.where((q) => q.module == _moduleFilter).toList();
-    }
-    if (_typeFilter != null) {
-      list = list.where((q) => q.type == _typeFilter).toList();
-    }
-    if (_onlyWrong) {
-      list = list.where((q) => _wrongIds.contains(q.id)).toList();
-    }
-    if (_onlyUnanswered) {
-      list = list.where((q) => !_answeredIds.contains(q.id)).toList();
-    }
-    return list;
-  }
+  List<Question> get _filtered => _query.isEmpty
+      ? _samples
+      : _samples.where((q) => q.stem.contains(_query)).toList();
 
   void _openQuiz(String mode, int drawCount) {
     Navigator.of(context).pushNamed(
@@ -139,73 +107,16 @@ class BankModuleListPageState extends State<BankModuleListPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md,
-                AppSpacing.xs,
+                AppSpacing.xxs,
                 AppSpacing.md,
-                AppSpacing.xs,
+                AppSpacing.cardGap,
               ),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: '搜索题目',
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.card),
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.outlineVariant,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.card),
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.outlineVariant,
-                    ),
-                  ),
-                ),
-                onChanged: (v) => setState(() => _query = v.trim()),
-              ),
+              child: _buildSearchBar(theme),
             ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: Row(
-                children: [
-                  ...kModuleOrder.map(
-                    (m) => _chip(
-                      label: moduleLabel(m),
-                      selected: _moduleFilter == m,
-                      onSelected: (v) =>
-                          setState(() => _moduleFilter = v ? m : null),
-                    ),
-                  ),
-                  _chip(
-                    label: '单选',
-                    selected: _typeFilter == 'single',
-                    onSelected: (v) =>
-                        setState(() => _typeFilter = v ? 'single' : null),
-                  ),
-                  _chip(
-                    label: '多选',
-                    selected: _typeFilter == 'multiple',
-                    onSelected: (v) =>
-                        setState(() => _typeFilter = v ? 'multiple' : null),
-                  ),
-                  _chip(
-                    label: '只看未做',
-                    selected: _onlyUnanswered,
-                    onSelected: (v) => setState(() => _onlyUnanswered = v),
-                  ),
-                  _chip(
-                    label: '只看错题',
-                    selected: _onlyWrong,
-                    onSelected: (v) => setState(() => _onlyWrong = v),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
             Expanded(
-              child: _filtering ? _buildResults(theme) : _buildSets(theme),
+              child: _query.isNotEmpty
+                  ? _buildResults(theme)
+                  : _buildSets(theme),
             ),
           ],
         ),
@@ -213,34 +124,57 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     );
   }
 
-  Widget _chip({
-    required String label,
-    required bool selected,
-    required void Function(bool) onSelected,
-  }) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.xs),
-      child: FilterChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: onSelected,
-        showCheckmark: false,
-        backgroundColor: theme.colorScheme.surface,
-        selectedColor: theme.colorScheme.primaryContainer,
-        side: BorderSide(
-          color: selected
-              ? theme.colorScheme.primary
-              : theme.colorScheme.outlineVariant,
+  /// 搜索条（canva 参考：白色胶囊，高 48，全圆角；右端蓝色圆形搜索按钮）。
+  Widget _buildSearchBar(ThemeData theme) {
+    return Container(
+      height: AppSizes.bankSearchBarHeight,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xxs,
+        AppSpacing.xxs,
+        AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.brandSurface,
+        borderRadius: BorderRadius.circular(AppRadii.searchPill),
+        border: Border.all(
+          color: AppColors.brandBorder,
+          width: AppSizes.borderWidth,
         ),
-        labelStyle: theme.textTheme.labelMedium?.copyWith(
-          color: selected
-              ? theme.colorScheme.onPrimaryContainer
-              : theme.colorScheme.onSurfaceVariant,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.card),
-        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: AppColors.brandTitle,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: '搜索题目',
+                hintStyle: theme.textTheme.labelLarge?.copyWith(
+                  color: AppColors.brandCaption,
+                ),
+              ),
+              onChanged: (v) => setState(() => _query = v.trim()),
+            ),
+          ),
+          Container(
+            width: AppSizes.bankSearchButtonSize,
+            height: AppSizes.bankSearchButtonSize,
+            decoration: const BoxDecoration(
+              color: AppColors.brandPrimary,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.search,
+              size: AppSizes.icon,
+              color: AppColors.brandOnPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -340,10 +274,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              _onlyUnanswered || _onlyWrong ? '暂无符合条件的题目' : '没有找到相关题目',
-              style: theme.textTheme.bodyMedium,
-            ),
+            Text('没有找到相关题目', style: theme.textTheme.bodyMedium),
           ],
         ),
       );

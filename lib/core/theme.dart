@@ -134,6 +134,12 @@ class AppSizes {
   /// 知识库页搜索栏高度（逻辑像素）。
   static const double searchBarHeight = 44;
 
+  /// 题库页搜索栏高度（逻辑像素）。
+  static const double bankSearchBarHeight = 48;
+
+  /// 题库页搜索栏搜索按钮直径（逻辑像素）。
+  static const double bankSearchButtonSize = 40;
+
   /// 知识库页章卡片高度（逻辑像素）。
   static const double chapterCardHeight = 56;
 
@@ -250,6 +256,9 @@ class AppRadii {
 
   /// 知识库页搜索栏圆角（约 22 = 半胶囊形）。
   static const double search = 22;
+
+  /// 题库页搜索栏圆角（999 = 全胶囊形）。
+  static const double searchPill = 999;
 
   /// 知识库页章卡片圆角（逻辑像素）。
   static const double chapterCard = 14;
