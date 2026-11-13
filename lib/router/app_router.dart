@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../core/page_transition.dart';
 import '../pages/base/login_page.dart';
 import '../pages/base/profile_page.dart';
-import '../pages/base/register_page.dart';
 import '../pages/base/settings_page.dart';
 import '../pages/base/splash_page.dart';
 import '../pages/shell/app_shell.dart';
@@ -13,7 +12,6 @@ class AppRoutes {
 
   static const String splash = '/splash';
   static const String login = '/login';
-  static const String register = '/register';
   static const String home = '/home';
   static const String bankModules = '/bank/modules';
   static const String knowledge = '/knowledge';
@@ -56,8 +54,6 @@ class AppRouter {
         page = const SplashPage();
       case AppRoutes.login:
         page = const LoginPage();
-      case AppRoutes.register:
-        page = const RegisterPage();
       case AppRoutes.home:
         page = const AppShell();
       case AppRoutes.knowledge:

@@ -14,29 +14,29 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _usernameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  String? _usernameError;
+  String? _phoneError;
   String? _passwordError;
 
-  static final RegExp _usernameRegExp = RegExp(r'^[A-Za-z0-9_]{4,20}$');
+  static final RegExp _phoneRegExp = RegExp(r'^1[3-9]\d{9}$');
   static final RegExp _letterRegExp = RegExp(r'[A-Za-z]');
   static final RegExp _digitRegExp = RegExp(r'[0-9]');
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  String? _validateUsername(String value) {
+  String? _validatePhone(String value) {
     if (value.isEmpty) {
-      return '请输入用户名';
+      return '请输入手机号码';
     }
-    if (!_usernameRegExp.hasMatch(value)) {
-      return '用户名需为 4-20 位字母、数字或下划线';
+    if (!_phoneRegExp.hasMatch(value)) {
+      return '请输入 11 位手机号码';
     }
     return null;
   }
@@ -55,17 +55,17 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
-    final usernameError = _validateUsername(_usernameController.text.trim());
+    final phoneError = _validatePhone(_phoneController.text.trim());
     final passwordError = _validatePassword(_passwordController.text);
     setState(() {
-      _usernameError = usernameError;
+      _phoneError = phoneError;
       _passwordError = passwordError;
     });
-    if (usernameError != null || passwordError != null) {
+    if (phoneError != null || passwordError != null) {
       return;
     }
     final result = await ServiceLocator.authService.login(
-      username: _usernameController.text.trim(),
+      username: _phoneController.text.trim(),
       password: _passwordController.text,
     );
     if (!mounted) return;
@@ -125,12 +125,15 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           _LoginTextField(
-                            label: '用户名',
-                            hint: '4–20 位字母、数字或下划线',
-                            controller: _usernameController,
-                            errorText: _usernameError,
+                            label: '手机号码',
+                            hint: '请输入 11 位手机号码',
+                            controller: _phoneController,
+                            errorText: _phoneError,
+                            keyboardType: TextInputType.phone,
                             textInputAction: TextInputAction.next,
-                            autofillHints: const [AutofillHints.username],
+                            autofillHints: const [
+                              AutofillHints.telephoneNumber,
+                            ],
                           ),
                           const SizedBox(height: AppSpacing.formBlock),
                           _LoginTextField(
@@ -173,35 +176,10 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                               ),
-                              child: const Text('登录'),
+                              child: const Text('登录 / 注册'),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.xxl),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '还没有账号？',
-                                style: AppTheme.brandSubtitleStyle,
-                              ),
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context)
-                                        .pushNamed(AppRoutes.register),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.brandPrimary,
-                                  textStyle: AppTheme.brandLinkStyle,
-                                  minimumSize: Size.zero,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.xs,
-                                  ),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: const Text('注册'),
-                              ),
-                            ],
-                          ),
                           const Spacer(),
                           Wrap(
                             alignment: WrapAlignment.center,
@@ -239,6 +217,7 @@ class _LoginTextField extends StatelessWidget {
     this.errorText,
     this.obscureText = false,
     this.suffixIcon,
+    this.keyboardType,
     this.textInputAction,
     this.onSubmitted,
     this.autofillHints,
@@ -250,6 +229,7 @@ class _LoginTextField extends StatelessWidget {
   final String? errorText;
   final bool obscureText;
   final Widget? suffixIcon;
+  final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
   final Iterable<String>? autofillHints;
@@ -275,15 +255,12 @@ class _LoginTextField extends StatelessWidget {
         TextField(
           controller: controller,
           obscureText: obscureText,
+          keyboardType: keyboardType,
           style: AppTheme.brandFieldTextStyle,
           textInputAction: textInputAction,
           onSubmitted: onSubmitted,
           autofillHints: autofillHints,
           decoration: InputDecoration(
-            labelText: label,
-            floatingLabelBehavior: FloatingLabelBehavior.always,
-            labelStyle: AppTheme.hiddenFieldLabelStyle,
-            floatingLabelStyle: AppTheme.hiddenFieldLabelStyle,
             hintText: hint,
             hintStyle: AppTheme.brandFieldHintStyle,
             errorText: errorText,

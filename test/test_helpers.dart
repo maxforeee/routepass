@@ -49,10 +49,11 @@ Future<void> loginToHome(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 2));
   await tester.pumpAndSettle();
 
-  if (find.widgetWithText(TextField, '用户名').tryEvaluate()) {
-    await tester.enterText(find.widgetWithText(TextField, '用户名'), 'demo_user1');
-    await tester.enterText(find.widgetWithText(TextField, '密码'), 'Demo1234');
-    await tester.tap(find.widgetWithText(FilledButton, '登录'));
+  if (find.text('欢迎回来').tryEvaluate()) {
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '13800138000');
+    await tester.enterText(fields.at(1), 'Demo1234');
+    await tester.tap(find.widgetWithText(FilledButton, '登录 / 注册'));
     await tester.pumpAndSettle();
     // Walk past the login-success Snackbar's 4s auto-dismiss timer.
     await tester.pump(const Duration(seconds: 5));

@@ -193,7 +193,7 @@ class _AccountSheetState extends State<AccountSheet> {
                 child: CircularProgressIndicator(),
               )
             else ...[
-              if (user == null) ...[
+              if (user == null)
                 _item(
                   context,
                   icon: Icons.login_outlined,
@@ -203,16 +203,6 @@ class _AccountSheetState extends State<AccountSheet> {
                     Navigator.of(context).pushNamed(AppRoutes.login);
                   },
                 ),
-                _item(
-                  context,
-                  icon: Icons.person_add_outlined,
-                  title: '注册',
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pushNamed(AppRoutes.register);
-                  },
-                ),
-              ],
               _item(
                 context,
                 icon: Icons.cloud_sync_outlined,

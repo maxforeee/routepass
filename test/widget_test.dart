@@ -17,12 +17,18 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    // 登录页（已无 AppBar）：'登录' 出现在登录按钮上，用 findsWidgets。
-    expect(find.text('登录'), findsWidgets);
+    // 登录页（已无 AppBar）：'登录 / 注册' 出现在登录按钮上，用 findsWidgets。
+    expect(find.text('登录 / 注册'), findsWidgets);
 
-    await tester.enterText(find.widgetWithText(TextField, '用户名'), 'demo_user1');
-    await tester.enterText(find.widgetWithText(TextField, '密码'), 'Demo1234');
-    await tester.tap(find.widgetWithText(FilledButton, '登录'));
+    await tester.enterText(
+      find.widgetWithText(TextField, '请输入 11 位手机号码'),
+      '13800138000',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, '8–32 位，含字母与数字'),
+      'Demo1234',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '登录 / 注册'));
     await tester.pumpAndSettle();
     // 让 Snackbar 的 4 秒自动消失 Timer 走完，避免测试结束时仍挂定时器。
     await tester.pump(const Duration(seconds: 5));

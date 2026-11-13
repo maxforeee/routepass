@@ -1,8 +1,7 @@
 /// AuthService 的 Mock 实现（规格文档第 4 章 §4.7.1）。
 ///
-/// 演示登录：只做第 2 章 §14.6 的本地格式校验（用户名 4–20 位字母数字下划线；
-/// 密码 8–32 位含字母数字），通过后直接进首页，不发任何网络请求。
-/// 这是 M0 空壳已有的行为，保持原样。
+/// 演示登录即注册：本地校验 11 位手机号与密码（8–32 位含字母数字），
+/// 新手机号自动创建本地账号，已有手机号直接登录，不发任何网络请求。
 library;
 
 import '../../models/auth.dart';
@@ -11,8 +10,9 @@ import '../base/auth_service.dart';
 
 class MockAuthService implements AuthService {
   User? _currentUser;
+  final _users = <String, User>{};
 
-  static final RegExp _usernamePattern = RegExp(r'^[A-Za-z0-9_]{4,20}$');
+  static final RegExp _phonePattern = RegExp(r'^1[3-9]\d{9}$');
 
   bool _validPassword(String password) {
     if (password.length < 8 || password.length > 32) return false;
@@ -35,10 +35,13 @@ class MockAuthService implements AuthService {
     required String username,
     required String password,
   }) async {
-    if (!_usernamePattern.hasMatch(username) || !_validPassword(password)) {
-      return LoginResult(success: false, message: '用户名或密码格式不正确');
+    if (!_phonePattern.hasMatch(username) || !_validPassword(password)) {
+      return LoginResult(success: false, message: '手机号码或密码格式不正确');
     }
-    _currentUser = User(id: 'local', username: username, nickname: 'Max');
+    _currentUser = _users.putIfAbsent(
+      username,
+      () => User(id: 'local', username: username, nickname: 'Max'),
+    );
     return LoginResult(success: true, user: _currentUser);
   }
 
@@ -48,10 +51,10 @@ class MockAuthService implements AuthService {
     required String password,
     required String nickname,
   }) async {
-    if (!_usernamePattern.hasMatch(username) ||
+    if (!_phonePattern.hasMatch(username) ||
         !_validPassword(password) ||
         nickname.isEmpty) {
-      return RegisterResult(success: false, message: '用户名、密码或昵称格式不正确');
+      return RegisterResult(success: false, message: '手机号码、密码或昵称格式不正确');
     }
     _currentUser = User(id: 'local', username: username, nickname: nickname);
     // Mock 演示流程：recoveryCode 为 null（以后真实注册成功后发 12 词恢复码）。
