@@ -2,7 +2,7 @@ name: routepass
 description: "RoutePass 路由通 - network engineering quiz app (M0 shell)"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 0.2.6+8
+version: 0.2.7+9
 
 environment:
   sdk: ^3.13.7
