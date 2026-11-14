@@ -27,6 +27,9 @@ dependencies:
   # F17: 每日一练日期锁的本地持久化（kv backing，重启不丢）。
   shared_preferences: ^2.3.0
 
+  # F19: 客户端 SQLite（cache-first / offline-first 数据层）。
+  sqflite: ^2.4.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -37,6 +40,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+  # F19: 测试里用真实内存 SQLite 验证缓存表结构（仅 dev）。
+  sqflite_common_ffi: ^2.4.7
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

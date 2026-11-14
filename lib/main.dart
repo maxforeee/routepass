@@ -2,11 +2,16 @@ import 'package:flutter/widgets.dart';
 
 import 'app.dart';
 import 'core/kv_store.dart';
+import 'core/local_db.dart';
 import 'core/service_locator.dart';
 import 'services/bank/answer_record_service.dart';
 import 'services/bank/answer_session_service.dart';
 import 'services/bank/bank_manifest_service_http.dart';
+import 'services/bank/cached_practice_service.dart';
+import 'services/bank/cached_question_repository.dart';
 import 'services/bank/daily_practice_service_http.dart';
+import 'services/bank/local_cache_service.dart';
+import 'services/bank/question_bank_source.dart';
 import 'services/mock/mock_auth_service.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
@@ -31,12 +36,22 @@ Future<void> main() async {
   ServiceLocator.kvStore = await SharedPreferencesKvStore.create();
   // 题库清单 / 每日一练已接 HTTP，其余仍是 Mock / 本地实现；以后接后端
   // 只改这里的装配与 config.dart 的 baseUrl，UI 文件不动。
+  // F19：SQLite 本地缓存是读取的第一层（overview 计数、练习题库、作答）。
+  final localCache = SqliteBankLocalCache(SqfliteLocalDatabase());
   ServiceLocator.init(
-    questionRepository: MockQuestionRepository(),
+    questionRepository: CachedQuestionRepository(
+      delegate: MockQuestionRepository(),
+      cache: localCache,
+      overviewSource: HttpBankSetOverviewSource(),
+    ),
     bankManifestService: HttpBankManifestService(),
     answerRecordService: KvAnswerRecordService(),
     answerSessionService: KvAnswerSessionService(),
-    practiceService: MockPracticeService(),
+    practiceService: CachedPracticeService(
+      delegate: MockPracticeService(),
+      cache: localCache,
+      bankSource: HttpBankQuestionBankSource(),
+    ),
     examService: MockExamService(),
     dailyPracticeService: HttpDailyPracticeService(),
     wrongService: MockWrongService(),
