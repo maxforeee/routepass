@@ -432,6 +432,79 @@ void main() {
       expect(status.state, 'local_only');
       expect(status.lastSyncAt, 1700000000000);
     });
+
+    test('中途失败不清空已拉页、也不推进游标（下次仍能拿到同一批）', () async {
+      final kv = InMemoryKvStore();
+      var pullCalls = 0;
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/sync/baseline') {
+          return _json(404, <String, Object?>{});
+        }
+        if (request.url.path == '/api/v1/sync/pull') {
+          pullCalls++;
+          if (pullCalls == 1) {
+            return _json(200, <String, Object?>{
+              ..._pullJson(),
+              'hasMore': true,
+            });
+          }
+          // 第二页失败：本批变更一条都不能算已同步。
+          return _json(500, <String, Object?>{});
+        }
+        return _json(404, <String, Object?>{});
+      });
+      final service = HttpSyncService(
+        client: client,
+        baseUrl: 'http://test',
+        tokenProvider: () => 'token-1',
+        kvStore: kv,
+      );
+
+      final result = await service.syncNow();
+
+      expect(result.ok, isFalse);
+      expect(result.state, 'offline');
+      expect(kv.getString(KvStore.keySyncCursor), isNull);
+      expect(kv.getString(KvStore.keySyncMirror), isNull);
+    });
+
+    test('pullIncremental 有待上传操作时状态为 pending，而不是已同步', () async {
+      final kv = InMemoryKvStore();
+      final cache = InMemoryBankLocalCache();
+      await cache.enqueueSync(
+        LocalSyncOp(
+          opId: 'answer-VLAN-q1-1700000000000',
+          kind: LocalSyncOp.kindPracticeAnswer,
+          createdAt: 1700000000000,
+          payload: const <String, Object?>{
+            'setId': 'VLAN',
+            'questionId': 'q1',
+            'chosen': <String>['A'],
+            'durationMs': 5000,
+            'mode': 'practice',
+          },
+        ),
+      );
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/sync/pull') {
+          return _json(200, _pullJson());
+        }
+        return _json(404, <String, Object?>{});
+      });
+      final service = HttpSyncService(
+        client: client,
+        baseUrl: 'http://test',
+        tokenProvider: () => 'token-1',
+        kvStore: kv,
+        localCache: cache,
+      );
+
+      await service.pullIncremental();
+
+      expect(service.cachedStatus?.state, 'pending');
+      expect(service.cachedStatus?.pendingCount, 1);
+      expect(kv.getString(KvStore.keySyncCursor), '101');
+    });
   });
 }
 

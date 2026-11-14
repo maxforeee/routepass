@@ -125,13 +125,15 @@ class HttpSyncService implements SyncService {
       return const PullResult(pulledCount: 0);
     }
     final page = SyncPullPage.fromJson(response.body);
+    final pending = (await _pendingOps()).length;
     final applied = await _applyServerChanges(page.changes);
     _writeCursor(page.nextCursor);
     _writeCachedStatus(
       SyncStatus(
-        pendingCount: (await _pendingOps()).length,
+        pendingCount: pending,
         lastSyncAt: DateTime.now().millisecondsSinceEpoch,
-        state: 'synced',
+        // 与 syncNow 同一规则：还有待上传操作就不算“已同步”。
+        state: pending > 0 ? 'pending' : 'synced',
         serverTime: page.serverTime,
         watermark: page.watermark,
         serverReachable: true,
@@ -177,6 +179,8 @@ class HttpSyncService implements SyncService {
     final serverCount = baseline?.recordCount ?? pulled.changes.length;
     var pulledCount = await _applyServerBaseline(baseline);
     pulledCount += await _applyServerChanges(pulled.changes);
+    // 变更落盘后再推进游标（失败重来时服务端仍会返回同一批）。
+    _writeCursor(pulled.cursor);
 
     // 安全闸门：本地没有任何记录而服务端有数据时，只拉取，绝不上传。
     if (localCount == 0 && serverCount > 0) {
@@ -225,6 +229,7 @@ class HttpSyncService implements SyncService {
       final after = await _pullAll();
       if (after != null) {
         pulledCount += await _applyServerChanges(after.changes);
+        _writeCursor(after.cursor);
       }
     }
 
@@ -365,6 +370,9 @@ class HttpSyncService implements SyncService {
   }
 
   /// 游标分页拉完所有变更；任一页失败返回 null（调用方保留本地状态）。
+  ///
+  /// 只收集变更、不推进游标：游标必须等这批变更真正落盘后才写，否则中途
+  /// 失败时游标已越过这些变更，下次增量拉取不会再返回它们（永久丢数据）。
   Future<_Pulled?> _pullAll() async {
     var cursor = _cursor;
     var watermark = 0;
@@ -380,7 +388,6 @@ class HttpSyncService implements SyncService {
       watermark = parsed.watermark;
       serverTime = parsed.serverTime ?? serverTime;
       cursor = parsed.nextCursor;
-      _writeCursor(cursor);
       if (!parsed.hasMore) break;
     }
     return _Pulled(
