@@ -303,9 +303,8 @@ class _AppShellState extends State<AppShell> {
     return SharedAxisPageRoute<void>(
       builder: (_) => page,
       settings: settings,
-      transitionDuration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 260),
+      transitionDuration: reduceMotion ? Duration.zero : AppDurations.xl,
+      reverseTransitionDuration: reduceMotion ? Duration.zero : AppDurations.l,
     );
   }
 
@@ -343,9 +342,8 @@ class _AppShellState extends State<AppShell> {
                 Expanded(
                   child: AnimatedOpacity(
                     opacity: _tabOpacity,
-                    duration: reduceMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200),
+                    duration: reduceMotion ? Duration.zero : AppDurations.m,
+                    curve: AppDurations.standard,
                     child: IndexedStack(
                       index: _currentIndex,
                       children: [
@@ -359,12 +357,13 @@ class _AppShellState extends State<AppShell> {
                 ),
               ],
             ),
-            if (showNav)
-              Positioned(
-                left: 0,
-                right: 0,
-                // 上移 8px（v0.2.4 用户反馈）。
-                bottom: AppSpacing.xs,
+            Positioned(
+              left: 0,
+              right: 0,
+              // 上移 8px（v0.2.4 用户反馈）。
+              bottom: AppSpacing.xs,
+              child: _NavBarVisibility(
+                visible: showNav,
                 child: Center(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
@@ -377,7 +376,95 @@ class _AppShellState extends State<AppShell> {
                   ),
                 ),
               ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 底栏显隐动画（动画规范 v1.0 §2 Bar Exit / Bar Enter，F20）：
+/// 隐藏（push 子页 / 键盘弹起）S(150ms) + accelerate，向下滑出自身高度
+/// 100% 并淡出；重现（pop 回主页）M(200ms) + decelerate，向上滑入并淡入。
+/// 退出动画播完后把底栏移出树，保持“隐藏时树中无胶囊”的旧行为；
+/// 与 §1 页面转场并行，互不干预。
+class _NavBarVisibility extends StatefulWidget {
+  const _NavBarVisibility({required this.visible, required this.child});
+
+  final bool visible;
+  final Widget child;
+
+  @override
+  State<_NavBarVisibility> createState() => _NavBarVisibilityState();
+}
+
+class _NavBarVisibilityState extends State<_NavBarVisibility>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final CurvedAnimation _animation;
+  late bool _showing;
+
+  @override
+  void initState() {
+    super.initState();
+    _showing = widget.visible;
+    _controller = AnimationController(
+      vsync: this,
+      duration: AppDurations.m,
+      reverseDuration: AppDurations.s,
+      value: widget.visible ? 1.0 : 0.0,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: AppDurations.enter,
+      reverseCurve: AppDurations.exit,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_NavBarVisibility oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.visible == widget.visible) return;
+    if (MediaQuery.of(context).disableAnimations) {
+      _controller.value = widget.visible ? 1.0 : 0.0;
+      setState(() => _showing = widget.visible);
+      return;
+    }
+    if (widget.visible) {
+      setState(() => _showing = true);
+      _controller.forward();
+    } else {
+      // reverse 被打断（重新显示）时 then 不触发，底栏留在树中。
+      _controller.reverse().then((_) {
+        if (mounted && !widget.visible) {
+          setState(() => _showing = false);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_showing) return const SizedBox.shrink();
+    return IgnorePointer(
+      ignoring: !widget.visible,
+      child: FadeTransition(
+        opacity: _animation,
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) => FractionalTranslation(
+            translation: Offset(0, 1.0 - _animation.value),
+            child: child,
+          ),
+          child: widget.child,
         ),
       ),
     );

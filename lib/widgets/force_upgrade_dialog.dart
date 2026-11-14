@@ -11,6 +11,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/app_animations.dart';
 import '../core/app_snackbar.dart';
 import '../core/service_locator.dart';
 
@@ -33,7 +34,7 @@ Future<void> showForceUpgradeDialog(
   required String latestVersion,
   required String upgradeUrl,
 }) {
-  return showDialog<void>(
+  return showAppDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/service_locator.dart';
 import '../../models/search.dart';
 import '../../router/app_router.dart';
+import '../../widgets/animated_app_bar.dart';
 
 /// 知识库搜索页（第 4 章 §4.5.2，路由 `/knowledge/search`）。
 ///
@@ -79,7 +80,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('搜索')),
+      appBar: AnimatedAppBar(title: '搜索'),
       body: Column(
         children: [
           Padding(

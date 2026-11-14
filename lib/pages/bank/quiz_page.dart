@@ -14,6 +14,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/app_animations.dart';
 import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
@@ -602,7 +603,7 @@ class _QuizPageState extends State<QuizPage> {
     _sessionService.clear(setId: _setId, mode: 'exam');
     _refreshRecords();
 
-    await showModalBottomSheet<void>(
+    await showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(

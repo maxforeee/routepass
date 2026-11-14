@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/page_transition.dart';
+import '../core/theme.dart';
 import '../pages/base/login_page.dart';
 import '../pages/base/profile_page.dart';
 import '../pages/base/settings_page.dart';
@@ -77,9 +78,8 @@ class AppRouter {
     return SharedAxisPageRoute<void>(
       builder: (_) => page,
       settings: settings,
-      transitionDuration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 260),
+      transitionDuration: reduceMotion ? Duration.zero : AppDurations.xl,
+      reverseTransitionDuration: reduceMotion ? Duration.zero : AppDurations.l,
     );
   }
 }

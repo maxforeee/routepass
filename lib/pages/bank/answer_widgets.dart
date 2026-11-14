@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/app_animations.dart';
 import '../../core/theme.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
@@ -21,9 +22,20 @@ String questionTypeLabel(String type) {
 /// 选项行状态（F19）：判分后着色；旧调用点不传，默认 idle。
 enum OptionTileState { idle, selected, correct, wrong }
 
+/// 选中脉冲的缩放低点（规范 §11：Scale 1.0 → 0.98 → 1.0）。
+const double _optionPulseScale = 0.98;
+
+/// 选中抬起高度（规范 §11：Elevation 0dp ↔ 2dp）。
+const double _optionSelectElevation = 2;
+
 /// 选项行（A-10）：min 高 56，左字母圆标 28，选中 primaryContainer + primary 描边。
 /// 多选显示 checkbox 图标。F19 起支持判分配色：正确项浅绿 / 错误项浅红。
-class OptionTile extends StatelessWidget {
+///
+/// F20 §11 选中/取消选中：选中 [AppDurations.m] + [AppDurations.enter]，整行
+/// Scale 1.0 → 0.98 → 1.0、Elevation 0 → 2dp、勾选标记 Scale 0 → 1 + Alpha 0 → 1；
+/// 取消 [AppDurations.s] + [AppDurations.exit]，Elevation 与标记反向（无脉冲）。
+/// 按压缩放交给 [Pressable]，背景/描边颜色交给 [AnimatedContainer]，不再瞬间跳色。
+class OptionTile extends StatefulWidget {
   const OptionTile({
     super.key,
     required this.option,
@@ -39,20 +51,88 @@ class OptionTile extends StatelessWidget {
   final VoidCallback onTap;
   final OptionTileState state;
 
+  @override
+  State<OptionTile> createState() => _OptionTileState();
+}
+
+class _OptionTileState extends State<OptionTile> with TickerProviderStateMixin {
+  late final AnimationController _selectController;
+  late final AnimationController _pulseController;
+  late final CurvedAnimation _select;
+  late final CurvedAnimation _pulseCurve;
+  late final Animation<double> _pulseScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectController = AnimationController(
+      vsync: this,
+      duration: AppDurations.m,
+      value: widget.selected ? 1.0 : 0.0,
+    );
+    _select = CurvedAnimation(
+      parent: _selectController,
+      curve: AppDurations.enter,
+      reverseCurve: AppDurations.exit,
+    );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: AppDurations.m,
+    );
+    _pulseCurve = CurvedAnimation(
+      parent: _pulseController,
+      curve: AppDurations.enter,
+    );
+    _pulseScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: _optionPulseScale),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: _optionPulseScale, end: 1.0),
+        weight: 1,
+      ),
+    ]).animate(_pulseCurve);
+  }
+
+  @override
+  void didUpdateWidget(OptionTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selected == widget.selected) return;
+    _selectController.duration = widget.selected
+        ? AppDurations.m
+        : AppDurations.s;
+    if (widget.selected) {
+      _selectController.forward();
+      _pulseController.forward(from: 0.0);
+    } else {
+      _selectController.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _select.dispose();
+    _pulseCurve.dispose();
+    _selectController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
   bool get _highlighted =>
-      state == OptionTileState.selected ||
-      state == OptionTileState.correct ||
-      state == OptionTileState.wrong ||
-      selected;
+      widget.state == OptionTileState.selected ||
+      widget.state == OptionTileState.correct ||
+      widget.state == OptionTileState.wrong ||
+      widget.selected;
 
   Color _background(BuildContext context) {
     final theme = Theme.of(context);
-    return switch (state) {
+    return switch (widget.state) {
       OptionTileState.correct => AppColors.dailyCorrectBackground(context),
       OptionTileState.wrong => AppColors.wrongIconBackground(context),
       OptionTileState.selected => theme.colorScheme.primaryContainer,
       OptionTileState.idle =>
-        selected
+        widget.selected
             ? theme.colorScheme.primaryContainer
             : theme.colorScheme.surfaceContainerHighest,
     };
@@ -60,17 +140,19 @@ class OptionTile extends StatelessWidget {
 
   Color _border(BuildContext context) {
     final theme = Theme.of(context);
-    return switch (state) {
+    return switch (widget.state) {
       OptionTileState.correct => AppColors.success(context),
       OptionTileState.wrong => AppColors.wrongIconForeground(context),
       OptionTileState.selected => theme.colorScheme.primary,
       OptionTileState.idle =>
-        selected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
+        widget.selected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.outlineVariant,
     };
   }
 
   Color? _letterBackground(BuildContext context) {
-    return switch (state) {
+    return switch (widget.state) {
       OptionTileState.correct => AppColors.success(context),
       OptionTileState.wrong => AppColors.wrongIconForeground(context),
       _ => null,
@@ -84,58 +166,112 @@ class OptionTile extends StatelessWidget {
     final highlighted = _highlighted;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 56),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: _background(context),
-            border: Border.all(color: _border(context)),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
+      child: Pressable(
+        scale: Pressable.cardScale,
+        pressCurve: AppDurations.standard,
+        child: ScaleTransition(
+          scale: _pulseScale,
+          child: AnimatedBuilder(
+            animation: _select,
+            builder: (context, child) => Material(
+              color: Colors.transparent,
+              elevation: _optionSelectElevation * _select.value,
+              borderRadius: BorderRadius.circular(12),
+              child: child,
+            ),
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: widget.selected ? AppDurations.m : AppDurations.s,
+                curve: widget.selected ? AppDurations.enter : AppDurations.exit,
+                constraints: const BoxConstraints(minHeight: 56),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color:
-                      letterBg ??
-                      (highlighted
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.surface),
-                  border: Border.all(color: theme.colorScheme.outline),
+                  color: _background(context),
+                  border: Border.all(color: _border(context)),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  option.key,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: letterBg != null
-                        ? theme.colorScheme.onPrimary
-                        : (highlighted
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color:
+                            letterBg ??
+                            (highlighted
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.surface),
+                        border: Border.all(color: theme.colorScheme.outline),
+                      ),
+                      child: Text(
+                        widget.option.key,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: letterBg != null
                               ? theme.colorScheme.onPrimary
-                              : theme.colorScheme.onSurface),
-                  ),
+                              : (highlighted
+                                    ? theme.colorScheme.onPrimary
+                                    : theme.colorScheme.onSurface),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.option.text,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                    ),
+                    if (widget.multiple) _buildCheckMark(theme, highlighted),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(option.text, style: theme.textTheme.bodyLarge),
-              ),
-              if (multiple)
-                Icon(
-                  selected ? Icons.check_box : Icons.check_box_outline_blank,
-                  color: highlighted
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 勾选标记（规范 §11）：Scale 0 ↔ 1 + Alpha 0 ↔ 1。空框与实框按动画进度
+  /// 交接，静止态只留当前那一个图标，选中/未选中的图标构成与改动前一致。
+  Widget _buildCheckMark(ThemeData theme, bool highlighted) {
+    return AnimatedBuilder(
+      animation: _select,
+      builder: (context, _) {
+        final double t = _select.value;
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            if (t < 1.0)
+              Icon(
+                Icons.check_box_outline_blank,
+                color: highlighted
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            if (t > 0.0)
+              FadeTransition(
+                opacity: _select,
+                // 三轴同比缩放：Transform.scale 的矩阵 Z 轴恒为 1，量不出真实缩放。
+                child: Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.diagonal3Values(t, t, t),
+                  child: Icon(
+                    Icons.check_box,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -311,7 +447,7 @@ Future<bool> showSubmitDialog(
   BuildContext context, {
   required int unanswered,
 }) async {
-  final result = await showDialog<bool>(
+  final result = await showAppDialog<bool>(
     context: context,
     builder: (context) {
       return AlertDialog(
@@ -338,7 +474,7 @@ Future<bool> showSubmitDialog(
 
 /// 退出保留进度确认（A-01）：返回 true 表示退出并保留进度。
 Future<bool> showExitConfirmDialog(BuildContext context) async {
-  final result = await showDialog<bool>(
+  final result = await showAppDialog<bool>(
     context: context,
     builder: (context) {
       return AlertDialog(

@@ -599,12 +599,51 @@ class AppFontSizes {
   static const double dailyLockHint = 12;
 }
 
-/// 品牌动画时长。
+/// 品牌动画时长与缓动 token（动画规范 v1.0《全局时长与缓动规范》）。
+///
+/// 全部组件动画绑定这 7 级时长阶梯，业务代码不许写死零散毫秒值。
+/// 例外（非规范级动画）：登录页氛围循环、启动页超时、搜索防抖定时器。
 class AppDurations {
   AppDurations._();
 
-  /// 胶囊导航选中态淡入淡出（毫秒）。
-  static const Duration navFade = Duration(milliseconds: 200);
+  /// 瞬时（0ms）：长按触觉反馈触发瞬间、已禁用态点击，无视觉动画。
+  static const Duration instant = Duration.zero;
+
+  /// XS 极短（100ms）：按钮按压、图标点击等微交互即时反馈。
+  static const Duration xs = Duration(milliseconds: 100);
+
+  /// S 短（150ms）：按钮释放、元素淡出/退出、底部栏隐藏、清除按钮收起。
+  static const Duration s = Duration(milliseconds: 150);
+
+  /// M 中（200ms）：控件状态切换、Tab 切换、FAB 显示、获焦、报错进入。
+  static const Duration m = Duration(milliseconds: 200);
+
+  /// L 中长（250ms）：弹窗进入、底部面板收起、列表加载、搜索栏展开、键盘弹出。
+  static const Duration l = Duration(milliseconds: 250);
+
+  /// XL 长（300ms）：页面转场 Push、底部面板展开、大图 Hero 预览、进度条平滑推进。
+  static const Duration xl = Duration(milliseconds: 300);
+
+  /// LOOP 循环（1000ms）：骨架屏呼吸脉冲、加载指示器旋转、倒计时脉冲。
+  static const Duration loop = Duration(milliseconds: 1000);
+
+  /// 胶囊导航选中态淡入淡出：M 级（200ms）的历史别名。
+  static const Duration navFade = m;
+
+  /// 屏幕内状态过渡（Standard）：Android FastOutSlowInInterpolator。
+  static const Curve standard = Curves.fastOutSlowIn;
+
+  /// 元素进入屏幕（Decelerate）：Android LinearOutSlowInInterpolator。
+  static const Curve enter = Curves.decelerate;
+
+  /// 元素离开屏幕（Accelerate）：Android FastOutLinearInInterpolator。
+  ///
+  /// Flutter 没有 Curves.accelerate，加速曲线用 easeIn（Cubic 0.42,0,1,1），
+  /// 与 FastOutLinearIn（0.4,0,1,1）等价。
+  static const Curve exit = Curves.easeIn;
+
+  /// 循环/恒速动画（Linear）：Android LinearInterpolator。
+  static const Curve loopCurve = Curves.linear;
 }
 
 /// 工具箱工具卡图标色调（蓝/绿/橙，见 §4.10 T-B 卡片）。

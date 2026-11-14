@@ -14,11 +14,15 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../core/app_animations.dart';
+import '../../core/app_snackbar.dart';
 import '../../core/kv_store.dart';
 import '../../core/service_locator.dart';
+import '../../core/theme.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
 import '../../router/app_router.dart';
+import '../../widgets/animated_app_bar.dart';
 import 'answer_widgets.dart';
 
 class AnswerPage extends StatefulWidget {
@@ -302,7 +306,7 @@ class _AnswerPageState extends State<AnswerPage> {
       }
     }
     if (!mounted) return;
-    await showModalBottomSheet<void>(
+    await showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -324,8 +328,7 @@ class _AnswerPageState extends State<AnswerPage> {
           },
           onRetryWrong: () {
             Navigator.of(sheetContext).pop();
-            ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('暂无错题')));
+            showAppSnackBar(context, '暂无错题');
           },
           onClose: () {
             Navigator.of(sheetContext).pop();
@@ -379,7 +382,7 @@ class _AnswerPageState extends State<AnswerPage> {
   }
 
   void _openAnswerSheet() {
-    showModalBottomSheet<void>(
+    showAppSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -451,7 +454,7 @@ class _AnswerPageState extends State<AnswerPage> {
     }
     if (_error != null || _questions.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(_modeLabel)),
+        appBar: AnimatedAppBar(title: _modeLabel),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -480,16 +483,10 @@ class _AnswerPageState extends State<AnswerPage> {
         await _onBack();
       },
       child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            tooltip: '返回',
-            onPressed: _onBack,
-          ),
-          title: Text(
-            '第 ${_currentIndex + 1}/${_questions.length} 题',
-            style: theme.textTheme.titleMedium,
-          ),
+        appBar: AnimatedAppBar(
+          onBack: _onBack,
+          title: '第 ${_currentIndex + 1}/${_questions.length} 题',
+          titleStyle: theme.textTheme.titleMedium,
           actions: [
             Text(
               _elapsedText,
@@ -527,11 +524,19 @@ class _AnswerPageState extends State<AnswerPage> {
         ),
         body: Column(
           children: [
-            LinearProgressIndicator(
-              value: _questions.isEmpty
-                  ? 0
-                  : _answeredCount / _questions.length,
-              minHeight: 4,
+            // 规范 §11 进度条：填充从当前百分比插值到目标百分比，
+            // AppDurations.xl（300ms）+ fastOutSlowIn，不再随答题瞬间跳格。
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(
+                begin: 0,
+                end: _questions.isEmpty
+                    ? 0
+                    : _answeredCount / _questions.length,
+              ),
+              duration: AppDurations.xl,
+              curve: AppDurations.standard,
+              builder: (context, value, child) =>
+                  LinearProgressIndicator(value: value, minHeight: 4),
             ),
             Expanded(
               child: SingleChildScrollView(

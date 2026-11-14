@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/app_animations.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/toolbox.dart';
@@ -61,7 +62,7 @@ class _PortScanPageState extends State<PortScanPage> {
   }
 
   Future<bool> _showConsentDialog() async {
-    final agreed = await showDialog<bool>(
+    final agreed = await showAppDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(

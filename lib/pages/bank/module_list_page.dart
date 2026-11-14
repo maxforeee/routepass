@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/app_animations.dart';
 import '../../core/service_locator.dart';
 import '../../core/modules.dart';
 import '../../core/theme.dart';
@@ -295,11 +296,17 @@ class BankModuleListPageState extends State<BankModuleListPage> {
             const SizedBox(height: AppSpacing.cardGap),
         itemBuilder: (context, index) {
           final entry = entries[index];
-          return SetRowCard(
-            title: entry.title,
-            subtitle: entry.subtitle,
-            trailing: SetRowTags(labels: entry.tags),
-            onTap: () => _openSetDetail(entry),
+          // F20 §8：首次渲染交错入场（前 6 项每项 +30ms，TranslationY +20dp → 0）；
+          // 切 tab / 下拉刷新只是原地重建，State 保留故不重复触发（§1）。
+          return StaggeredListAppear(
+            index: index,
+            slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
+            child: SetRowCard(
+              title: entry.title,
+              subtitle: entry.subtitle,
+              trailing: SetRowTags(labels: entry.tags),
+              onTap: () => _openSetDetail(entry),
+            ),
           );
         },
       ),
@@ -383,23 +390,31 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       itemCount: results.length,
       itemBuilder: (context, index) {
         final q = results[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.card),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: ListTile(
-            title: Text(q.stem, maxLines: 2, overflow: TextOverflow.ellipsis),
-            subtitle: Text('${moduleLabel(q.module)} · ${_typeLabel(q.type)}'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.bankQuiz,
-              arguments: <String, Object?>{
-                'mode': 'single',
-                'questionId': q.id,
-              },
+        // F20 §8：搜索结果同样是列表项，首次上屏交错入场；输入过滤时已存在的
+        // 项保留 State，不重新播放。
+        return StaggeredListAppear(
+          index: index,
+          slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
+          child: Card(
+            margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.card),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            child: ListTile(
+              title: Text(q.stem, maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                '${moduleLabel(q.module)} · ${_typeLabel(q.type)}',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).pushNamed(
+                AppRoutes.bankQuiz,
+                arguments: <String, Object?>{
+                  'mode': 'single',
+                  'questionId': q.id,
+                },
+              ),
             ),
           ),
         );

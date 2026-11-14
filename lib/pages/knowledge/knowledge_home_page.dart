@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../core/app_animations.dart';
 import '../../core/kv_store.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
@@ -13,8 +14,8 @@ import '../../widgets/page_header.dart';
 /// 知识库页（R7：按 06_knowledge mockup 重排：页头 + 搜索 + 章卡片 + 节 + 知识点行）。
 ///
 /// K-01 页头；K-02 搜索（输入即过滤，提交进搜索页）；K-03 掌握进度（每知识点行右侧
-/// “已掌握 x/y”）；K-04 章卡片（右缘三角 220ms 旋转，点按折叠整章）；K-05 节 header；
-/// K-06 知识点行；K-07 倒三角（220ms 旋转）；K-08 展开面板；K-09 查看详情；
+/// “已掌握 x/y”）；K-04 章卡片（右缘三角 M 200ms 旋转，点按折叠整章）；K-05 节 header；
+/// K-06 知识点行；K-07 倒三角（M 200ms 旋转）；K-08 展开面板；K-09 查看详情；
 /// K-10 练一练；K-11 掌握 icon；K-13 空态。K-12 版本条由 AppShell 全局显示，不在本页重复。
 /// 展开态存 kv `kb.expandedIds`（§4.9.1）；掌握态存派生 kv 键 `kb.masteredIds`。
 class KnowledgeHomePage extends StatefulWidget {
@@ -210,10 +211,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final context = _firstMatchKey.currentContext;
         if (context != null && mounted) {
-          Scrollable.ensureVisible(
-            context,
-            duration: const Duration(milliseconds: 220),
-          );
+          Scrollable.ensureVisible(context, duration: AppDurations.m);
         }
       });
     }
@@ -270,12 +268,19 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     final widgets = <Widget>[];
     for (var i = 0; i < chapters.length; i++) {
       // 章卡片（含内部节 / 知识点行）整体再内缩 contentInset；卡内边距不变。
+      // F20 §8：章卡片是本页的列表项，首次渲染交错入场（前 6 项每项 +30ms，
+      // TranslationY +20dp → 0）；折叠 / 搜索 / 掌握态只是原地重建，State 保留
+      // 故不重复触发，Pop 恢复同理（§1）。
       widgets.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.contentInset,
+        StaggeredListAppear(
+          index: i,
+          slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.contentInset,
+            ),
+            child: _buildChapter(chapters[i]),
           ),
-          child: _buildChapter(chapters[i]),
         ),
       );
       if (i < chapters.length - 1) {
@@ -344,7 +349,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
                     label: collapsed ? '展开章节' : '收起章节',
                     child: AnimatedRotation(
                       turns: collapsed ? 0 : 0.25,
-                      duration: const Duration(milliseconds: 220),
+                      duration: AppDurations.m,
                       child: Icon(
                         Icons.chevron_right,
                         color: scheme.onSurfaceVariant,
@@ -505,7 +510,7 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
                       label: expanded ? '收起知识点' : '展开知识点',
                       child: AnimatedRotation(
                         turns: expanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 220),
+                        duration: AppDurations.m,
                         child: Icon(
                           Icons.expand_more,
                           size: AppSizes.iconLarge,

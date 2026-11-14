@@ -10,6 +10,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/app_animations.dart';
 import '../core/service_locator.dart';
 import '../core/theme.dart';
 import '../models/sync.dart';
@@ -22,7 +23,7 @@ Future<void> showSyncDetailSheet(
   SyncService? syncService,
   SyncModeService? modeService,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

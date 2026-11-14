@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/app_snackbar.dart';
 import '../../core/config.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
@@ -10,6 +11,7 @@ import '../../models/user.dart';
 import '../../router/app_router.dart';
 import '../../services/bank/bank_sync_service.dart';
 import '../../services/base/auth_service.dart';
+import '../../widgets/animated_app_bar.dart';
 
 /// 个人中心（头像进入）：设备 + 同步两个区块。
 ///
@@ -91,16 +93,14 @@ class _ProfilePageState extends State<ProfilePage> {
       _status = status ?? _status;
       _syncResult = result.message;
     });
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(result.message)));
+    showAppSnackBar(context, result.message);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('个人中心'),
+      appBar: AnimatedAppBar(
+        title: '个人中心',
         actions: [
           IconButton(
             tooltip: '刷新',
@@ -261,9 +261,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _copyDeviceId(String deviceId) async {
     await Clipboard.setData(ClipboardData(text: deviceId));
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('设备标识已复制')));
+    showAppSnackBar(context, '设备标识已复制');
   }
 
   /// 只展示首 8 + 末 4，避免把完整 deviceId 铺在界面上。

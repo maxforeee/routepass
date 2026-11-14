@@ -55,6 +55,18 @@ class HomeContentPageState extends State<HomeContentPage> {
   /// 今天每日一练已选的选项 key；null = 今天还没答（未锁定）。
   String? _dailySelectedKey;
 
+  /// 本路由的 secondaryAnimation：子页压栈时 0 → 1，pop 回来时 1 → 0。
+  Animation<double>? _secondaryAnimation;
+
+  /// 是否曾被子页盖住（用来识别“盖住 → 恢复”这一次 pop）。
+  bool _coveredBySubpage = false;
+
+  /// 是否已完成首次加载：首屏不播返回重入动画。
+  bool _loadedOnce = false;
+
+  /// 返回刷新代数：计数/进度真的变了才 +1，作为更新模块重入动画的 key。
+  int _refreshEpoch = 0;
+
   @override
   void initState() {
     super.initState();
@@ -65,7 +77,29 @@ class HomeContentPageState extends State<HomeContentPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.secondaryAnimation;
+    if (animation == _secondaryAnimation) return;
+    _secondaryAnimation?.removeListener(_handleCoverChanged);
+    _secondaryAnimation = animation;
+    animation?.addListener(_handleCoverChanged);
+  }
+
+  /// Refresh on Back（规范 §1）：子页 pop 完、首页重新露出时重拉一次数据，
+  /// 数据变了才让更新模块重入（见 [_load]）。答题页在题库 tab 时走外壳的
+  /// [refresh]，两条路径都汇到 [_load]。
+  void _handleCoverChanged() {
+    final animation = _secondaryAnimation;
+    if (animation == null) return;
+    final covered = !animation.isDismissed;
+    if (_coveredBySubpage && !covered) _load();
+    _coveredBySubpage = covered;
+  }
+
+  @override
   void dispose() {
+    _secondaryAnimation?.removeListener(_handleCoverChanged);
     _connectivitySubscription?.cancel();
     super.dispose();
   }
@@ -120,6 +154,13 @@ class HomeContentPageState extends State<HomeContentPage> {
       dailySelectedKey = null;
     }
     if (!mounted) return;
+    // 只有“已加载过 + 计数/进度真的变了”才让更新模块重入（规范 §1 Refresh on
+    // Back）；首屏和数据没变的返回刷新都不播动画，更不是整页重放。
+    final bool countsChanged =
+        _loadedOnce &&
+        (todayWrongCount != _todayWrongCount ||
+            todayFavoriteCount != _todayFavoriteCount ||
+            (overview?.todayAnswered ?? 0) != (_overview?.todayAnswered ?? 0));
     setState(() {
       _user = user;
       _overview = overview;
@@ -128,6 +169,8 @@ class HomeContentPageState extends State<HomeContentPage> {
       _todayFavoriteCount = todayFavoriteCount;
       _dailyQuestion = dailyQuestion;
       _dailySelectedKey = dailySelectedKey;
+      if (countsChanged) _refreshEpoch++;
+      _loadedOnce = true;
     });
   }
 
@@ -225,6 +268,19 @@ class HomeContentPageState extends State<HomeContentPage> {
     setState(() => _syncMode = mode);
   }
 
+  /// 返回刷新时给更新模块的单项包重入动画（规范 §1 Refresh on Back）。
+  ///
+  /// 首屏（epoch 0）原样返回，不做任何动画；只有返回/切回刷新且计数变了，
+  /// 才用新的 epoch key 重挂载，让这一项重新淡入上滑。
+  Widget _reenterOnRefresh(int index, Widget child) {
+    if (_refreshEpoch == 0) return child;
+    return _RefreshReenter(
+      key: ValueKey<String>('home-reenter-$_refreshEpoch-$index'),
+      index: index,
+      child: child,
+    );
+  }
+
   /// 首页错题本 / 收藏入口：两个并排的正方形方块，只放图标 + 标题 + 今日数量。
   ///
   /// 标题骑在方块上边框上（与每日一练同一套 fieldset legend 语言），向上探出
@@ -237,28 +293,34 @@ class HomeContentPageState extends State<HomeContentPage> {
         Row(
           children: [
             Expanded(
-              child: _SquareTile(
-                key: const ValueKey('home-tile-wrong'),
-                title: '错题本',
-                countLabel: '今日新增 $_todayWrongCount 道',
-                icon: Icons.menu_book_outlined,
-                iconBackground: AppColors.wrongIconBackground(context),
-                iconForeground: AppColors.wrongIconForeground(context),
-                onTap: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.bankWrong),
+              child: _reenterOnRefresh(
+                1,
+                _SquareTile(
+                  key: const ValueKey('home-tile-wrong'),
+                  title: '错题本',
+                  countLabel: '今日新增 $_todayWrongCount 道',
+                  icon: Icons.menu_book_outlined,
+                  iconBackground: AppColors.wrongIconBackground(context),
+                  iconForeground: AppColors.wrongIconForeground(context),
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.bankWrong),
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.cardGap),
             Expanded(
-              child: _SquareTile(
-                key: const ValueKey('home-tile-favorites'),
-                title: '收藏',
-                countLabel: '今日收藏 $_todayFavoriteCount 道',
-                icon: Icons.star_border_rounded,
-                iconBackground: AppColors.favoriteIconBackground(context),
-                iconForeground: AppColors.favoriteIconForeground(context),
-                onTap: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
+              child: _reenterOnRefresh(
+                2,
+                _SquareTile(
+                  key: const ValueKey('home-tile-favorites'),
+                  title: '收藏',
+                  countLabel: '今日收藏 $_todayFavoriteCount 道',
+                  icon: Icons.star_border_rounded,
+                  iconBackground: AppColors.favoriteIconBackground(context),
+                  iconForeground: AppColors.favoriteIconForeground(context),
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.bankFavorites),
+                ),
               ),
             ),
           ],
@@ -326,23 +388,27 @@ class HomeContentPageState extends State<HomeContentPage> {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text.rich(
-                          TextSpan(
-                            text: '今日已完成题目数 ',
-                            children: [
-                              TextSpan(
-                                text: '${_overview?.todayAnswered ?? 0}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.title(context),
+                        // 更新模块第 0 项：今日已完成题目数（答题返回后最先变的进度）。
+                        _reenterOnRefresh(
+                          0,
+                          Text.rich(
+                            TextSpan(
+                              text: '今日已完成题目数 ',
+                              children: [
+                                TextSpan(
+                                  text: '${_overview?.todayAnswered ?? 0}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.title(context),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          style: TextStyle(
-                            fontSize: AppFontSizes.pageSubtitle,
-                            color: AppColors.label(context),
-                            height: 1.5,
+                              ],
+                            ),
+                            style: TextStyle(
+                              fontSize: AppFontSizes.pageSubtitle,
+                              color: AppColors.label(context),
+                              height: 1.5,
+                            ),
                           ),
                         ),
                       ],
@@ -810,6 +876,99 @@ class _DailyOptionStrip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 返回刷新重入的纵向位移（规范 §1 Refresh on Back：TranslationY +12dp → 0dp）。
+const double _refreshSlideDp = 12;
+
+/// 返回刷新的交错步长 25ms（规范 §1：前 4 项每项依次延迟 +25ms）。
+///
+/// 与 app_animations.dart 的 [StaggeredListAppear] 不同：共享工具是首屏加载
+/// 语义（前 6 项 × 30ms、+16dp），这里是返回刷新语义（前 4 项 × 25ms、+12dp），
+/// 数值由规范 §1 单独给定，故在本页局部实现而不复用共享工具。
+/// 25ms 不属于 7 级时长阶梯，用微秒书写，避免写死零散毫秒 Duration。
+const Duration _refreshStaggerStep = Duration(microseconds: 25000);
+
+/// 参与返回刷新交错的前 N 项（规范 §1：前 4 项）。
+const int _refreshStaggeredItemCount = 4;
+
+/// 返回刷新时更新模块单项的重入动画（规范 §1 Refresh on Back）。
+///
+/// Alpha 0 → 1、TranslationY +12dp → 0，[AppDurations.l]（250ms）+
+/// [AppDurations.enter]（decelerate）；前 4 项按 index × 25ms 依次延迟，
+/// 第 5 项起无延迟。只在挂载时播放一次，由外层的 epoch key 决定何时重放。
+/// 减少动效开启时直接落到终态，不做位移与延迟。
+class _RefreshReenter extends StatefulWidget {
+  const _RefreshReenter({super.key, required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  State<_RefreshReenter> createState() => _RefreshReenterState();
+}
+
+class _RefreshReenterState extends State<_RefreshReenter>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final CurvedAnimation _animation;
+  Timer? _timer;
+  bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: AppDurations.l);
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: AppDurations.enter,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (MediaQuery.of(context).disableAnimations) {
+      _controller.value = 1.0;
+      return;
+    }
+    final int index = widget.index;
+    final Duration delay = index <= 0 || index >= _refreshStaggeredItemCount
+        ? Duration.zero
+        : _refreshStaggerStep * index;
+    if (delay == Duration.zero) {
+      _controller.forward();
+    } else {
+      _timer = Timer(delay, () {
+        if (mounted) _controller.forward();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _animation.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      child: widget.child,
+      builder: (context, child) {
+        final double remain = 1.0 - _animation.value;
+        return Transform.translate(
+          offset: Offset(0, _refreshSlideDp * remain),
+          child: FadeTransition(opacity: _animation, child: child!),
+        );
+      },
     );
   }
 }

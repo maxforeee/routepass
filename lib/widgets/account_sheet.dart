@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../core/app_animations.dart';
 import '../core/app_snackbar.dart';
 import '../core/config.dart';
 import '../core/kv_store.dart';
@@ -22,7 +23,7 @@ import '../router/app_router.dart';
 
 /// 从任何页面打开 G-03。调用方只传 context 即可。
 Future<void> showAccountSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showAppSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
@@ -77,7 +78,7 @@ class _AccountSheetState extends State<AccountSheet> {
   Future<void> _showDevices() async {
     final devices = await ServiceLocator.authService.getDevices();
     if (!mounted) return;
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -108,7 +109,7 @@ class _AccountSheetState extends State<AccountSheet> {
   Future<void> _showRecoveryCode() async {
     final hint = await ServiceLocator.authService.getRecoveryCodeHint();
     if (!mounted) return;
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -126,7 +127,7 @@ class _AccountSheetState extends State<AccountSheet> {
   }
 
   Future<void> _confirmClearLocalData() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(

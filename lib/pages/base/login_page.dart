@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/app_animations.dart';
 import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
@@ -279,7 +280,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   Future<void> _showRestoreCode(String code) async {
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
@@ -353,6 +354,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     Iterable<String>? autofillHints,
   }) {
     // 聚焦即隐藏占位符（Flutter 默认聚焦仍显示 hint，这里必须覆盖）。
+    // 规范 §6 标签上浮：本输入用 hint 而非 label，无标签可浮；TextField 自带
+    // 的标签浮动（SDK 固定 167ms）无 token 绑定入口，按规范说明不重建 TextField。
     final decoration = InputDecoration(
       hintText: focusNode.hasFocus ? null : hint,
       hintStyle: _pillTextStyle(textColor),
@@ -371,20 +374,45 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       errorBorder: _pillBorder,
       focusedErrorBorder: _pillBorder,
     );
+    // 规范 §6：报错时输入框抖动；错误文案走 InputDecoration.errorText（校验
+    // 结果对外暴露在同一处，不再另挂一份 AnimatedErrorText 造成重复显示）；获焦
+    // 指示线叠在胶囊底边直线段内（左右各让开半高的圆角），不改变输入框尺寸。
     return SizedBox(
       width: width,
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
-        textInputAction: textInputAction,
-        onSubmitted: onSubmitted,
-        autofillHints: autofillHints,
-        textAlign: TextAlign.center,
-        textAlignVertical: TextAlignVertical.center,
-        style: _pillTextStyle(textColor),
-        decoration: decoration,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ErrorShake(
+            hasError: errorText != null,
+            child: Stack(
+              children: [
+                TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  obscureText: obscureText,
+                  keyboardType: keyboardType,
+                  textInputAction: textInputAction,
+                  onSubmitted: onSubmitted,
+                  autofillHints: autofillHints,
+                  textAlign: TextAlign.center,
+                  textAlignVertical: TextAlignVertical.center,
+                  style: _pillTextStyle(textColor),
+                  decoration: decoration,
+                ),
+                Positioned(
+                  left: _pillHeight / 2,
+                  right: _pillHeight / 2,
+                  bottom: 0,
+                  child: FocusIndicator(
+                    focused: focusNode.hasFocus,
+                    color: textColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -596,25 +624,31 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   SizedBox(
                     width: pillWidth / 2,
                     height: _pillHeight,
-                    child: FilledButton(
-                      onPressed: _submitting ? null : _submit,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: pillColor,
-                        foregroundColor: textColor,
-                        shape: const StadiumBorder(),
-                        padding: EdgeInsets.zero,
-                        textStyle: _pillTextStyle(textColor),
+                    // 规范 §5：按压缩到 0.97、释放回 1.0，提交中淡到 0.38 且
+                    // 点击无动画。点击仍由 FilledButton 的 onPressed 处理，
+                    // Pressable 不接管手势，避免重复触发登录。
+                    child: Pressable(
+                      enabled: !_submitting,
+                      child: FilledButton(
+                        onPressed: _submitting ? null : _submit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: pillColor,
+                          foregroundColor: textColor,
+                          shape: const StadiumBorder(),
+                          padding: EdgeInsets.zero,
+                          textStyle: _pillTextStyle(textColor),
+                        ),
+                        child: _submitting
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: textColor,
+                                ),
+                              )
+                            : const Text('login'),
                       ),
-                      child: _submitting
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: textColor,
-                              ),
-                            )
-                          : const Text('login'),
                     ),
                   ),
                 ],
