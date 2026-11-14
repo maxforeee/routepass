@@ -20,6 +20,7 @@ import '../../widgets/version_banner.dart';
 import '../bank/answer_page.dart';
 import '../bank/favorites_page.dart';
 import '../bank/module_list_page.dart';
+import '../bank/quiz_page.dart';
 import '../bank/set_detail_page.dart';
 import '../bank/stats_page.dart';
 import '../bank/wrong_page.dart';
@@ -164,6 +165,7 @@ class _AppShellState extends State<AppShell> {
     return switch (route?.settings.name) {
       AppRoutes.bankSetDetail ||
       AppRoutes.bankQuiz ||
+      AppRoutes.bankAnswer ||
       AppRoutes.bankExam ||
       AppRoutes.bankExamResult ||
       AppRoutes.knowledgePoint ||
@@ -241,6 +243,8 @@ class _AppShellState extends State<AppShell> {
         page = BankModuleListPage(key: index == 1 ? _bankKey : null);
       case AppRoutes.bankQuiz:
         page = AnswerPage(args: _routeArgs(settings));
+      case AppRoutes.bankAnswer:
+        page = QuizPage(args: _routeArgs(settings));
       case AppRoutes.bankSetDetail:
         page = SetDetailPage(args: _routeArgs(settings));
       case AppRoutes.bankExam:

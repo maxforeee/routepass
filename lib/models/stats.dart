@@ -140,3 +140,84 @@ class StatsOverview {
   @override
   String toString() => 'StatsOverview($answeredTotal, $correctRate)';
 }
+
+/// 套卷题型分布（F19，`GET /bank/sets/{setId}/overview` 的 `byType`）。
+class QuestionTypeStat {
+  const QuestionTypeStat({
+    required this.setId,
+    required this.single,
+    required this.multiple,
+  });
+
+  final String setId;
+  final int single;
+  final int multiple;
+
+  int get total => single + multiple;
+
+  factory QuestionTypeStat.fromJson(Map<String, dynamic> json) {
+    return QuestionTypeStat(
+      setId: json['setId'] as String? ?? '',
+      single: (json['single'] as num?)?.toInt() ?? 0,
+      multiple: (json['multiple'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'setId': setId,
+      'single': single,
+      'multiple': multiple,
+    };
+  }
+
+  @override
+  String toString() => 'QuestionTypeStat($setId, $single/$multiple)';
+}
+
+/// 套卷概览（F19，`GET /bank/sets/{setId}/overview`）。
+///
+/// 后端尚未就绪时仓储返回 null，前置页显示“题型待接口 / 完成情况待接口”，
+/// 绝不按比例推算或写 0。
+class BankSetOverview {
+  const BankSetOverview({
+    required this.setId,
+    required this.total,
+    required this.done,
+    required this.remaining,
+    required this.byType,
+  });
+
+  final String setId;
+  final int total;
+  final int done;
+  final int remaining;
+  final QuestionTypeStat byType;
+
+  factory BankSetOverview.fromJson(Map<String, dynamic> json) {
+    final typeJson = json['byType'] as Map<String, dynamic>? ?? const {};
+    return BankSetOverview(
+      setId: json['setId'] as String? ?? '',
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      done: (json['done'] as num?)?.toInt() ?? 0,
+      remaining: (json['remaining'] as num?)?.toInt() ?? 0,
+      byType: QuestionTypeStat.fromJson(<String, dynamic>{
+        'setId': json['setId'],
+        ...typeJson,
+      }),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'setId': setId,
+      'total': total,
+      'done': done,
+      'remaining': remaining,
+      'byType': byType.toJson(),
+    };
+  }
+
+  @override
+  String toString() => 'BankSetOverview($setId, $done/$total)';
+}

@@ -8,6 +8,7 @@ import 'package:routepass/models/practice.dart';
 import 'package:routepass/pages/bank/answer_page.dart';
 import 'package:routepass/pages/bank/favorites_page.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
+import 'package:routepass/pages/bank/quiz_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
 import 'package:routepass/pages/bank/stats_page.dart';
 import 'package:routepass/pages/bank/wrong_page.dart';
@@ -102,20 +103,14 @@ void main() {
     expect(find.byType(SetDetailPage), findsOneWidget);
     expect(find.byType(CapsuleNavBar), findsNothing);
 
-    // 钉住的“开始答题”没有被导航遮挡，直接可点。
-    await tester.tap(find.widgetWithText(FilledButton, '开始答题'));
+    // 钉住的“开始练习”没有被导航遮挡，直接可点。
+    await tester.tap(find.widgetWithText(FilledButton, '开始练习'));
     await tester.pumpAndSettle();
-    expect(find.byType(AnswerPage), findsOneWidget);
+    expect(find.byType(QuizPage), findsOneWidget);
     expect(find.byType(CapsuleNavBar), findsNothing);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byIcon(Icons.arrow_back),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '退出并保留进度'));
+    // 未作答直接返回：QuizPage 的返回箭头不弹确认。
+    await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
     expect(find.byType(SetDetailPage), findsOneWidget);
     expect(find.byType(CapsuleNavBar), findsNothing);

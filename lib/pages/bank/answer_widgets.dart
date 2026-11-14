@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
 
@@ -17,8 +18,11 @@ String questionTypeLabel(String type) {
   };
 }
 
+/// 选项行状态（F19）：判分后着色；旧调用点不传，默认 idle。
+enum OptionTileState { idle, selected, correct, wrong }
+
 /// 选项行（A-10）：min 高 56，左字母圆标 28，选中 primaryContainer + primary 描边。
-/// 多选显示 checkbox 图标。Mock 下 correct 恒为 null，提交后不做 ✓/✗ 着色。
+/// 多选显示 checkbox 图标。F19 起支持判分配色：正确项浅绿 / 错误项浅红。
 class OptionTile extends StatelessWidget {
   const OptionTile({
     super.key,
@@ -26,16 +30,58 @@ class OptionTile extends StatelessWidget {
     required this.selected,
     required this.multiple,
     required this.onTap,
+    this.state = OptionTileState.idle,
   });
 
   final QuestionOption option;
   final bool selected;
   final bool multiple;
   final VoidCallback onTap;
+  final OptionTileState state;
+
+  bool get _highlighted =>
+      state == OptionTileState.selected ||
+      state == OptionTileState.correct ||
+      state == OptionTileState.wrong ||
+      selected;
+
+  Color _background(BuildContext context) {
+    final theme = Theme.of(context);
+    return switch (state) {
+      OptionTileState.correct => AppColors.dailyCorrectBackground(context),
+      OptionTileState.wrong => AppColors.wrongIconBackground(context),
+      OptionTileState.selected => theme.colorScheme.primaryContainer,
+      OptionTileState.idle =>
+        selected
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.surfaceContainerHighest,
+    };
+  }
+
+  Color _border(BuildContext context) {
+    final theme = Theme.of(context);
+    return switch (state) {
+      OptionTileState.correct => AppColors.success(context),
+      OptionTileState.wrong => AppColors.wrongIconForeground(context),
+      OptionTileState.selected => theme.colorScheme.primary,
+      OptionTileState.idle =>
+        selected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
+    };
+  }
+
+  Color? _letterBackground(BuildContext context) {
+    return switch (state) {
+      OptionTileState.correct => AppColors.success(context),
+      OptionTileState.wrong => AppColors.wrongIconForeground(context),
+      _ => null,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final letterBg = _letterBackground(context);
+    final highlighted = _highlighted;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -45,14 +91,8 @@ class OptionTile extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 56),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: selected
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.surfaceContainerHighest,
-            border: Border.all(
-              color: selected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outlineVariant,
-            ),
+            color: _background(context),
+            border: Border.all(color: _border(context)),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -63,17 +103,21 @@ class OptionTile extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: selected
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.surface,
+                  color:
+                      letterBg ??
+                      (highlighted
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.surface),
                   border: Border.all(color: theme.colorScheme.outline),
                 ),
                 child: Text(
                   option.key,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: selected
+                    color: letterBg != null
                         ? theme.colorScheme.onPrimary
-                        : theme.colorScheme.onSurface,
+                        : (highlighted
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.onSurface),
                   ),
                 ),
               ),
@@ -84,7 +128,7 @@ class OptionTile extends StatelessWidget {
               if (multiple)
                 Icon(
                   selected ? Icons.check_box : Icons.check_box_outline_blank,
-                  color: selected
+                  color: highlighted
                       ? theme.colorScheme.primary
                       : theme.colorScheme.onSurfaceVariant,
                 ),

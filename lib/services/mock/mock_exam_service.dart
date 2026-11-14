@@ -9,7 +9,7 @@ import 'sample_data.dart';
 
 class MockExamService implements ExamService {
   @override
-  Future<ExamSession> startExam({required int drawCount}) async {
+  Future<ExamSession> startExam({required int drawCount, String? setId}) async {
     final questions = await SampleData.loadSampleQuestions();
     final picked = questions.length > drawCount
         ? questions.sublist(0, drawCount)
@@ -31,6 +31,14 @@ class MockExamService implements ExamService {
           .toList(),
     );
   }
+
+  @override
+  Future<void> saveAnswer({
+    required String examId,
+    required String questionId,
+    required List<String> chosen,
+    required String opId,
+  }) async {}
 
   @override
   Future<ExamResult?> submitExam({

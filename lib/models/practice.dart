@@ -177,12 +177,33 @@ class ContinueSession {
   String toString() => 'ContinueSession($mode, $answeredCount/$totalCount)';
 }
 
+/// 练习抽题结果（F19，`GET /practice/next`）：题目 + 服务端会话 id。
+class PracticeNext {
+  const PracticeNext({
+    required this.question,
+    required this.sessionId,
+    this.doneCount = 0,
+  });
+
+  final Question question;
+  final String sessionId;
+  final int doneCount;
+
+  @override
+  String toString() => 'PracticeNext(${question.id}, session: $sessionId)';
+}
+
 /// 单题作答结果（§4.4.2 `PracticeService.submitAnswer` 返回）。
 ///
 /// 接后端后为 `{correct: bool, explanation: String}`；**Mock 阶段
 /// `correct` 为 `null`（不判对错），解析卡显示“样例数据，解析待后端接入”**。
 class AnswerResult {
-  const AnswerResult({required this.correct, required this.explanation});
+  const AnswerResult({
+    required this.correct,
+    required this.explanation,
+    this.correctKeys,
+    this.opId,
+  });
 
   /// 是否答对；Mock 恒为 `null`。
   final bool? correct;
@@ -190,15 +211,30 @@ class AnswerResult {
   /// 解析文本；未接后端时显示占位文案，不许编造解析内容。
   final String explanation;
 
+  /// F19：服务端判分返回的正确答案 key 列表（可空，旧 JSON 仍可解析）。
+  final List<String>? correctKeys;
+
+  /// F19：本次提交的幂等键（可空，旧 JSON 仍可解析）。
+  final String? opId;
+
   factory AnswerResult.fromJson(Map<String, dynamic> json) {
     return AnswerResult(
       correct: json['correct'] as bool?,
-      explanation: json['explanation'] as String,
+      explanation: json['explanation'] as String? ?? '',
+      correctKeys:
+          (json['answer'] as List<dynamic>?)?.cast<String>() ??
+          (json['correctKeys'] as List<dynamic>?)?.cast<String>(),
+      opId: json['opId'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return <String, dynamic>{'correct': correct, 'explanation': explanation};
+    return <String, dynamic>{
+      'correct': correct,
+      'explanation': explanation,
+      'correctKeys': correctKeys,
+      'opId': opId,
+    };
   }
 
   @override

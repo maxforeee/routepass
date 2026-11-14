@@ -12,7 +12,16 @@ abstract class ExamService {
   /// Mock：本地用样例题组卷，examId 为本地生成的 "MOCK-EXAM-10" 样式编号；
   /// 返回的题目不含答案（answer 为 []），与以后行为一致。
   /// 以后：POST /exam/start，返回 100 题（不含答案）+ 服务端生成的 examId 与快照。
-  Future<ExamSession> startExam({required int drawCount});
+  Future<ExamSession> startExam({required int drawCount, String? setId});
+
+  /// F19：考试逐题暂存（`PUT /exam/{examId}/answers`，不判分）。
+  /// 接口未就绪时静默失败，本地进行态快照保证续考。
+  Future<void> saveAnswer({
+    required String examId,
+    required String questionId,
+    required List<String> chosen,
+    required String opId,
+  }) async {}
 
   /// 交卷。调用时机：交卷 dialog 点“确认交卷”时。
   /// Mock：本地按空答案计分——score 一律返回 null，页面显示“样例考试，不计分”。

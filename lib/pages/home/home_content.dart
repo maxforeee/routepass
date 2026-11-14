@@ -1,6 +1,11 @@
 /// 首页 tab 内容（问候区 + 每日一练 + 错题本/收藏方块 + 同步提示条）。
 library;
 
+/// F19：画笔已搬到 `widgets/daily_card_border_painter.dart`，这里 re-export
+/// 保持旧 import 路径可用（home_test 等直接引用本文件）。
+export '../../widgets/daily_card_border_painter.dart'
+    show DailyCardBorderPainter;
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_snackbar.dart';
@@ -15,6 +20,7 @@ import '../../models/user.dart';
 import '../../models/wrong_favorite.dart';
 import '../../router/app_router.dart';
 import '../../widgets/account_sheet.dart';
+import '../../widgets/daily_card_border_painter.dart';
 import '../../widgets/user_avatar.dart';
 
 class HomeContentPage extends StatefulWidget {
@@ -843,58 +849,5 @@ class _DailyOptionStrip extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// 每日一练卡片的圆角边框：上边框在标题位置留出真实缺口（擦除，不用
-/// 背景色盖住），标题透明地坐在缺口里。
-class DailyCardBorderPainter extends CustomPainter {
-  const DailyCardBorderPainter({
-    required this.color,
-    required this.radius,
-    required this.gapStart,
-    required this.gapEnd,
-  });
-
-  final Color color;
-  final double radius;
-  final double gapStart;
-  final double gapEnd;
-
-  /// 首页三块 legend 卡片专用描边宽度。比共享的 AppSizes.borderWidth 粗一档，
-  /// 且不改动该 token，避免影响 AppCard / SetRowCard 等其他卡片。
-  static const double strokeWidth = 1.5;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(radius),
-    );
-    canvas.saveLayer(Offset.zero & size, Paint());
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..color = color,
-    );
-    // 擦掉标题覆盖段的上边框，形成 fieldset-legend 式缺口。
-    canvas.drawLine(
-      Offset(gapStart, 0),
-      Offset(gapEnd, 0),
-      Paint()
-        ..blendMode = BlendMode.clear
-        ..strokeWidth = strokeWidth * 3,
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(DailyCardBorderPainter oldDelegate) {
-    return oldDelegate.color != color ||
-        oldDelegate.radius != radius ||
-        oldDelegate.gapStart != gapStart ||
-        oldDelegate.gapEnd != gapEnd;
   }
 }

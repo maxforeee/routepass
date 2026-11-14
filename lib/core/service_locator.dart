@@ -5,6 +5,8 @@
 /// 现在装配的全部是 Mock / 本地实现（见 main.dart）。
 library;
 
+import '../services/bank/answer_record_service.dart';
+import '../services/bank/answer_session_service.dart';
 import '../services/bank/bank_manifest_service.dart';
 import '../services/bank/bank_sync_service.dart';
 import '../services/bank/daily_practice_service.dart';
@@ -32,6 +34,8 @@ class ServiceLocator {
 
   static late final QuestionRepository questionRepository;
   static late final BankManifestService bankManifestService;
+  static late final AnswerRecordService answerRecordService;
+  static late final AnswerSessionService answerSessionService;
   static late final PracticeService practiceService;
   static late final ExamService examService;
   static late final DailyPracticeService dailyPracticeService;
@@ -58,6 +62,8 @@ class ServiceLocator {
   static void init({
     required QuestionRepository questionRepository,
     required BankManifestService bankManifestService,
+    required AnswerRecordService answerRecordService,
+    required AnswerSessionService answerSessionService,
     required PracticeService practiceService,
     required ExamService examService,
     required DailyPracticeService dailyPracticeService,
@@ -78,6 +84,8 @@ class ServiceLocator {
     if (_initialized) return;
     ServiceLocator.questionRepository = questionRepository;
     ServiceLocator.bankManifestService = bankManifestService;
+    ServiceLocator.answerRecordService = answerRecordService;
+    ServiceLocator.answerSessionService = answerSessionService;
     ServiceLocator.practiceService = practiceService;
     ServiceLocator.examService = examService;
     ServiceLocator.dailyPracticeService = dailyPracticeService;

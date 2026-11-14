@@ -38,6 +38,16 @@ abstract class KvStore {
   /// 第二天重抽并覆盖。必须持久化（重启不丢），见 SharedPreferencesKvStore。
   static const String keyDailyDrawn = 'daily.drawn';
 
+  /// `answer.records`：答题记录（F19，JSON 数组，按 updatedAt 倒序）。
+  static const String keyAnswerRecords = 'answer.records';
+
+  /// `answer.target`：上次练习目标（F19，int 字符串，缺省 20）。
+  static const String keyAnswerTarget = 'answer.target';
+
+  /// 进行态 key：`answer.session.<mode>.<setId>`（练习与考试分开）。
+  static String answerSessionKey(String mode, String setId) =>
+      'answer.session.$mode.$setId';
+
   /// 读取字符串值，不存在时返回 null。
   String? getString(String key);
 

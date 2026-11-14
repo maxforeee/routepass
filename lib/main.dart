@@ -3,6 +3,8 @@ import 'package:flutter/widgets.dart';
 import 'app.dart';
 import 'core/kv_store.dart';
 import 'core/service_locator.dart';
+import 'services/bank/answer_record_service.dart';
+import 'services/bank/answer_session_service.dart';
 import 'services/bank/bank_manifest_service_http.dart';
 import 'services/bank/daily_practice_service_http.dart';
 import 'services/mock/mock_auth_service.dart';
@@ -32,6 +34,8 @@ Future<void> main() async {
   ServiceLocator.init(
     questionRepository: MockQuestionRepository(),
     bankManifestService: HttpBankManifestService(),
+    answerRecordService: KvAnswerRecordService(),
+    answerSessionService: KvAnswerSessionService(),
     practiceService: MockPracticeService(),
     examService: MockExamService(),
     dailyPracticeService: HttpDailyPracticeService(),

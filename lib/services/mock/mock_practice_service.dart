@@ -6,10 +6,12 @@ library;
 import 'dart:convert';
 
 import '../../core/kv_store.dart';
+import '../../core/modules.dart';
 import '../../core/service_locator.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
 import '../bank/practice_service.dart';
+import 'sample_data.dart';
 
 class MockPracticeService implements PracticeService {
   @override
@@ -31,9 +33,41 @@ class MockPracticeService implements PracticeService {
     required String questionId,
     required List<String> chosen,
     required int durationMs,
+    String? setId,
+    String? opId,
+    String? mode,
   }) async {
     // Mock 不判对错：correct 恒为 null，解析卡只显示占位文案，不编造解析内容。
     return AnswerResult(correct: null, explanation: '样例数据，解析待后端接入');
+  }
+
+  /// F19：从 3 道样例题里按模块 / 排除 id 抽下一题；抽尽返回 null。
+  @override
+  Future<PracticeNext?> drawNextQuestion({
+    required String setId,
+    String? module,
+    required Set<String> excludedIds,
+  }) async {
+    var questions = await SampleData.loadSampleQuestions();
+    final targetModule = module ?? setId;
+    if (kModuleOrder.contains(targetModule)) {
+      questions = questions.where((q) => q.module == targetModule).toList();
+    }
+    for (final q in questions) {
+      if (!excludedIds.contains(q.id)) {
+        return PracticeNext(
+          question: q,
+          sessionId: 'MOCK-PRACTICE-10',
+          doneCount: excludedIds.length,
+        );
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<ContinueSession?> resumeSession({required String setId}) async {
+    return null;
   }
 
   @override

@@ -107,6 +107,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         'mode': _tab == _BankTab.exam ? 'exam' : 'practice',
         'drawCount': entry.drawCount,
         'setId': entry.setId,
+        'setTitle': entry.title,
       },
     );
   }

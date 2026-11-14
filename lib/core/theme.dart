@@ -386,6 +386,21 @@ class AppSizes {
   /// 套卷详情页答题说明卡高（逻辑像素）。
   static const double setDetailInstructionsHeight = 108;
 
+  /// 套卷详情页题型标签 pill 高（逻辑像素，F19）。
+  static const double typeTagHeight = 26;
+
+  /// 答题记录卡最小高度（逻辑像素，F19）。
+  static const double recordsCardMinHeight = 200;
+
+  /// 答题记录卡单行高度（逻辑像素，F19）。
+  static const double recordsRowHeight = 56;
+
+  /// 答题记录卡最大高度系数（可视高 × 0.5，F19）。
+  static const double recordsCardMaxHeightFactor = 0.5;
+
+  /// 答题页记录卡最大高度系数（可视高 × 0.40，F19）。
+  static const double recordsCardMaxHeightFactorQuiz = 0.40;
+
   /// 工具箱页工具卡高度（逻辑像素）。
   static const double toolboxCardHeight = 104;
 

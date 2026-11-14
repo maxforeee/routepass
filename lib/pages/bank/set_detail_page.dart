@@ -13,11 +13,15 @@ import 'package:flutter/material.dart';
 import '../../core/service_locator.dart';
 import '../../core/modules.dart';
 import '../../core/theme.dart';
+import '../../models/answer_record.dart';
 import '../../models/bank_manifest.dart';
 import '../../models/stats.dart';
 import '../../router/app_router.dart';
+import '../../services/bank/answer_record_service.dart';
+import '../../services/bank/answer_session_service.dart';
 import '../../services/bank/bank_manifest_service.dart';
 import '../../services/bank/question_repo.dart';
+import '../../widgets/answer_records_card.dart';
 import '../../widgets/reserved_slot.dart';
 
 class SetDetailPage extends StatefulWidget {
@@ -26,6 +30,8 @@ class SetDetailPage extends StatefulWidget {
     required this.args,
     this.manifestService,
     this.questionRepository,
+    this.recordService,
+    this.sessionService,
   });
 
   final Map<String, Object?> args;
@@ -36,6 +42,10 @@ class SetDetailPage extends StatefulWidget {
   /// 测试可注入 Mock；生产环境不传，走 ServiceLocator 里的实现。
   final QuestionRepository? questionRepository;
 
+  /// 测试可注入；生产环境不传，走 ServiceLocator。
+  final AnswerRecordService? recordService;
+  final AnswerSessionService? sessionService;
+
   @override
   State<SetDetailPage> createState() => _SetDetailPageState();
 }
@@ -44,17 +54,19 @@ class _SetDetailPageState extends State<SetDetailPage> {
   List<ModuleStat> _modules = const <ModuleStat>[];
   List<ModuleStat> _setStats = const <ModuleStat>[];
   BankManifest? _manifest;
+  BankSetOverview? _overview;
+  List<AnswerRecord> _records = const <AnswerRecord>[];
+  AnswerRecord? _breakpoint;
+  int _practiceTarget = 20;
 
   late final BankManifestService _manifestService;
   late final QuestionRepository _questionRepository;
+  late final AnswerRecordService _recordService;
+  late final AnswerSessionService _sessionService;
 
   /// 套卷规模：路由参数 drawCount（100/200/50/10）。
   int get _drawCount =>
       widget.args['drawCount'] is int ? widget.args['drawCount'] as int : 100;
-
-  /// 单选/多选：按 3:1 拆分（与题库套卷同一 Mock 题量比例）。
-  int get _singleCount => _drawCount * 3 ~/ 4;
-  int get _multipleCount => _drawCount - _singleCount;
 
   /// 时长估算：每题 0.6 分钟，四舍五入。
   int get _minutes => (_drawCount * 0.6).round();
@@ -65,6 +77,17 @@ class _SetDetailPageState extends State<SetDetailPage> {
   /// 套卷标识（F16）：考试卷 id 或练习模块代码，供预留统计接口使用。
   String? get _setId => widget.args['setId'] as String?;
 
+  /// 套卷标题：练习 = 模块中文名；考试优先用上游传入的卷标题。
+  String get _setTitle {
+    final fromArgs = widget.args['setTitle'] as String?;
+    if (fromArgs != null && fromArgs.isNotEmpty) return fromArgs;
+    return moduleLabel(_setId ?? '');
+  }
+
+  int get _modeTarget => _isExam ? _drawCount : _practiceTarget;
+
+  int get _defaultPracticeTarget => _drawCount < 20 ? _drawCount : 20;
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +95,10 @@ class _SetDetailPageState extends State<SetDetailPage> {
         widget.manifestService ?? ServiceLocator.bankManifestService;
     _questionRepository =
         widget.questionRepository ?? ServiceLocator.questionRepository;
+    _recordService = widget.recordService ?? ServiceLocator.answerRecordService;
+    _sessionService =
+        widget.sessionService ?? ServiceLocator.answerSessionService;
+    _practiceTarget = _defaultPracticeTarget;
     _load();
   }
 
@@ -93,6 +120,79 @@ class _SetDetailPageState extends State<SetDetailPage> {
       if (!mounted) return;
       setState(() => _setStats = stats);
     } catch (_) {}
+    try {
+      final overview = await _questionRepository.getSetOverview(setId: setId);
+      if (!mounted) return;
+      setState(() => _overview = overview);
+    } catch (_) {}
+    _loadRecords(setId);
+  }
+
+  void _loadRecords(String setId) {
+    try {
+      final mode = _isExam ? 'exam' : 'practice';
+      final records = _recordService.recordsFor(setId: setId, mode: mode);
+      final breakpoint = _recordService.breakpointOf(setId: setId, mode: mode);
+      final session = _sessionService.load(setId: setId, mode: mode);
+      if (!mounted) return;
+      setState(() {
+        _records = records;
+        _breakpoint = breakpoint;
+        if (!_isExam &&
+            session != null &&
+            session.targetCount > 0 &&
+            session.answeredCount < session.targetCount) {
+          _practiceTarget = _clampTarget(session.targetCount);
+        }
+      });
+    } catch (_) {}
+  }
+
+  int _clampTarget(int value) {
+    const step = 5;
+    final max = _drawCount;
+    final min = _drawCount < step ? _drawCount : step;
+    var clamped = value.clamp(min, max).toInt();
+    if (max >= step) {
+      clamped = (clamped ~/ step) * step;
+      if (clamped < step) clamped = step;
+      if (clamped > max) clamped = max;
+    }
+    return clamped;
+  }
+
+  void _changeTarget(int delta) {
+    final next = _clampTarget(_practiceTarget + delta);
+    if (next == _practiceTarget) return;
+    setState(() => _practiceTarget = next);
+    try {
+      ServiceLocator.kvStore.setString(
+        'answer.target',
+        _practiceTarget.toString(),
+      );
+    } catch (_) {}
+  }
+
+  void _start() {
+    Navigator.of(context).pushNamed(
+      AppRoutes.bankAnswer,
+      arguments: <String, Object?>{
+        'mode': _isExam ? 'exam' : 'practice',
+        'setId': _setId,
+        'setTitle': _setTitle,
+        'drawCount': _drawCount,
+        'target': _modeTarget,
+      },
+    );
+  }
+
+  String get _startLabel {
+    final bp = _breakpoint;
+    if (bp != null && bp.isBreakpoint) {
+      final target = _isExam ? _drawCount : _practiceTarget;
+      return '${_isExam ? '继续答题' : '继续练习'} (${bp.answeredCount}/$target)';
+    }
+    return _isExam ? '开始答题' : '开始练习';
   }
 
   /// 展示模块顺序（优先题库模块接口，Mock 返回 5 个同序模块）。
@@ -135,13 +235,6 @@ class _SetDetailPageState extends State<SetDetailPage> {
     final stat = _statOf(_modules, module);
     if (stat == null || stat.total <= 0) return null;
     return (stat.answered / stat.total).clamp(0.0, 1.0);
-  }
-
-  void _start() {
-    Navigator.of(context).pushNamed(
-      AppRoutes.bankQuiz,
-      arguments: <String, Object?>{'mode': 'exam', 'drawCount': _drawCount},
-    );
   }
 
   @override
@@ -199,10 +292,21 @@ class _SetDetailPageState extends State<SetDetailPage> {
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.contentInset,
                           ),
-                          child: _MetaRow(
-                            single: _singleCount,
-                            multiple: _multipleCount,
+                          child: _MetaRow(drawCount: _drawCount),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.contentInset,
                           ),
+                          child: _TypeTagsRow(overview: _overview),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.contentInset,
+                          ),
+                          child: _DoneRow(isExam: _isExam, overview: _overview),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Padding(
@@ -252,6 +356,20 @@ class _SetDetailPageState extends State<SetDetailPage> {
                               height: AppSpacing.setDetailModuleGap,
                             ),
                         ],
+                        // F19：练习目标是本次会话参数，仅 practice 前置页显示。
+                        if (!_isExam) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.contentInset,
+                            ),
+                            child: _PracticeTargetRow(
+                              target: _practiceTarget,
+                              onMinus: () => _changeTarget(-5),
+                              onPlus: () => _changeTarget(5),
+                            ),
+                          ),
+                        ],
                         // F16：答题说明卡只在考试前置页显示。
                         if (_isExam) ...[
                           const SizedBox(height: AppSpacing.lg),
@@ -260,6 +378,21 @@ class _SetDetailPageState extends State<SetDetailPage> {
                               horizontal: AppSpacing.contentInset,
                             ),
                             child: _InstructionsCard(minutes: _minutes),
+                          ),
+                        ],
+                        // F19：答题记录卡是最后一个内容块（无套卷入口时隐藏）。
+                        if (_setId != null) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.contentInset,
+                            ),
+                            child: AnswerRecordsCard(
+                              records: _records.take(10).toList(),
+                              onContinue: _records.any((r) => r.isBreakpoint)
+                                  ? _start
+                                  : null,
+                            ),
                           ),
                         ],
                       ],
@@ -291,7 +424,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  child: const Text('开始答题'),
+                  child: Text(_startLabel),
                 ),
               ),
             ),
@@ -302,12 +435,13 @@ class _SetDetailPageState extends State<SetDetailPage> {
   }
 }
 
-/// 元信息行：左副标题，右“单选 X · 多选 Y”（13px），基线对齐。
+/// 元信息行：左副标题，右“共 N 题”（13px），基线对齐。
+/// F19：删除按 3:1 编造的单选/多选数字，题型分布改由 [_TypeTagsRow]
+/// 从 overview.byType 展示。
 class _MetaRow extends StatelessWidget {
-  const _MetaRow({required this.single, required this.multiple});
+  const _MetaRow({required this.drawCount});
 
-  final int single;
-  final int multiple;
+  final int drawCount;
 
   @override
   Widget build(BuildContext context) {
@@ -326,11 +460,147 @@ class _MetaRow extends StatelessWidget {
           ),
         ),
         Text(
-          '单选 $single · 多选 $multiple',
+          '共 $drawCount 题',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: AppFontSizes.detailStat,
             color: AppColors.cardCaption(context),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 题型标签行（F19）：真实分布来自 overview.byType；取不到时整行降级为
+/// 一个中性 pill“题型待接口”，绝不按 3:1 推算。
+class _TypeTagsRow extends StatelessWidget {
+  const _TypeTagsRow({required this.overview});
+
+  final BankSetOverview? overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final byType = overview?.byType;
+    final tags = byType == null
+        ? const <String>['题型待接口']
+        : <String>['单选 ${byType.single} 题', '多选 ${byType.multiple} 题'];
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xxs,
+      children: [
+        for (var i = 0; i < tags.length; i++)
+          _TypePill(label: tags[i], accent: byType != null && i == 0),
+      ],
+    );
+  }
+}
+
+class _TypePill extends StatelessWidget {
+  const _TypePill({required this.label, required this.accent});
+
+  final String label;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: AppSizes.typeTagHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(context),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: accent
+              ? AppColors.accent(context)
+              : AppColors.cardBorder(context),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: AppFontSizes.detailStat,
+          color: AppColors.cardCaption(context),
+        ),
+      ),
+    );
+  }
+}
+
+/// 已完成 / 剩余题数（F19）。
+/// 练习前置页按用户 2026-11-14 要求显示“已答题数：X”，考试前置页显示
+/// “已完成 X 题 · 剩余 Y 题”；取不到 overview 时显示“完成情况待接口”，
+/// 不写 0、不算假数。
+class _DoneRow extends StatelessWidget {
+  const _DoneRow({required this.isExam, required this.overview});
+
+  final bool isExam;
+  final BankSetOverview? overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final overview = this.overview;
+    final text = overview == null
+        ? '完成情况待接口'
+        : isExam
+        ? '已完成 ${overview.done} 题 · 剩余 ${overview.remaining} 题'
+        : '已答题数：${overview.done}';
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: AppFontSizes.detailStat,
+        color: AppColors.cardCaption(context),
+      ),
+    );
+  }
+}
+
+/// 本次练习目标（F19，仅 practice）：步长 5，范围 5…drawCount，默认 20。
+class _PracticeTargetRow extends StatelessWidget {
+  const _PracticeTargetRow({
+    required this.target,
+    required this.onMinus,
+    required this.onPlus,
+  });
+
+  final int target;
+  final VoidCallback onMinus;
+  final VoidCallback onPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '练习目标',
+            style: TextStyle(
+              fontSize: AppFontSizes.detailBody,
+              color: AppColors.title(context),
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: onMinus,
+          icon: const Icon(Icons.remove),
+          iconSize: AppSizes.icon,
+          visualDensity: VisualDensity.compact,
+          tooltip: '减少目标',
+        ),
+        Text(
+          '$target 题',
+          style: TextStyle(
+            fontSize: AppFontSizes.detailBody,
+            fontWeight: FontWeight.bold,
+            color: AppColors.title(context),
+          ),
+        ),
+        IconButton(
+          onPressed: onPlus,
+          icon: const Icon(Icons.add),
+          iconSize: AppSizes.icon,
+          visualDensity: VisualDensity.compact,
+          tooltip: '增加目标',
         ),
       ],
     );

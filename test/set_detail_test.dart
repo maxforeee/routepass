@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:routepass/core/kv_store.dart';
 import 'package:routepass/core/theme.dart';
+import 'package:routepass/models/answer_record.dart';
 import 'package:routepass/models/bank_manifest.dart';
 import 'package:routepass/models/stats.dart';
-import 'package:routepass/pages/bank/answer_page.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
+import 'package:routepass/pages/bank/quiz_page.dart';
 import 'package:routepass/pages/bank/set_detail_page.dart';
+import 'package:routepass/services/bank/answer_record_service.dart';
 import 'package:routepass/services/mock/mock_bank_manifest_service.dart';
 import 'package:routepass/services/mock/mock_question_repository.dart';
+import 'package:routepass/widgets/answer_records_card.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/widgets/reserved_slot.dart';
 import 'package:routepass/widgets/set_row_card.dart';
@@ -70,6 +74,20 @@ class _SetStatsRepository extends MockQuestionRepository {
   }
 }
 
+/// F19 套卷概览接口替身：后端就绪后返回真实 done/remaining 与题型分布。
+class _OverviewRepository extends MockQuestionRepository {
+  @override
+  Future<BankSetOverview?> getSetOverview({required String setId}) async {
+    return BankSetOverview(
+      setId: setId,
+      total: 650,
+      done: 120,
+      remaining: 530,
+      byType: QuestionTypeStat(setId: setId, single: 90, multiple: 30),
+    );
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   initTestServices();
@@ -85,7 +103,7 @@ void main() {
     expect(find.byType(SetDetailPage), findsOneWidget);
     expect(find.text('100 题套卷'), findsOneWidget);
     expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
-    expect(find.text('单选 75 · 多选 25'), findsOneWidget);
+    expect(find.text('共 100 题'), findsOneWidget);
 
     // 知识点考察：20px 粗体标题 + 5 个模块行。F16：题量/进度来自真实
     // 数据——默认 Mock 清单只有 H3CNE（与五模块无重叠）、Mock 进度 0/0，
@@ -116,7 +134,7 @@ void main() {
     expect(find.text('限时 60 分钟，超时自动交卷'), findsNothing);
     expect(find.text('交卷后可查看解析与得分'), findsNothing);
     expect(find.text('做错的题自动收入错题本'), findsNothing);
-    expect(find.text('开始答题'), findsOneWidget);
+    expect(find.text('开始练习'), findsOneWidget);
   });
 
   testWidgets('开始答题固定在屏幕底部且不随内容滚动', (tester) async {
@@ -165,8 +183,7 @@ void main() {
 
     await tester.tap(_navTab('题库'));
     await tester.pumpAndSettle();
-    // F10：练习卡（practiceByModule → 100 题）与考试卷一（exams → 100 题）
-    // 都进详情页点开始答题，答题页参数必须是 exam + 对应题量。
+    // F19：练习卡与考试卷一都进新的 QuizPage，练习不再按 exam 进。
     for (var i = 0; i < 2; i++) {
       if (i == 1) {
         await tester.tap(find.text('考试'));
@@ -177,25 +194,19 @@ void main() {
       await tester.pumpAndSettle();
       // F16：练习前置页无答题说明卡，考试前置页有。
       expect(find.text('答题说明'), i == 0 ? findsNothing : findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, '开始答题'));
-      await tester.pumpAndSettle();
-      final answer = tester.widget<AnswerPage>(find.byType(AnswerPage));
-      expect(answer.args['mode'], 'exam');
-      expect(answer.args['drawCount'], 100);
-      expect(find.text('第 1/3 题'), findsOneWidget);
-      // 返回是自定义控件，pageBack 找不到标准 BackButton：答题页点
-      // AppBar 的 arrow_back，弹退出确认后点“退出并保留进度”，再点
-      // 详情页的 chevron 回题库。
       await tester.tap(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byIcon(Icons.arrow_back),
-        ),
+        find.widgetWithText(FilledButton, i == 0 ? '开始练习' : '开始答题'),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '退出并保留进度'));
+      final quiz = tester.widget<QuizPage>(find.byType(QuizPage));
+      expect(quiz.args['mode'], i == 0 ? 'practice' : 'exam');
+      expect(quiz.args['drawCount'], 100);
+      expect(find.text(i == 0 ? '第 1/20 题' : '第 1/100 题'), findsOneWidget);
+      // 未作答直接返回：QuizPage 的返回箭头不弹确认，直接回详情页。
+      await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.chevron_left));
+      expect(find.byType(SetDetailPage), findsOneWidget);
+      await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
     }
   });
@@ -213,7 +224,7 @@ void main() {
 
     expect(find.text('200 题套卷'), findsOneWidget);
     expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
-    expect(find.text('单选 150 · 多选 50'), findsOneWidget);
+    expect(find.text('共 200 题'), findsOneWidget);
     // F16：模块题量不再按 drawCount 均分，缺真实数据显示“待接口”。
     expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
     expect(find.text('限时 120 分钟，超时自动交卷'), findsOneWidget);
@@ -232,7 +243,7 @@ void main() {
 
     expect(find.text('50 题套卷'), findsOneWidget);
     expect(find.text('H3CNE-RS+ 模拟套卷 · 含解析'), findsOneWidget);
-    expect(find.text('单选 37 · 多选 13'), findsOneWidget);
+    expect(find.text('共 50 题'), findsOneWidget);
     // F16：模块题量不再按 drawCount 均分，缺真实数据显示“待接口”。
     expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
     expect(find.text('限时 30 分钟，超时自动交卷'), findsOneWidget);
@@ -243,10 +254,10 @@ void main() {
     // 不许出现写死的单套数字。F16：每模块题量改由真实数据决定，不再随
     // drawCount 均分——默认 Mock 清单无重叠模块，五行恒为“待接口”。
     for (final (count, meta, minutes) in <(int, String, String)>[
-      (100, '单选 75 · 多选 25', '限时 60 分钟，超时自动交卷'),
-      (200, '单选 150 · 多选 50', '限时 120 分钟，超时自动交卷'),
-      (50, '单选 37 · 多选 13', '限时 30 分钟，超时自动交卷'),
-      (10, '单选 7 · 多选 3', '限时 6 分钟，超时自动交卷'),
+      (100, '共 100 题', '限时 60 分钟，超时自动交卷'),
+      (200, '共 200 题', '限时 120 分钟，超时自动交卷'),
+      (50, '共 50 题', '限时 30 分钟，超时自动交卷'),
+      (10, '共 10 题', '限时 6 分钟，超时自动交卷'),
     ]) {
       await tester.pumpWidget(
         MaterialApp(
@@ -288,7 +299,7 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final buttonRect = tester.getRect(
-      find.widgetWithText(FilledButton, '开始答题'),
+      find.widgetWithText(FilledButton, '开始练习'),
     );
     final screenRect = tester.getRect(find.byType(SetDetailPage));
     expect(screenRect.overlaps(buttonRect), isTrue);
@@ -316,7 +327,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final statText = tester.widget<Text>(find.text('单选 75 · 多选 25'));
+    final statText = tester.widget<Text>(find.text('共 100 题'));
     final statColor = statText.style?.color;
     expect(statColor, isNotNull);
     expect(statColor, isNot(const Color(0xFF334155)));
@@ -363,7 +374,8 @@ void main() {
       // 其余内容两种 mode 完全一致。
       expect(find.text('100 题套卷'), findsOneWidget);
       expect(find.text('知识点考察'), findsOneWidget);
-      expect(find.text('开始答题'), findsOneWidget);
+      expect(find.text('开始练习'), mode == 'exam' ? findsNothing : findsOneWidget);
+      expect(find.text('开始答题'), mode == 'exam' ? findsOneWidget : findsNothing);
     }
   });
 
@@ -484,5 +496,126 @@ void main() {
     final repo = MockQuestionRepository();
     expect(await repo.getSetModuleStats(setId: 'h3cne-2026-01'), isEmpty);
     expect(await repo.getSetModuleStats(setId: 'VLAN'), isEmpty);
+    expect(await repo.getSetOverview(setId: 'VLAN'), isNull);
+  });
+
+  testWidgets('F19 概览接口就绪：题型标签与已答题数显示真实值（练习）', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SetDetailPage(
+          args: <String, Object?>{
+            'mode': 'practice',
+            'drawCount': 100,
+            'setId': 'VLAN',
+            'setTitle': 'VLAN',
+          },
+          questionRepository: _OverviewRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('单选 90 题'), findsOneWidget);
+    expect(find.text('多选 30 题'), findsOneWidget);
+    // 用户 2026-11-14 要求：练习前置页用“已答题数：X”。
+    expect(find.text('已答题数：120'), findsOneWidget);
+    expect(find.text('练习目标'), findsOneWidget);
+    expect(find.text('20 题'), findsOneWidget);
+    expect(find.text('开始练习'), findsOneWidget);
+  });
+
+  testWidgets('F19 概览接口就绪：考试前置页显示已完成/剩余且无练习目标', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SetDetailPage(
+          args: <String, Object?>{
+            'mode': 'exam',
+            'drawCount': 100,
+            'setId': 'h3cne-2026-01',
+            'setTitle': 'A卷',
+          },
+          questionRepository: _OverviewRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('已完成 120 题 · 剩余 530 题'), findsOneWidget);
+    expect(find.text('练习目标'), findsNothing);
+    expect(find.text('开始答题'), findsOneWidget);
+  });
+
+  testWidgets('F19 概览接口未就绪：题型与完成情况显示待接口，不写 0', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SetDetailPage(
+          args: <String, Object?>{
+            'mode': 'practice',
+            'drawCount': 100,
+            'setId': 'VLAN',
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('题型待接口'), findsOneWidget);
+    expect(find.text('完成情况待接口'), findsOneWidget);
+    expect(find.textContaining('单选 0'), findsNothing);
+    expect(find.textContaining('多选 0'), findsNothing);
+  });
+
+  testWidgets('F19 答题记录卡是最后一个内容块且与前置页同宽', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(410, 890));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final kv = InMemoryKvStore();
+    final recordService = KvAnswerRecordService(kvStore: kv);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    recordService.upsert(
+      AnswerRecord(
+        id: 'rec-1',
+        setId: 'VLAN',
+        setTitle: 'VLAN',
+        mode: 'practice',
+        kind: 'completion',
+        targetCount: 20,
+        answeredCount: 20,
+        totalCount: 100,
+        correctCount: 16,
+        durationMs: 60000,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SetDetailPage(
+          args: <String, Object?>{
+            'mode': 'practice',
+            'drawCount': 100,
+            'setId': 'VLAN',
+            'setTitle': 'VLAN',
+          },
+          recordService: recordService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('答题记录'), findsOneWidget);
+    expect(find.text('已完成 · 20/20 题'), findsOneWidget);
+    expect(find.text('正确率 80%'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    final cardRect = tester.getRect(find.byType(AnswerRecordsCard));
+    final targetRect = tester.getRect(find.text('练习目标'));
+    expect(cardRect.width, closeTo(348, 1));
+    expect(cardRect.top, greaterThan(targetRect.bottom));
   });
 }

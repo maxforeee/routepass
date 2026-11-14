@@ -63,4 +63,10 @@ class MockQuestionRepository implements QuestionRepository {
   Future<List<ModuleStat>> getSetModuleStats({required String setId}) async {
     return const <ModuleStat>[];
   }
+
+  /// F19 预留接口：套卷概览未就绪，返回 null（UI 显示“待接口”）。
+  @override
+  Future<BankSetOverview?> getSetOverview({required String setId}) async {
+    return null;
+  }
 }

@@ -36,4 +36,10 @@ abstract class QuestionRepository {
   /// `[{module, total, answered, correctRate}]`（与 ModuleStat 同一契约）。
   /// 真实实现就绪前一律返回空列表，UI 显示“待接口”，不得虚构数字。
   Future<List<ModuleStat>> getSetModuleStats({required String setId});
+
+  /// 套卷概览（F19 预留接口）：`GET /bank/sets/{setId}/overview`
+  /// → `{setId, total, done, remaining, byType:{single,multiple}}`。
+  /// 后端 done/undone 与 byType 未就绪前返回 null，前置页显示
+  /// “题型待接口 / 完成情况待接口”，绝不按比例推算或写 0。
+  Future<BankSetOverview?> getSetOverview({required String setId});
 }

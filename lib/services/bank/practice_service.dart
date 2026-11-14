@@ -25,7 +25,25 @@ abstract class PracticeService {
     required String questionId,
     required List<String> chosen, // 如 ["A"] 或 ["A", "C"]
     required int durationMs,
+    String? setId,
+    String? opId,
+    String? mode,
   });
+
+  /// F19：抽下一道练习题（`GET /practice/next`）。服务端按 attempts 表
+  /// 排除 [excludedIds]；抽尽返回 null（204）。失败应抛异常，由 UI 提示，
+  /// 不回落本地题库、不编题。
+  Future<PracticeNext?> drawNextQuestion({
+    required String setId,
+    String? module,
+    required Set<String> excludedIds,
+  });
+
+  /// F19：取未完成练习会话（`GET /practice/session`）。服务端会话接口
+  /// 未就绪时返回 null，本地进行态由 `AnswerSessionService` 承担。
+  Future<ContinueSession?> resumeSession({required String setId}) async {
+    return null;
+  }
 
   /// 取未完成会话（供 H-B1 继续学习）。Mock：返回 null。
   /// 以后：本地 practice_records 查询。

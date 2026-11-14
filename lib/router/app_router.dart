@@ -20,6 +20,7 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String profileDevices = '/profile/devices';
   static const String bankQuiz = '/bank/quiz';
+  static const String bankAnswer = '/bank/answer';
   static const String bankSetDetail = '/bank/set/detail';
   static const String bankExam = '/bank/exam';
   static const String bankExamResult = '/bank/exam/result';
