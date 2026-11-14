@@ -631,5 +631,40 @@ void main() {
           .toList();
       expect(tiles[0].state, OptionTileState.selected);
     });
+
+    testWidgets('卷面无答案时复习不把已选项涂成“错”', (tester) async {
+      final exam = _FakeExamService(<Question>[
+        for (var i = 1; i <= 3; i++) _question(i, answer: const <String>[]),
+      ]);
+      await _launch(tester, examPage(exam));
+
+      await _tapOption(tester, <String>['A']);
+      await tester.tap(find.text('下一题'));
+      await tester.pumpAndSettle();
+      await _tapOption(tester, <String>['A']);
+      await tester.tap(find.text('下一题'));
+      await tester.pumpAndSettle();
+      await _tapOption(tester, <String>['A']);
+
+      await tester.tap(find.text('交卷'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '确认交卷'));
+      await tester.pumpAndSettle();
+
+      // 交卷后从结果面板进入逐题回顾。
+      await tester.tap(find.text('题干 1'));
+      await tester.pumpAndSettle();
+
+      final tiles = tester
+          .widgetList<OptionTile>(find.byType(OptionTile))
+          .toList();
+      expect(tiles[0].state, OptionTileState.selected);
+      expect(
+        tiles.map((t) => t.state),
+        isNot(contains(OptionTileState.wrong)),
+        reason: '没有答案键就不能判定任何选项错误',
+      );
+      expect(find.textContaining('正确答案：'), findsNothing);
+    });
   });
 }

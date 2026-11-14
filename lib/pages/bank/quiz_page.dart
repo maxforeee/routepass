@@ -715,6 +715,13 @@ class _QuizPageState extends State<QuizPage> {
             ? OptionTileState.selected
             : OptionTileState.idle;
       }
+      if (q.answer.isEmpty) {
+        // 卷面不含答案（考试作答接口不返回答案）：没有判分依据，就只标已选，
+        // 不把用户选项涂成“错”——与 _resultFor 的 correct: null 保持一致。
+        return chosen.contains(key)
+            ? OptionTileState.selected
+            : OptionTileState.idle;
+      }
       final correct = q.answer.contains(key);
       if (correct) return OptionTileState.correct;
       if (chosen.contains(key)) return OptionTileState.wrong;
