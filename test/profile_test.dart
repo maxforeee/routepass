@@ -303,7 +303,10 @@ void main() {
       final result = await service.syncNow();
 
       expect(result.ok, isTrue);
-      expect(result.message, startsWith('本地无数据，已从服务器拉取'));
+      // P1-1：只拉到镜像时如实说明，不能让用户以为错题 / 记录已恢复。
+      expect(result.message, contains('到同步镜像'));
+      expect(result.message, contains('应用数据待接口'));
+      expect(result.message, isNot(contains('已恢复')));
       expect(result.uploadedCount, 0);
       expect(paths, isNot(contains('/api/v1/sync/push')));
       expect(kv.getString(KvStore.keySyncCursor), '101');

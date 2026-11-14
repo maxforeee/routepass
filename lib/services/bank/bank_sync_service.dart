@@ -25,7 +25,8 @@ abstract class SyncService {
   ///
   /// 安全规则（见 tasks/f19_sync_strip.md）：
   /// 1. 先读服务端记录状态（`GET /sync/baseline` + `GET /sync/pull`）；
-  /// 2. 本地 0 条且服务端有数据 → 不上传，只拉取，并回报“已从服务器拉取 X 条”；
+  /// 2. 本地 0 条且服务端有数据 → 不上传，只拉取到本地同步镜像
+  ///    （`sync.mirror`），并如实回报“已拉取到镜像 X 条”，不谎称应用数据已恢复；
   /// 3. 两边都有数据 → 按记录 id + clientAt 逐条 last-write-wins；
   /// 4. 上传只做逐条 UPSERT，绝不整表覆盖 / 删除服务端独有记录；
   /// 5. 结果回报拉取 / 上传条数。

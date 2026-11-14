@@ -183,6 +183,9 @@ class HttpSyncService implements SyncService {
     _writeCursor(pulled.cursor);
 
     // 安全闸门：本地没有任何记录而服务端有数据时，只拉取，绝不上传。
+    // 拉取结果按 `entity|entityId` 落在 kv `sync.mirror`；本地错题 / 收藏 /
+    // 答题记录各有自己的 store，而 baseline / 增量里没有能物化成它们的字段，
+    // 所以文案只说“拉取到镜像”，不谎称应用数据已恢复。
     if (localCount == 0 && serverCount > 0) {
       final status = SyncStatus(
         pendingCount: 0,
@@ -195,7 +198,7 @@ class HttpSyncService implements SyncService {
       _writeCachedStatus(status);
       return ManualSyncResult(
         ok: true,
-        message: '本地无数据，已从服务器拉取 $pulledCount 条',
+        message: '本地无数据，已从服务器拉取 $pulledCount 条到同步镜像（应用数据待接口）',
         pulledCount: pulledCount,
         uploadedCount: 0,
         state: 'synced',
