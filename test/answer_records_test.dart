@@ -161,6 +161,33 @@ void main() {
       expect(records.single.answeredCount, 15);
     });
 
+    test('完成记录回收同 setId+mode 的旧断点', () {
+      service.upsert(_record(id: 'bp', kind: 'breakpoint', answered: 15));
+      expect(service.breakpointOf(setId: 'VLAN', mode: 'practice'), isNotNull);
+
+      service.upsert(_record(id: 'c1', kind: 'completion', answered: 20));
+
+      final records = service.recordsFor(setId: 'VLAN', mode: 'practice');
+      expect(records.length, 1);
+      expect(records.single.id, 'c1');
+      expect(records.single.kind, 'completion');
+      expect(service.breakpointOf(setId: 'VLAN', mode: 'practice'), isNull);
+    });
+
+    test('完成记录不动其它模式 / 其它套卷的断点', () {
+      service.upsert(
+        _record(id: 'bp-exam', mode: 'exam', kind: 'breakpoint', answered: 5),
+      );
+      service.upsert(
+        _record(id: 'bp-other', setId: 'OSPF', kind: 'breakpoint', answered: 5),
+      );
+
+      service.upsert(_record(id: 'c1', kind: 'completion', answered: 20));
+
+      expect(service.breakpointOf(setId: 'VLAN', mode: 'exam'), isNotNull);
+      expect(service.breakpointOf(setId: 'OSPF', mode: 'practice'), isNotNull);
+    });
+
     test('单 set 最多 20 条，超出丢最旧', () {
       for (var i = 0; i < 25; i++) {
         service.upsert(

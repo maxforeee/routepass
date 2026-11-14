@@ -384,6 +384,38 @@ void main() {
       expect(find.text('题干 16'), findsOneWidget);
     });
 
+    testWidgets('断点续答到目标后回收旧断点，记录只留一条完成', (tester) async {
+      final practice = _FakePracticeService(<Question>[
+        for (var i = 1; i <= 40; i++) _question(i),
+      ]);
+      await _launch(tester, practicePage(practice));
+
+      for (var i = 0; i < 15; i++) {
+        await _tapOption(tester, <String>['A']);
+        await _confirm(tester);
+        if (i < 14) await _next(tester);
+      }
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('退出并保留进度'));
+      await tester.pumpAndSettle();
+      expect(records.breakpointOf(setId: 'VLAN', mode: 'practice'), isNotNull);
+
+      await _launch(tester, practicePage(practice));
+      expect(find.text('第 16/20 题'), findsOneWidget);
+      for (var i = 0; i < 5; i++) {
+        await _tapOption(tester, <String>['A']);
+        await _confirm(tester);
+        if (i < 4) await _next(tester);
+      }
+
+      final list = records.recordsFor(setId: 'VLAN', mode: 'practice');
+      expect(list.length, 1, reason: '旧断点必须被完成记录回收');
+      expect(list.single.kind, 'completion');
+      expect(list.single.answeredCount, 20);
+      expect(records.breakpointOf(setId: 'VLAN', mode: 'practice'), isNull);
+    });
+
     testWidgets('提交失败不本地判分、不写记录', (tester) async {
       final practice = _FakePracticeService(<Question>[
         for (var i = 1; i <= 10; i++) _question(i),

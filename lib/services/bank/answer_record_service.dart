@@ -80,6 +80,15 @@ class KvAnswerRecordService implements AnswerRecordService {
     final records = _read();
     var incoming = record;
 
+    // 完成记录接管同一 setId+mode：本次会话已走到目标，旧断点不再成立，
+    // 否则前置页会一直显示“继续练习 (15/20)”，点进去却从 0 开始。
+    if (record.isCompletion) {
+      records.removeWhere(
+        (r) =>
+            r.isBreakpoint && r.setId == record.setId && r.mode == record.mode,
+      );
+    }
+
     // 断点：同一 setId+mode 只保留一条，复用已有 id / createdAt。
     if (record.isBreakpoint) {
       for (final existing in records) {
