@@ -140,9 +140,9 @@ void main() {
     expect(find.text('password'), findsOneWidget);
   });
 
-  // ---- F15：登录页保真度（Oswald / 标题宽度 / 胶囊尺寸 / 底部无黑带） ----
+  // ---- F15/F18：登录页保真度（Oswald / 标题宽度 / 胶囊尺寸 / 底部无黑带） ----
 
-  testWidgets('F15 title uses bundled Oswald 700 and fits 410dp with margin', (
+  testWidgets('F18 title uses bundled Oswald 700 and fits 410dp with margin', (
     tester,
   ) async {
     // 加载真实 Oswald 度量（离线打包的 TTF），宽度断言才有意义。
@@ -157,9 +157,9 @@ void main() {
     final title = tester.widget<Text>(find.text('login in / sign up'));
     expect(title.style?.fontFamily, 'Oswald');
     expect(title.style?.fontWeight, FontWeight.w700);
-    expect(title.style?.fontSize, 40);
+    expect(title.style?.fontSize, 24);
 
-    // Oswald-Bold 实测 6.956em：40px ≈ 269dp，远小于 410 - 2x24 的留白上限。
+    // Oswald-Bold 实测 6.956em：24px ≈ 167dp，远小于 410 - 2x24 的留白上限。
     final titleSize = tester.getSize(find.text('login in / sign up'));
     expect(titleSize.width, lessThanOrEqualTo(410 - 2 * 24));
 
@@ -171,24 +171,51 @@ void main() {
   });
 
   testWidgets(
-    'F15 pills are 300x56 at 410dp, login button half-width centered',
+    'F18 pills are 180x34 at 410dp, login button half-width centered',
     (tester) async {
       await _pumpLoginScene(tester);
 
       final fields = find.byType(TextField);
       final phoneRect = tester.getRect(fields.first);
       final passwordRect = tester.getRect(fields.last);
-      expect(phoneRect.width, 300);
-      expect(phoneRect.height, 56);
-      expect(passwordRect.width, 300);
-      expect(passwordRect.height, 56);
+      expect(phoneRect.width, 180);
+      expect(phoneRect.height, 34);
+      expect(passwordRect.width, 180);
+      expect(passwordRect.height, 34);
 
       final buttonRect = tester.getRect(
         find.widgetWithText(FilledButton, 'login'),
       );
       expect(buttonRect.width, passwordRect.width / 2);
-      expect(buttonRect.height, 56);
+      expect(buttonRect.height, 34);
       expect(buttonRect.center.dx, passwordRect.center.dx);
+    },
+  );
+
+  testWidgets(
+    'F18 whole login column fits the 410x915 viewport without overflow',
+    (tester) async {
+      await _pumpLoginScene(tester, brightness: Brightness.light);
+
+      expect(tester.takeException(), isNull);
+
+      // 布局列（图形 + 标题 + 两个胶囊 + 按钮）必须完整落在视口内。
+      final column = find
+          .ancestor(
+            of: find.text('login in / sign up'),
+            matching: find.byType(Column),
+          )
+          .first;
+      final columnRect = tester.getRect(column);
+      expect(columnRect.left, greaterThanOrEqualTo(0));
+      expect(columnRect.right, lessThanOrEqualTo(410));
+      expect(columnRect.top, greaterThanOrEqualTo(0));
+      expect(columnRect.bottom, lessThanOrEqualTo(915));
+
+      final buttonRect = tester.getRect(
+        find.widgetWithText(FilledButton, 'login'),
+      );
+      expect(buttonRect.bottom, lessThanOrEqualTo(915));
     },
   );
 

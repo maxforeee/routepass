@@ -49,50 +49,50 @@ const LinearGradient _bubbleInnerLight = LinearGradient(
   stops: [0.0, 0.35, 0.65, 1.0],
 );
 
-const double _graphicTop = 78;
-const double _graphicHeight = 230;
-const double _graphicToTitle = 52;
-const double _titleToPill = 64;
-const double _pillGap = 38;
-// F15：胶囊/按钮按参考比例收窄收矮（64→56 高、322→300 宽、27→24 字号）；
-// 标题 46→40：Oswald-Bold 实测 6.956em，40px ≈ 269dp，410dp 宽屏留足边距。
-const double _pillHeight = 56;
-const double _pillMaxWidth = 300;
-const double _pillWidthFactor = 0.74;
-const double _pillFontSize = 24;
-const double _titleFontSize = 40;
+// F18：F15 尺寸整体缩小——元素尺寸 x0.6，纵向间距 x0.8，
+// 让登录页比例贴近参考稿并在手机上一屏内更宽松。
+const double _graphicTop = 62;
+const double _graphicHeight = 138;
+const double _graphicToTitle = 42;
+const double _titleToPill = 51;
+const double _pillGap = 30;
+const double _pillHeight = 34;
+const double _pillMaxWidth = 180;
+const double _pillWidthFactor = 0.44;
+const double _pillFontSize = 14;
+const double _titleFontSize = 24;
 
 /// F15：离线打包的 Oswald（用户提供的 TTF，见 pubspec fonts:），标题 700 / 胶囊 600。
 const String _loginFontFamily = 'Oswald';
 
-const double _blobWidth = 235;
-const double _blobHeight = 205;
-const double _blobBumpSize = 92;
-const double _blobBumpOverhang = 30;
-const double _blobBumpTop = 52;
-const double _blobFloatRange = 14;
+const double _blobWidth = 141;
+const double _blobHeight = 123;
+const double _blobBumpSize = 55;
+const double _blobBumpOverhang = 18;
+const double _blobBumpTop = 31;
+const double _blobFloatRange = 8;
 const double _blobTilt = 1.5 * math.pi / 180;
 
-/// 参考稿 border-radius 48% 52% 46% 54% / 58% 60% 40% 42%（235x205）。
+/// 参考稿 border-radius 48% 52% 46% 54% / 58% 60% 40% 42%（按 141x123 缩放）。
 const BorderRadius _blobRadiusA = BorderRadius.only(
-  topLeft: Radius.elliptical(112.8, 118.9),
-  topRight: Radius.elliptical(122.2, 123.0),
-  bottomRight: Radius.elliptical(108.1, 82.0),
-  bottomLeft: Radius.elliptical(126.9, 86.1),
+  topLeft: Radius.elliptical(67.7, 71.3),
+  topRight: Radius.elliptical(73.3, 73.8),
+  bottomRight: Radius.elliptical(64.9, 49.2),
+  bottomLeft: Radius.elliptical(76.1, 51.7),
 );
 
-/// 形变目标 55% 45% 52% 48% / 50% 55% 45% 50%。
+/// 形变目标 55% 45% 52% 48% / 50% 55% 45% 50%（同比例缩放）。
 const BorderRadius _blobRadiusB = BorderRadius.only(
-  topLeft: Radius.elliptical(129.25, 102.5),
-  topRight: Radius.elliptical(105.75, 112.75),
-  bottomRight: Radius.elliptical(122.2, 92.25),
-  bottomLeft: Radius.elliptical(112.8, 102.5),
+  topLeft: Radius.elliptical(77.6, 61.5),
+  topRight: Radius.elliptical(63.5, 67.7),
+  bottomRight: Radius.elliptical(73.3, 55.4),
+  bottomLeft: Radius.elliptical(67.7, 61.5),
 );
 
-const double _clusterWidth = 210;
-const double _clusterHeight = 180;
-const double _clusterFloatRange = 10;
-const double _bubbleBobRange = 9;
+const double _clusterWidth = 126;
+const double _clusterHeight = 108;
+const double _clusterFloatRange = 6;
+const double _bubbleBobRange = 5;
 const double _bubbleBobPeriod = 4;
 
 class _BubbleSpec {
@@ -106,13 +106,13 @@ class _BubbleSpec {
 
 /// 深色气泡簇：直径 / 位置 / 起伏延迟均取自参考稿 b1–b7。
 const List<_BubbleSpec> _bubbleSpecs = [
-  _BubbleSpec(88, 0, 52, 0),
-  _BubbleSpec(64, 58, 8, 0.5),
-  _BubbleSpec(76, 82, 38, 1.0),
-  _BubbleSpec(58, 138, 0, 1.4),
-  _BubbleSpec(66, 142, 66, 0.8),
-  _BubbleSpec(60, 96, 104, 1.8),
-  _BubbleSpec(44, 44, 120, 2.2),
+  _BubbleSpec(53, 0, 31, 0),
+  _BubbleSpec(38, 35, 5, 0.5),
+  _BubbleSpec(46, 49, 23, 1.0),
+  _BubbleSpec(35, 83, 0, 1.4),
+  _BubbleSpec(40, 85, 40, 0.8),
+  _BubbleSpec(36, 58, 62, 1.8),
+  _BubbleSpec(26, 26, 72, 2.2),
 ];
 
 const OutlineInputBorder _pillBorder = OutlineInputBorder(
@@ -254,7 +254,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       fontFamily: _loginFontFamily,
       fontSize: _pillFontSize,
       fontWeight: FontWeight.w600,
-      letterSpacing: 0.2,
+      letterSpacing: 0.12,
       height: 1.0,
       color: color,
     );
@@ -280,12 +280,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       hintText: focusNode.hasFocus ? null : hint,
       hintStyle: _pillTextStyle(textColor),
       errorText: errorText,
-      errorStyle: TextStyle(fontSize: 12, color: errorColor),
+      errorStyle: TextStyle(fontSize: 10, color: errorColor),
       filled: true,
       fillColor: pillColor,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: 28,
+        horizontal: 17,
         vertical: (_pillHeight - _pillFontSize) / 2,
       ),
       border: _pillBorder,
@@ -326,7 +326,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           offset: Offset(0, -_blobFloatRange * float),
           child: Transform.rotate(
             angle: _blobTilt * float,
-            // F15（P1-3）：居中 235 宽的 blob 本体，凸起挂在左缘外（left: -30），
+            // F15（P1-3）：居中 blob 本体，凸起挂在左缘外（left: -18），
             // 与参考稿一致；旧实现居中 265 宽容器导致 blob 右偏 15px。
             child: SizedBox(
               width: _blobWidth,
@@ -402,8 +402,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         boxShadow: [
                           BoxShadow(
                             color: AppColors.loginBubbleShadow,
-                            offset: Offset(0, 6),
-                            blurRadius: 14,
+                            offset: Offset(0, 4),
+                            blurRadius: 8,
                           ),
                         ],
                       ),
@@ -460,7 +460,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             child: SingleChildScrollView(
               padding: EdgeInsets.only(
                 top: math.max(0.0, _graphicTop - topInset),
-                bottom: 24,
+                bottom: 19,
               ),
               child: Column(
                 children: [
@@ -480,7 +480,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         fontFamily: _loginFontFamily,
                         fontSize: _titleFontSize,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
+                        letterSpacing: -0.3,
                         height: 1.1,
                         color: textColor,
                       ),
