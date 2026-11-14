@@ -111,9 +111,10 @@ class PracticeServiceException implements Exception {
 /// S11 练习接口的 HTTP 实现。
 ///
 /// [fallback] 为接口未上线时的本地兜底（生产为 MockPracticeService：
-/// 样例题、不判分）。[tokenProvider] 在登录 / TokenStore 接好后传入，
-/// 现在没有 Token 机制，保持 null（不带 Authorization 头，靠服务端 401
-/// 走兜底）。[sessionId] 全程按不透明字符串处理（VARCHAR(40)）。
+/// 样例题、不判分）。[tokenProvider] 生产由 `main.dart` 注入
+/// `authService.cachedAccessToken`，请求带 `Authorization: Bearer` 头；
+/// 未登录时返回 null（不带头，服务端 401 时走兜底）。[sessionId] 全程按
+/// 不透明字符串处理（VARCHAR(40)）。
 class HttpPracticeService implements PracticeService {
   HttpPracticeService({
     http.Client? client,
@@ -129,7 +130,7 @@ class HttpPracticeService implements PracticeService {
   /// 接口未就绪 / 请求失败时的本地兜底（不编数据，仍走既有 Mock 行为）。
   final PracticeService? fallback;
 
-  /// 返回 access token 的回调；null 表示当前没有 Token 机制。
+  /// 返回 access token 的回调；未登录返回 null（不带 Authorization 头）。
   final String? Function()? tokenProvider;
 
   static const Duration _timeout = Duration(seconds: 10);
