@@ -35,6 +35,10 @@ abstract class AuthService {
   /// 设备列表（G-03 内“设备列表”项）。
   Future<List<Device>> getDevices();
 
+  /// 本机设备信息（个人中心“设备”区）。后端没有设备列表端点，
+  /// 这里只返回登录时上送的这台设备；未登录时也返回本机标识。
+  Future<LocalDeviceInfo?> currentDevice() async => null;
+
   /// 恢复码提示（G-03 内“恢复码”项）。
   Future<String?> getRecoveryCodeHint();
 

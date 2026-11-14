@@ -20,4 +20,18 @@ abstract class SyncService {
   /// 拉取增量。调用时机：启动时、每次下拉刷新、每次回到首页时。
   /// Mock：返回空增量。以后：GET /sync/pull（游标拉取）+ GET /content/manifest。
   Future<PullResult> pullIncremental({int? since});
+
+  /// 手动同步（“立即同步”）：两向 MERGE，绝不整表覆盖。
+  ///
+  /// 安全规则（见 tasks/f19_sync_strip.md）：
+  /// 1. 先读服务端记录状态（`GET /sync/baseline` + `GET /sync/pull`）；
+  /// 2. 本地 0 条且服务端有数据 → 不上传，只拉取，并回报“已从服务器拉取 X 条”；
+  /// 3. 两边都有数据 → 按记录 id + clientAt 逐条 last-write-wins；
+  /// 4. 上传只做逐条 UPSERT，绝不整表覆盖 / 删除服务端独有记录；
+  /// 5. 结果回报拉取 / 上传条数。
+  Future<ManualSyncResult> syncNow();
+
+  /// 上次读到的同步状态（本地缓存），未读过返回 null。
+  /// 页面先展示它，再后台刷新，断网时仍可用。
+  SyncStatus? get cachedStatus => null;
 }

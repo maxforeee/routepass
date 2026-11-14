@@ -16,6 +16,7 @@ import 'services/bank/exam_service.dart';
 import 'services/bank/local_cache_service.dart';
 import 'services/bank/practice_service.dart';
 import 'services/bank/question_bank_source.dart';
+import 'services/bank/sync_http_service.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
 import 'services/mock/mock_exam_service.dart';
@@ -27,7 +28,6 @@ import 'services/mock/mock_practice_service.dart';
 import 'services/mock/mock_question_repository.dart';
 import 'services/mock/mock_search_service.dart';
 import 'services/mock/mock_stats_service.dart';
-import 'services/mock/mock_sync_service.dart';
 import 'services/mock/mock_wrong_service.dart';
 import 'services/toolbox/ip_convert_service_impl.dart';
 import 'services/toolbox/subnet_calc_service_impl.dart';
@@ -98,7 +98,13 @@ Future<void> main() async {
     portScanService: MockPortScanService(),
     cliService: MockCliService(),
     authService: authService,
-    syncService: MockSyncService(),
+    // 同步接真实契约（pull / push / baseline）；待上传队列来自同一份
+    // SQLite 缓存，接口未上线时保留本地状态。
+    syncService: HttpSyncService(
+      client: authClient,
+      tokenProvider: cachedToken,
+      localCache: localCache,
+    ),
     contentService: MockContentService(),
   );
   runApp(const RoutePassApp());

@@ -69,6 +69,8 @@ class SyncStatus {
     required this.pendingCount,
     this.lastSyncAt,
     required this.state,
+    this.serverTime,
+    this.watermark,
   });
 
   /// 待同步操作数。
@@ -80,11 +82,19 @@ class SyncStatus {
   /// 状态：`local_only` / `synced` / `pending` / `offline`。
   final String state;
 
+  /// 服务器时间（`GET /sync/pull` 的 `serverTime`，ISO 字符串）。
+  final String? serverTime;
+
+  /// 服务端水位（`GET /sync/pull` 的 `watermark`）。
+  final int? watermark;
+
   factory SyncStatus.fromJson(Map<String, dynamic> json) {
     return SyncStatus(
-      pendingCount: json['pendingCount'] as int,
-      lastSyncAt: json['lastSyncAt'] as int?,
-      state: json['state'] as String,
+      pendingCount: (json['pendingCount'] as num?)?.toInt() ?? 0,
+      lastSyncAt: (json['lastSyncAt'] as num?)?.toInt(),
+      state: json['state'] as String? ?? 'local_only',
+      serverTime: json['serverTime'] as String?,
+      watermark: (json['watermark'] as num?)?.toInt(),
     );
   }
 
@@ -93,11 +103,168 @@ class SyncStatus {
       'pendingCount': pendingCount,
       'lastSyncAt': lastSyncAt,
       'state': state,
+      'serverTime': serverTime,
+      'watermark': watermark,
     };
   }
 
   @override
   String toString() => 'SyncStatus($state, pending: $pendingCount)';
+}
+
+/// `GET /sync/pull` 返回的一条变更（契约字段一字不差）。
+class SyncChange {
+  const SyncChange({
+    required this.txid,
+    required this.entity,
+    required this.entityId,
+    required this.op,
+    required this.data,
+    this.clientAt,
+  });
+
+  final int txid;
+  final String entity;
+  final String entityId;
+  final String op;
+  final Map<String, dynamic> data;
+  final String? clientAt;
+
+  factory SyncChange.fromJson(Map<String, dynamic> json) {
+    final rawData = json['data'];
+    return SyncChange(
+      txid: (json['txid'] as num?)?.toInt() ?? 0,
+      entity: json['entity'] as String? ?? '',
+      entityId: json['entityId'] as String? ?? '',
+      op: json['op'] as String? ?? 'upsert',
+      data: rawData is Map
+          ? rawData.cast<String, dynamic>()
+          : const <String, dynamic>{},
+      clientAt: json['clientAt'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'txid': txid,
+    'entity': entity,
+    'entityId': entityId,
+    'op': op,
+    'data': data,
+    'clientAt': clientAt,
+  };
+
+  @override
+  String toString() => 'SyncChange($entity/$entityId/$op @$txid)';
+}
+
+/// `GET /sync/pull` 的一页响应。
+class SyncPullPage {
+  const SyncPullPage({
+    required this.changes,
+    required this.nextCursor,
+    required this.watermark,
+    required this.hasMore,
+    this.serverTime,
+    required this.baselineRequired,
+  });
+
+  final List<SyncChange> changes;
+  final int nextCursor;
+  final int watermark;
+  final bool hasMore;
+  final String? serverTime;
+  final bool baselineRequired;
+
+  factory SyncPullPage.fromJson(Map<String, dynamic> json) {
+    final rawChanges = json['changes'];
+    return SyncPullPage(
+      changes: rawChanges is List
+          ? rawChanges
+                .whereType<Map>()
+                .map((e) => SyncChange.fromJson(e.cast<String, dynamic>()))
+                .toList()
+          : const <SyncChange>[],
+      nextCursor: (json['nextCursor'] as num?)?.toInt() ?? 0,
+      watermark: (json['watermark'] as num?)?.toInt() ?? 0,
+      hasMore: json['hasMore'] as bool? ?? false,
+      serverTime: json['serverTime'] as String?,
+      baselineRequired: json['baselineRequired'] as bool? ?? false,
+    );
+  }
+
+  @override
+  String toString() =>
+      'SyncPullPage(${changes.length} changes, cursor: $nextCursor)';
+}
+
+/// `GET /sync/baseline` 快照（服务端账号数据）。
+class SyncBaseline {
+  const SyncBaseline({
+    required this.source,
+    this.txidWatermark,
+    this.generatedAt,
+    required this.wrongBook,
+    required this.favorites,
+    required this.userKv,
+    required this.dailyStats,
+  });
+
+  final String source;
+  final int? txidWatermark;
+  final String? generatedAt;
+  final List<Map<String, dynamic>> wrongBook;
+  final List<Map<String, dynamic>> favorites;
+  final List<Map<String, dynamic>> userKv;
+  final List<Map<String, dynamic>> dailyStats;
+
+  int get recordCount =>
+      wrongBook.length + favorites.length + userKv.length + dailyStats.length;
+
+  factory SyncBaseline.fromJson(Map<String, dynamic> json) {
+    List<Map<String, dynamic>> listOf(Object? raw) {
+      if (raw is! List) return const <Map<String, dynamic>>[];
+      return raw
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
+    }
+
+    return SyncBaseline(
+      source: json['source'] as String? ?? '',
+      txidWatermark: (json['txidWatermark'] as num?)?.toInt(),
+      generatedAt: json['generatedAt'] as String?,
+      wrongBook: listOf(json['wrongBook']),
+      favorites: listOf(json['favorites']),
+      userKv: listOf(json['userKv']),
+      dailyStats: listOf(json['dailyStats']),
+    );
+  }
+
+  @override
+  String toString() => 'SyncBaseline($source, $recordCount records)';
+}
+
+/// 手动同步结果（“立即同步”展示用）。
+class ManualSyncResult {
+  const ManualSyncResult({
+    required this.ok,
+    required this.message,
+    this.pulledCount = 0,
+    this.uploadedCount = 0,
+    required this.state,
+  });
+
+  final bool ok;
+  final String message;
+  final int pulledCount;
+  final int uploadedCount;
+
+  /// 同步后的状态：`synced` / `pending` / `offline` / `local_only`。
+  final String state;
+
+  @override
+  String toString() =>
+      'ManualSyncResult($state, pulled: $pulledCount, uploaded: $uploadedCount)';
 }
 
 /// 推送结果。

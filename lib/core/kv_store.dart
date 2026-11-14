@@ -56,6 +56,16 @@ abstract class KvStore {
   /// 登录时作为 deviceId 上送，服务端按它做设备绑定）。
   static const String keyAuthDeviceId = 'auth.deviceId';
 
+  /// `sync.cursor`：同步拉的 txid 游标（`GET /sync/pull` 的 `nextCursor`）。
+  static const String keySyncCursor = 'sync.cursor';
+
+  /// `sync.status`：上次读到的同步状态（SyncStatus JSON），断网时先展示它。
+  static const String keySyncStatus = 'sync.status';
+
+  /// `sync.mirror`：服务端变更在本地按 `entity|entityId` 留存的镜像
+  /// （拉取结果；按 clientAt last-write-wins，不作为上传来源）。
+  static const String keySyncMirror = 'sync.mirror';
+
   /// 读取字符串值，不存在时返回 null。
   String? getString(String key);
 

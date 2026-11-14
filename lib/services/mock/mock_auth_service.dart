@@ -8,6 +8,7 @@ library;
 
 import 'dart:convert';
 
+import '../../core/config.dart';
 import '../../models/auth.dart';
 import '../../models/user.dart';
 import '../base/auth_service.dart';
@@ -80,6 +81,15 @@ class MockAuthService extends AuthService {
   Future<String?> getRecoveryCodeHint() async {
     // Mock：返回 null（显示“未设置”）。
     return null;
+  }
+
+  @override
+  Future<LocalDeviceInfo?> currentDevice() async {
+    return const LocalDeviceInfo(
+      deviceId: 'local-device',
+      deviceModel: '本机',
+      appVersion: AppConfig.version,
+    );
   }
 
   @override

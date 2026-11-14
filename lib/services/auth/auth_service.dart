@@ -160,6 +160,15 @@ class HttpAuthService extends AuthService {
   }
 
   @override
+  Future<LocalDeviceInfo?> currentDevice() async {
+    return LocalDeviceInfo(
+      deviceId: await _deviceId(),
+      deviceModel: _deviceModel ?? _defaultDeviceModel(),
+      appVersion: _appVersion,
+    );
+  }
+
+  @override
   Future<String?> getRecoveryCodeHint() async {
     // 恢复码只在注册响应里出现一次，服务端不提供回读；G-03 显示“未设置”。
     return null;

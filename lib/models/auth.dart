@@ -119,6 +119,22 @@ class AuthSession {
   }
 }
 
+/// 本机设备信息（个人中心“设备”区展示）。
+///
+/// 后端没有设备列表端点，只有登录时绑定的这一台设备；数据全部来自本机
+/// （deviceId 由登录接线生成并持久化，型号 / 版本来自 AppConfig）。
+class LocalDeviceInfo {
+  const LocalDeviceInfo({
+    required this.deviceId,
+    required this.deviceModel,
+    required this.appVersion,
+  });
+
+  final String deviceId;
+  final String deviceModel;
+  final String appVersion;
+}
+
 /// 注册结果。Mock 与登录相同的本地演示流程；recoveryCode 只在以后真实注册成功后才有值。
 class RegisterResult {
   const RegisterResult({

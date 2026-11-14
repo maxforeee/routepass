@@ -8,6 +8,9 @@ import '../bank/bank_sync_service.dart';
 
 class MockSyncService implements SyncService {
   @override
+  SyncStatus? get cachedStatus => null;
+
+  @override
   Future<SyncStatus> getSyncStatus() async {
     return SyncStatus(pendingCount: 0, lastSyncAt: null, state: 'local_only');
   }
@@ -20,5 +23,14 @@ class MockSyncService implements SyncService {
   @override
   Future<PullResult> pullIncremental({int? since}) async {
     return PullResult(pulledCount: 0);
+  }
+
+  @override
+  Future<ManualSyncResult> syncNow() async {
+    return const ManualSyncResult(
+      ok: true,
+      message: '本地模式，无需同步',
+      state: 'local_only',
+    );
   }
 }
