@@ -1,8 +1,10 @@
 /// 前置页进入的逐题答题页（F19）。
 ///
 /// practice / exam 共用同一骨架，只在判分时机上分叉：
-/// - practice：逐题抽题、点「确认作答」调 `POST /practice/submit` 即时判分；
-///   提交失败不做本地判分；达标写 completion，未达标退出写 breakpoint。
+/// - practice：逐题抽题，单选/判断点选项即判分（F22：错项红、正确项绿、
+///   下方出解析），多选选完点「确认作答」判分；判分先用题目自带答案键，
+///   `POST /practice/submit` 在后台补记录并以其结果为准，提交失败只提示、
+///   不清空已显示的结果；达标写 completion，未达标退出写 breakpoint。
 /// - exam：`POST /exam/start` 拿整卷（不含答案），作答只暂存选项、交卷统一
 ///   判分；交卷成功写 completion，未交卷退出写 breakpoint 并可恢复。
 ///
@@ -73,12 +75,17 @@ class _QuizPageState extends State<QuizPage> {
   int _answeredCount = 0;
   int _correctCount = 0;
 
+  /// 练习历史里第一道题的累计序号。练习一次只抽一道题，但抽到的题按顺序
+  /// 留在 [_questions] 里供「上一题」回看，题号不能跟着已答总数走。
+  int _practiceBaseOrdinal = 1;
+
   String _sessionId = '';
   String? _examId;
   int? _score;
   bool _reviewMode = false;
   bool _loading = true;
   bool _submitting = false;
+  bool _drawing = false;
   bool _targetReached = false;
   bool _exhausted = false;
   String? _error;
@@ -138,11 +145,11 @@ class _QuizPageState extends State<QuizPage> {
 
   bool get _isLastQuestion => _currentIndex >= _questions.length - 1;
 
-  /// 当前这道题的累计序号：判过分就是已答题数，未判分是下一题。
+  /// 当前这道题的累计序号：按它在抽题历史里的位置算，回看旧题时题号跟着
+  /// 退回，而不是停在已答总数上。
   int get _practiceOrdinal {
-    final q = _current;
-    if (q != null && _graded.containsKey(q.id)) return _answeredCount;
-    return _answeredCount + 1;
+    if (_questions.isEmpty) return _answeredCount + 1;
+    return _practiceBaseOrdinal + _currentIndex;
   }
 
   /// 达标后继续答题时序号会超过目标，分母跟着长大，题号才不会被卡在 20/20。
@@ -150,9 +157,7 @@ class _QuizPageState extends State<QuizPage> {
 
   int get _displayIndex {
     if (_isExam) return _currentIndex + 1;
-    final ordinal = _practiceOrdinal;
-    if (ordinal > _target) return ordinal;
-    return (_answeredCount + 1).clamp(1, _target).toInt();
+    return _practiceOrdinal;
   }
 
   String get _elapsedText {
@@ -198,6 +203,7 @@ class _QuizPageState extends State<QuizPage> {
     }
 
     await _openServerSession();
+    _practiceBaseOrdinal = _answeredCount + 1;
     final next = await _drawPractice();
     if (next == null) {
       _exhausted = true;
@@ -382,18 +388,41 @@ class _QuizPageState extends State<QuizPage> {
             )
             .catchError((_) {}),
       );
+      return;
     }
+    // F22：单选 / 判断点完选项立刻判分（红绿 + 解析），不再等「确认作答」。
+    // 多选要选完才知道对错，仍由「确认作答」触发。
+    if (q.type != 'multiple') unawaited(_submitPractice());
   }
 
+  /// 练习判分（F22）：先用题目自带的答案键**即时**判分并显示解析，再把作答
+  /// 提交到服务端；服务端返回的判分与解析随后覆盖本地结果。
+  ///
+  /// 提交失败只提示重试，已经显示的红绿与解析原样保留——点选项即出结果，
+  /// 不能让用户等网络。多选题仍走「确认作答」，选完才判。
   Future<void> _submitPractice() async {
     final q = _current;
-    if (q == null || _submitting) return;
+    if (q == null || _graded.containsKey(q.id)) return;
     final chosen = List<String>.from(_chosen);
     if (chosen.isEmpty) return;
-    setState(() => _submitting = true);
     final durationMs = DateTime.now()
         .difference(_questionStartedAt)
         .inMilliseconds;
+    final local = _practiceGrade(q, chosen);
+    setState(() {
+      _graded[q.id] = local;
+      _answers[q.id] = chosen;
+      if (_answeredIds.add(q.id)) {
+        _answeredCount++;
+        if (local.correct == true) _correctCount++;
+      }
+      if (_completionRecordId != null || _answeredCount >= _target) {
+        _writeCompletion();
+      }
+      if (_answeredCount == _target) _targetReached = true;
+      _refreshRecords();
+    });
+    _savePracticeSession();
     try {
       final result = await _practice.submitAnswer(
         sessionId: _sessionId,
@@ -406,32 +435,75 @@ class _QuizPageState extends State<QuizPage> {
       );
       if (!mounted) return;
       setState(() {
-        _submitting = false;
-        _graded[q.id] = result;
-        _answers[q.id] = chosen;
-        if (_answeredIds.add(q.id)) {
-          _answeredCount++;
-          if (result.correct == true) _correctCount++;
+        final merged = _practiceGrade(q, chosen, result);
+        // 服务端判分与本地答案键不一致时以服务端为准，答对数跟着校正。
+        if (merged.correct != local.correct) {
+          _correctCount += merged.correct == true ? 1 : -1;
+          if (_completionRecordId != null) _writeCompletion();
         }
-        if (_completionRecordId != null || _answeredCount >= _target) {
-          _writeCompletion();
-        }
-        if (_answeredCount == _target) _targetReached = true;
+        _graded[q.id] = merged;
         _refreshRecords();
       });
       _savePracticeSession();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _submitting = false);
       showAppSnackBar(context, '提交失败，请重试');
     }
   }
 
+  /// 练习判分结果的取值口径：服务端结果优先，缺什么用题目自带数据补什么。
+  ///
+  /// - 答案键：服务端 `correctKeys` → 题目 `answer`；两者都空就不判对错
+  ///   （`correct: null`），选项只标已选，绝不涂红（与考试 P1-4 守卫一致）。
+  /// - 解析：服务端 `explanation` → 题目 `explanation`；都空显示「解析待接口」，
+  ///   不许编造解析文本。
+  AnswerResult _practiceGrade(
+    Question q,
+    List<String> chosen, [
+    AnswerResult? remote,
+  ]) {
+    final remoteKeys = remote?.correctKeys ?? const <String>[];
+    final keys = remoteKeys.isNotEmpty ? remoteKeys : q.answer;
+    final remoteExplanation = remote?.explanation ?? '';
+    final explanation = remoteExplanation.isNotEmpty
+        ? remoteExplanation
+        : (q.explanation.isEmpty ? '解析待接口' : q.explanation);
+    return AnswerResult(
+      correct:
+          remote?.correct ?? (keys.isEmpty ? null : _sameKeys(chosen, keys)),
+      explanation: explanation,
+      correctKeys: keys.isEmpty ? null : keys,
+      opId: remote?.opId,
+    );
+  }
+
+  /// 练习「下一题」：先沿抽题历史前进，走到最新一题才抽新题。
+  ///
+  /// 抽题失败（线上 `/practice/next` 未鉴权、本地题库读写出错）只提示，
+  /// 不改状态：当前题与已判分结果原样留在屏上，绝不把页面留白。
   Future<void> _nextPractice() async {
-    if (_answeredCount >= _target || _exhausted) {
-      setState(() => _targetReached = false);
+    if (!_isLastQuestion) {
+      setState(() {
+        _currentIndex++;
+        _targetReached = false;
+      });
+      _savePracticeSession();
+      return;
     }
-    final next = await _drawPractice();
+    // 抽题期间连点「下一题」只抽一次：否则会跳过一道题，历史里留下一道
+    // 没判分的题，题号与已答数就对不上了。
+    if (_drawing) return;
+    _drawing = true;
+    PracticeNext? next;
+    try {
+      next = await _drawPractice();
+    } catch (_) {
+      if (!mounted) return;
+      showAppSnackBar(context, '抽题失败，请重试');
+      return;
+    } finally {
+      _drawing = false;
+    }
     if (!mounted) return;
     if (next == null) {
       setState(() {
@@ -442,16 +514,31 @@ class _QuizPageState extends State<QuizPage> {
       showAppSnackBar(context, '本题库已全部完成');
       return;
     }
+    final question = next.question;
     setState(() {
-      _questions = <Question>[next.question];
-      _currentIndex = 0;
+      _questions.add(question);
+      _currentIndex = _questions.length - 1;
+      _exhausted = false;
+      _targetReached = false;
       _questionStartedAt = DateTime.now();
     });
     _savePracticeSession();
   }
 
+  /// 练习「上一题」：回看已抽到的题，判分与解析由 [_graded] / [_answers]
+  /// 按题目 id 还原，不重新抽题、不重复计数。
+  void _previousPractice() {
+    if (_currentIndex == 0) return;
+    setState(() => _currentIndex--);
+    _savePracticeSession();
+  }
+
   void _continueAfterTarget() {
-    setState(() => _targetReached = false);
+    setState(() {
+      _targetReached = false;
+      // 「继续答题」语义是抽新题：先回到历史最新一题，别停在回看的旧题上。
+      _currentIndex = _questions.isEmpty ? 0 : _questions.length - 1;
+    });
     _nextPractice();
   }
 
@@ -795,10 +882,10 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   bool get _primaryEnabled {
-    if (_submitting) return false;
-    if (_isExam) return true;
+    if (_isExam) return !_submitting;
     final q = _current;
     if (q == null) return false;
+    // 已判分：「下一题」随时可点，不等后台提交返回。
     if (_graded.containsKey(q.id)) return true;
     return _chosen.isNotEmpty;
   }
@@ -1024,7 +1111,9 @@ class _QuizPageState extends State<QuizPage> {
           child: Row(
             children: [
               TextButton(
-                onPressed: _isExam && _currentIndex > 0 ? _previousExam : null,
+                onPressed: _currentIndex > 0
+                    ? (_isExam ? _previousExam : _previousPractice)
+                    : null,
                 child: const Text('上一题'),
               ),
               const SizedBox(width: AppSpacing.sm),

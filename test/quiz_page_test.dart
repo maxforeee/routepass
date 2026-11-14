@@ -242,8 +242,12 @@ Future<void> _tapOption(WidgetTester tester, List<String> keys) async {
   }
 }
 
+/// F22 起练习单选/判断「点选项即判分」，没有「确认作答」这一步；多选仍要
+/// 确认。故按钮在就点、不在就跳过——多选用例的判分断言依旧守着这一步。
 Future<void> _confirm(WidgetTester tester) async {
-  await tester.tap(find.text('确认作答'));
+  final button = find.text('确认作答');
+  if (button.evaluate().isEmpty) return;
+  await tester.tap(button);
   await tester.pumpAndSettle();
 }
 
@@ -440,18 +444,23 @@ void main() {
       expect(find.text('第 21/21 题'), findsOneWidget);
     });
 
-    testWidgets('提交失败不本地判分、不写记录', (tester) async {
+    // F22：判分在点选项时就地完成，提交只负责补记录；失败不再抹掉已显示的结果。
+    testWidgets('提交失败保留即时判分与解析，只提示重试、不写完成记录', (tester) async {
       final practice = _FakePracticeService(<Question>[
         for (var i = 1; i <= 10; i++) _question(i),
       ], failSubmit: true);
       await _launch(tester, practicePage(practice));
 
       await _tapOption(tester, <String>['A']);
-      await _confirm(tester);
+      await tester.pumpAndSettle();
 
       expect(find.text('提交失败，请重试'), findsOneWidget);
-      expect(find.text('正确答案：A'), findsNothing);
-      expect(find.text('确认作答'), findsOneWidget);
+      expect(find.text('正确答案：A'), findsOneWidget);
+      expect(find.text('下一题'), findsOneWidget);
+      final tiles = tester
+          .widgetList<OptionTile>(find.byType(OptionTile))
+          .toList();
+      expect(tiles[0].state, OptionTileState.correct);
       expect(records.recordsFor(setId: 'VLAN', mode: 'practice'), isEmpty);
     });
 
