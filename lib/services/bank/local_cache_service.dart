@@ -219,16 +219,20 @@ class SqliteBankLocalCache implements BankLocalCache {
     );
     if (rows.isEmpty) return null;
     final row = rows.first;
+    final single = (row['single_count'] as num?)?.toInt();
+    final multiple = (row['multiple_count'] as num?)?.toInt();
+    // -1 表示“服务端未提供题型分布”（S11 /practice/progress 没有该字段），
+    // 读回 null，前置页显示“题型待接口”；0/0 才是真实的空分布。
+    final hasByType =
+        single != null && multiple != null && single >= 0 && multiple >= 0;
     return BankSetOverview(
       setId: setId,
       total: (row['total'] as num?)?.toInt() ?? 0,
       done: (row['done'] as num?)?.toInt() ?? 0,
       remaining: (row['remaining'] as num?)?.toInt() ?? 0,
-      byType: QuestionTypeStat(
-        setId: setId,
-        single: (row['single_count'] as num?)?.toInt() ?? 0,
-        multiple: (row['multiple_count'] as num?)?.toInt() ?? 0,
-      ),
+      byType: hasByType
+          ? QuestionTypeStat(setId: setId, single: single, multiple: multiple)
+          : null,
     );
   }
 
@@ -243,8 +247,9 @@ class SqliteBankLocalCache implements BankLocalCache {
         overview.total,
         overview.done,
         overview.remaining,
-        overview.byType.single,
-        overview.byType.multiple,
+        // 题型分布未知时写 -1（列是 NOT NULL，且计数不会为负）。
+        overview.byType?.single ?? -1,
+        overview.byType?.multiple ?? -1,
         DateTime.now().millisecondsSinceEpoch,
       ],
     );

@@ -185,26 +185,31 @@ class BankSetOverview {
     required this.total,
     required this.done,
     required this.remaining,
-    required this.byType,
+    this.byType,
   });
 
   final String setId;
   final int total;
   final int done;
   final int remaining;
-  final QuestionTypeStat byType;
+
+  /// 题型分布；S11 `GET /practice/progress` 不提供该字段，按 null 处理，
+  /// 前置页显示“题型待接口”。绝不按比例推算，也不写 0。
+  final QuestionTypeStat? byType;
 
   factory BankSetOverview.fromJson(Map<String, dynamic> json) {
-    final typeJson = json['byType'] as Map<String, dynamic>? ?? const {};
+    final typeJson = json['byType'];
     return BankSetOverview(
       setId: json['setId'] as String? ?? '',
       total: (json['total'] as num?)?.toInt() ?? 0,
       done: (json['done'] as num?)?.toInt() ?? 0,
       remaining: (json['remaining'] as num?)?.toInt() ?? 0,
-      byType: QuestionTypeStat.fromJson(<String, dynamic>{
-        'setId': json['setId'],
-        ...typeJson,
-      }),
+      byType: typeJson is Map<String, dynamic>
+          ? QuestionTypeStat.fromJson(<String, dynamic>{
+              'setId': json['setId'],
+              ...typeJson,
+            })
+          : null,
     );
   }
 
@@ -214,7 +219,7 @@ class BankSetOverview {
       'total': total,
       'done': done,
       'remaining': remaining,
-      'byType': byType.toJson(),
+      'byType': byType?.toJson(),
     };
   }
 

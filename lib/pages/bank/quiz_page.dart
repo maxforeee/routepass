@@ -185,27 +185,70 @@ class _QuizPageState extends State<QuizPage> {
       _sessionService.clear(setId: _setId, mode: 'practice');
     }
 
+    await _openServerSession();
     final next = await _drawPractice();
     if (next == null) {
       _exhausted = true;
+      await _finishServerSession();
       _finalizeCompletion();
       return;
     }
     _sessionId = next.sessionId;
     _questions = <Question>[next.question];
     _currentIndex = 0;
+    _savePracticeSession();
+  }
+
+  /// S11 `POST /practice/sessions`：开始或续接服务端会话。
+  ///
+  /// - 服务端已有 in_progress 会话（answered_count < 20）时返回它，并按
+  ///   `GET /practice/sessions/{id}` 的 answeredQuestionIds 补全已答集合；
+  /// - 已满 20 题时服务端先把旧会话结算为 completed，再新建；
+  /// - 接口未就绪 / 401（线上尚未部署 S11）返回 null，保持本地会话，不报错。
+  Future<void> _openServerSession() async {
+    final info = await _practice.startPracticeSession(
+      module: _setId.isEmpty ? null : _setId,
+    );
+    if (info == null || info.id.isEmpty) return;
+    final previous = _sessionId;
+    _sessionId = info.id;
+    if (info.isCompleted) return;
+    final detail = await _practice.fetchPracticeSession(info.id);
+    final answered = detail?.answeredQuestionIds ?? info.answeredQuestionIds;
+    if (info.id != previous) {
+      // 服务端开了新会话（旧会话满 20 题已结算）：本地旧计数不再适用。
+      _answeredIds.clear();
+      _answeredCount = 0;
+      _correctCount = 0;
+    }
+    if (answered.isNotEmpty) {
+      _answeredIds
+        ..clear()
+        ..addAll(answered);
+    }
+    _answeredCount = max(_answeredCount, info.answeredCount);
+    _correctCount = max(_correctCount, info.correctCount);
+  }
+
+  /// S11 `POST /practice/sessions/{id}/end`：满 20 题服务端结算为 completed，
+  /// 未满保留 in_progress 断点。失败静默（本地断点记录照旧）。
+  Future<void> _finishServerSession() async {
+    if (_sessionId.isEmpty) return;
+    await _practice.endPracticeSession(_sessionId);
   }
 
   Future<PracticeNext?> _drawPractice() async {
     var next = await _practice.drawNextQuestion(
       setId: _setId,
       excludedIds: _answeredIds,
+      sessionId: _sessionId.isEmpty ? null : _sessionId,
     );
     if (next != null && _answeredIds.contains(next.question.id)) {
       // 客户端兜底：服务端返回重复题丢弃并重抽一次，仍重复则视为抽尽。
       final retry = await _practice.drawNextQuestion(
         setId: _setId,
         excludedIds: <String>{..._answeredIds, next.question.id},
+        sessionId: _sessionId.isEmpty ? null : _sessionId,
       );
       next = retry != null && !_answeredIds.contains(retry.question.id)
           ? retry
@@ -216,20 +259,39 @@ class _QuizPageState extends State<QuizPage> {
 
   Future<void> _initExam() async {
     final saved = _sessionService.load(setId: _setId, mode: 'exam');
-    if (saved != null &&
-        saved.snapshot != null &&
-        saved.snapshot!.isNotEmpty &&
-        saved.examId != null) {
-      _questions = saved.snapshot!;
-      _answers.addAll(saved.answers);
-      _answeredCount = saved.answeredCount;
-      _correctCount = saved.correctCount;
+    if (saved != null && saved.examId != null) {
       _examId = saved.examId;
-      _startedAt = DateTime.fromMillisecondsSinceEpoch(saved.startedAt);
-      _questionStartedAt = DateTime.now();
-      final index = _questions.indexWhere((q) => q.id == saved.lastQuestionId);
-      _currentIndex = index < 0 ? 0 : index;
-      return;
+      final hasLocalSnapshot =
+          saved.snapshot != null && saved.snapshot!.isNotEmpty;
+      if (!hasLocalSnapshot) {
+        // 本地卷面缺失时向服务端恢复（S11 `GET /exam/{session_id}`，
+        // 已保存选项在 `answers` 列表里）。接口未就绪返回 null。
+        final recovery = await _exam.loadExamForResume(saved.examId!);
+        if (recovery != null) {
+          _questions = recovery.questions;
+          _answers.addAll(recovery.answers);
+          _answeredCount = recovery.answers.values
+              .where((a) => a.isNotEmpty)
+              .length;
+          _startedAt = recovery.startedAt > 0
+              ? DateTime.fromMillisecondsSinceEpoch(recovery.startedAt)
+              : DateTime.now();
+          _questionStartedAt = DateTime.now();
+          return;
+        }
+      } else {
+        _questions = saved.snapshot!;
+        _answers.addAll(saved.answers);
+        _answeredCount = saved.answeredCount;
+        _correctCount = saved.correctCount;
+        _startedAt = DateTime.fromMillisecondsSinceEpoch(saved.startedAt);
+        _questionStartedAt = DateTime.now();
+        final index = _questions.indexWhere(
+          (q) => q.id == saved.lastQuestionId,
+        );
+        _currentIndex = index < 0 ? 0 : index;
+        return;
+      }
     }
 
     final session = await _exam.startExam(drawCount: _total, setId: _setId);
@@ -410,6 +472,8 @@ class _QuizPageState extends State<QuizPage> {
   void _finalizeCompletion() {
     if (_answeredCount > 0) _writeCompletion();
     _sessionService.clear(setId: _setId, mode: 'practice');
+    // S11：退出时结束会话，满 20 题由服务端结算为 completed。
+    unawaited(_finishServerSession());
     _refreshRecords();
   }
 
@@ -637,6 +701,9 @@ class _QuizPageState extends State<QuizPage> {
     if (!mounted || !exit) return;
     _writePracticeBreakpoint();
     _savePracticeSession();
+    // S11：未满 20 题退出，服务端保留 in_progress 断点会话。
+    await _finishServerSession();
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 

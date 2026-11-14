@@ -10,7 +10,9 @@ import 'services/bank/bank_manifest_service_http.dart';
 import 'services/bank/cached_practice_service.dart';
 import 'services/bank/cached_question_repository.dart';
 import 'services/bank/daily_practice_service_http.dart';
+import 'services/bank/exam_service.dart';
 import 'services/bank/local_cache_service.dart';
+import 'services/bank/practice_service.dart';
 import 'services/bank/question_bank_source.dart';
 import 'services/mock/mock_auth_service.dart';
 import 'services/mock/mock_cli_service.dart';
@@ -38,21 +40,30 @@ Future<void> main() async {
   // 只改这里的装配与 config.dart 的 baseUrl，UI 文件不动。
   // F19：SQLite 本地缓存是读取的第一层（overview 计数、练习题库、作答）。
   final localCache = SqliteBankLocalCache(SqfliteLocalDatabase());
+  // S11：练习会话 / 抽题 / 判分 / 记录 / 进度走真实契约；接口未上线
+  // （404）或未鉴权（401）时由 HttpPracticeService 内部回落到 Mock。
+  final practiceHttp = HttpPracticeService(fallback: MockPracticeService());
   ServiceLocator.init(
     questionRepository: CachedQuestionRepository(
       delegate: MockQuestionRepository(),
       cache: localCache,
-      overviewSource: HttpBankSetOverviewSource(),
+      // 前置页 done/remaining 读 S11 `GET /practice/progress`（裸数组），
+      // 考试卷 / 未匹配模块回落 `/bank/sets/{id}/overview`（当前 404）。
+      overviewSource: HttpPracticeProgressOverviewSource(
+        fallback: HttpBankSetOverviewSource(),
+      ),
     ),
     bankManifestService: HttpBankManifestService(),
-    answerRecordService: KvAnswerRecordService(),
+    answerRecordService: KvAnswerRecordService(
+      serverRecords: practiceHttp.fetchPracticeRecords,
+    ),
     answerSessionService: KvAnswerSessionService(),
     practiceService: CachedPracticeService(
-      delegate: MockPracticeService(),
+      delegate: practiceHttp,
       cache: localCache,
       bankSource: HttpBankQuestionBankSource(),
     ),
-    examService: MockExamService(),
+    examService: HttpExamService(local: MockExamService()),
     dailyPracticeService: HttpDailyPracticeService(),
     wrongService: MockWrongService(),
     favoriteService: MockFavoriteService(),

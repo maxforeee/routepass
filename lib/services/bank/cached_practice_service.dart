@@ -34,9 +34,11 @@ class CachedPracticeService implements PracticeService {
     required String setId,
     String? module,
     required Set<String> excludedIds,
+    String? sessionId,
   }) async {
     final localAnswered = await cache.answeredQuestionIds(setId);
     final excluded = <String>{...excludedIds, ...localAnswered};
+    final session = sessionId ?? await cache.sessionId(setId) ?? '';
 
     var cached = await cache.nextQuestion(
       setId: setId,
@@ -64,7 +66,6 @@ class CachedPracticeService implements PracticeService {
     }
 
     if (cached != null) {
-      final session = await cache.sessionId(setId) ?? '';
       return PracticeNext(
         question: cached,
         sessionId: session,
@@ -76,6 +77,7 @@ class CachedPracticeService implements PracticeService {
       setId: setId,
       module: module,
       excludedIds: excluded,
+      sessionId: session,
     );
     if (next != null) {
       await cache.writeQuestions(
@@ -147,6 +149,28 @@ class CachedPracticeService implements PracticeService {
     required List<Question> questions,
     required String mode,
   }) => delegate.startSession(questions: questions, mode: mode);
+
+  @override
+  Future<PracticeSessionInfo?> startPracticeSession({String? module}) =>
+      delegate.startPracticeSession(module: module);
+
+  @override
+  Future<PracticeSessionInfo?> fetchPracticeSession(String sessionId) =>
+      delegate.fetchPracticeSession(sessionId);
+
+  @override
+  Future<PracticeSessionInfo?> endPracticeSession(String sessionId) =>
+      delegate.endPracticeSession(sessionId);
+
+  @override
+  Future<List<PracticeRecordSummary>> fetchPracticeRecords({
+    int page = 1,
+    int pageSize = 20,
+  }) => delegate.fetchPracticeRecords(page: page, pageSize: pageSize);
+
+  @override
+  Future<List<PracticeModuleProgress>> fetchPracticeProgress() =>
+      delegate.fetchPracticeProgress();
 
   @override
   Future<ContinueSession?> resumeSession({required String setId}) =>

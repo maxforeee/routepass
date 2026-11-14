@@ -126,14 +126,18 @@ class _FakePracticeService implements PracticeService {
   int drawCalls = 0;
   int submitCalls = 0;
   String submittedSetId = '';
+  String submittedSessionId = '';
+  String? lastDrawSessionId;
 
   @override
   Future<PracticeNext?> drawNextQuestion({
     required String setId,
     String? module,
     required Set<String> excludedIds,
+    String? sessionId,
   }) async {
     drawCalls++;
+    lastDrawSessionId = sessionId;
     if (failDraw) throw Exception('next failed');
     for (final q in questions) {
       if (module != null && q.module != module) continue;
@@ -155,6 +159,7 @@ class _FakePracticeService implements PracticeService {
   }) async {
     submitCalls++;
     submittedSetId = setId ?? '';
+    submittedSessionId = sessionId;
     if (failSubmit) throw Exception('submit failed');
     return AnswerResult(
       correct: true,
@@ -180,6 +185,28 @@ class _FakePracticeService implements PracticeService {
 
   @override
   Future<ContinueSession?> getContinueSession() async => null;
+
+  @override
+  Future<PracticeSessionInfo?> startPracticeSession({String? module}) async =>
+      null;
+
+  @override
+  Future<PracticeSessionInfo?> fetchPracticeSession(String sessionId) async =>
+      null;
+
+  @override
+  Future<PracticeSessionInfo?> endPracticeSession(String sessionId) async =>
+      null;
+
+  @override
+  Future<List<PracticeRecordSummary>> fetchPracticeRecords({
+    int page = 1,
+    int pageSize = 20,
+  }) async => const <PracticeRecordSummary>[];
+
+  @override
+  Future<List<PracticeModuleProgress>> fetchPracticeProgress() async =>
+      const <PracticeModuleProgress>[];
 }
 
 Future<void> _flushAsync() async {
@@ -224,7 +251,7 @@ void main() {
       final value = await cached.getSetOverview(setId: 'VLAN');
       expect(value?.done, 33);
       expect(value?.remaining, 67);
-      expect(value?.byType.single, 80);
+      expect(value?.byType?.single, 80);
       expect(repo.overviewCalls, 0);
     });
 
@@ -360,6 +387,33 @@ void main() {
       expect(next?.sessionId, 'S-1');
       expect(delegate.drawCalls, 1);
       expect(await cache.hasQuestions('VLAN'), isTrue);
+    });
+
+    test('S11 sessionId：本地题库抽题沿用，回退时透传给 /practice/next', () async {
+      final cache = InMemoryBankLocalCache();
+      final delegate = _FakePracticeService(<Question>[_q('VLAN-9')]);
+      final service = CachedPracticeService(delegate: delegate, cache: cache);
+      await cache.writeQuestions(
+        setId: 'VLAN',
+        questions: <Question>[_q('VLAN-1')],
+      );
+
+      final cachedNext = await service.drawNextQuestion(
+        setId: 'VLAN',
+        excludedIds: const <String>{},
+        sessionId: 'sess-passed',
+      );
+      expect(cachedNext?.question.id, 'VLAN-1');
+      expect(cachedNext?.sessionId, 'sess-passed');
+      expect(delegate.drawCalls, 0);
+
+      final fallbackNext = await service.drawNextQuestion(
+        setId: 'OSPF',
+        excludedIds: const <String>{},
+        sessionId: 'sess-passed',
+      );
+      expect(fallbackNext?.question.id, 'VLAN-9');
+      expect(delegate.lastDrawSessionId, 'sess-passed');
     });
 
     test('本地抽尽：回退服务端；服务端也没有则返回 null（不编题）', () async {
@@ -512,8 +566,23 @@ void main() {
       final value = await cache.readOverview('VLAN');
       expect(value?.done, 42);
       expect(value?.remaining, 58);
-      expect(value?.byType.single, 80);
-      expect(value?.byType.multiple, 20);
+      expect(value?.byType?.single, 80);
+      expect(value?.byType?.multiple, 20);
+    });
+
+    test('overview 无题型分布（S11 progress）读写后 byType 仍为 null', () async {
+      await cache.writeOverview(
+        const BankSetOverview(
+          setId: 'OSPF',
+          total: 100,
+          done: 12,
+          remaining: 88,
+        ),
+      );
+      final value = await cache.readOverview('OSPF');
+      expect(value?.done, 12);
+      expect(value?.remaining, 88);
+      expect(value?.byType, isNull, reason: '不能把未知题型写成 0');
     });
 
     test('题库读取：module 过滤 + 排除已答', () async {
@@ -685,7 +754,7 @@ void main() {
       final value = await source.fetchOverview('VLAN');
       expect(value?.done, 30);
       expect(value?.remaining, 70);
-      expect(value?.byType.single, 80);
+      expect(value?.byType?.single, 80);
     });
   });
 }

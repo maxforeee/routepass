@@ -125,6 +125,11 @@ class _SetDetailPageState extends State<SetDetailPage> {
       if (!mounted) return;
       setState(() => _overview = overview);
     } catch (_) {}
+    // S11 `GET /practice/records`：在线时以服务端记录为准（完成会话 + 断点），
+    // 失败静默；本地 kv 记录照常展示。
+    try {
+      await _recordService.syncFromServer();
+    } catch (_) {}
     _loadRecords(setId);
   }
 

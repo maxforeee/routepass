@@ -193,6 +193,138 @@ class PracticeNext {
   String toString() => 'PracticeNext(${question.id}, session: $sessionId)';
 }
 
+/// S11 练习会话（`POST /practice/sessions`、`GET|POST .../{id}` 的返回）。
+///
+/// 契约字段：`{id, kind, module, status, answeredCount, correctCount, startedAt}`；
+/// `GET /practice/sessions/{id}` 另带 `answeredQuestionIds`（按作答顺序）。
+/// `sessionId` 是不透明字符串（服务端 attempts.session_id 为 VARCHAR(40)），
+/// 客户端不假设 UUID 格式。
+class PracticeSessionInfo {
+  const PracticeSessionInfo({
+    required this.id,
+    required this.module,
+    required this.status,
+    required this.answeredCount,
+    required this.correctCount,
+    required this.startedAt,
+    this.kind = 'practice',
+    this.answeredQuestionIds = const <String>[],
+  });
+
+  /// in_progress：断点可续；completed：达到 20 题后服务端已结算。
+  static const String statusInProgress = 'in_progress';
+  static const String statusCompleted = 'completed';
+
+  final String id;
+  final String kind;
+
+  /// 练习模块（如 `VLAN`）；全模块练习为空串。
+  final String module;
+
+  /// `in_progress` | `completed`。
+  final String status;
+
+  final int answeredCount;
+  final int correctCount;
+  final int startedAt;
+
+  /// 本会话已作答题 id（仅会话详情接口返回）。
+  final List<String> answeredQuestionIds;
+
+  bool get isCompleted => status == statusCompleted;
+
+  factory PracticeSessionInfo.fromJson(Map<String, dynamic> json) {
+    return PracticeSessionInfo(
+      id: json['id'] as String? ?? '',
+      kind: json['kind'] as String? ?? 'practice',
+      module: json['module'] as String? ?? '',
+      status: json['status'] as String? ?? statusInProgress,
+      answeredCount: (json['answeredCount'] as num?)?.toInt() ?? 0,
+      correctCount: (json['correctCount'] as num?)?.toInt() ?? 0,
+      startedAt: (json['startedAt'] as num?)?.toInt() ?? 0,
+      answeredQuestionIds:
+          (json['answeredQuestionIds'] as List<dynamic>?)?.cast<String>() ??
+          const <String>[],
+    );
+  }
+
+  @override
+  String toString() =>
+      'PracticeSessionInfo($id, $status, $answeredCount/$correctCount)';
+}
+
+/// S11 练习记录项（`GET /practice/records` 的 `items`）。
+///
+/// 契约字段：`{id, module, status, answeredCount, correctCount, startedAt,
+/// completedAt}`；服务端没有批量上传接口，记录由会话流程在服务端生成。
+class PracticeRecordSummary {
+  const PracticeRecordSummary({
+    required this.id,
+    required this.module,
+    required this.status,
+    required this.answeredCount,
+    required this.correctCount,
+    required this.startedAt,
+    this.completedAt,
+  });
+
+  final String id;
+  final String module;
+  final String status;
+  final int answeredCount;
+  final int correctCount;
+  final int startedAt;
+  final int? completedAt;
+
+  bool get isCompleted => status == PracticeSessionInfo.statusCompleted;
+
+  factory PracticeRecordSummary.fromJson(Map<String, dynamic> json) {
+    return PracticeRecordSummary(
+      id: json['id'] as String? ?? '',
+      module: json['module'] as String? ?? '',
+      status: json['status'] as String? ?? PracticeSessionInfo.statusInProgress,
+      answeredCount: (json['answeredCount'] as num?)?.toInt() ?? 0,
+      correctCount: (json['correctCount'] as num?)?.toInt() ?? 0,
+      startedAt: (json['startedAt'] as num?)?.toInt() ?? 0,
+      completedAt: (json['completedAt'] as num?)?.toInt(),
+    );
+  }
+
+  @override
+  String toString() => 'PracticeRecordSummary($id, $answeredCount 题)';
+}
+
+/// S11 模块进度（`GET /practice/progress` 的裸数组元素）。
+///
+/// 契约字段：`{module, total, answered, remaining}`；`answered` 为该模块
+/// 去重后的已作答题数，`total` 为该模块在用练习题数。**不含题型分布**。
+class PracticeModuleProgress {
+  const PracticeModuleProgress({
+    required this.module,
+    required this.total,
+    required this.answered,
+    required this.remaining,
+  });
+
+  final String module;
+  final int total;
+  final int answered;
+  final int remaining;
+
+  factory PracticeModuleProgress.fromJson(Map<String, dynamic> json) {
+    return PracticeModuleProgress(
+      module: json['module'] as String? ?? '',
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      answered: (json['answered'] as num?)?.toInt() ?? 0,
+      remaining: (json['remaining'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  String toString() =>
+      'PracticeModuleProgress($module, $answered/$total, 剩余 $remaining)';
+}
+
 /// 单题作答结果（§4.4.2 `PracticeService.submitAnswer` 返回）。
 ///
 /// 接后端后为 `{correct: bool, explanation: String}`；**Mock 阶段

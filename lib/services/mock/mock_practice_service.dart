@@ -42,11 +42,13 @@ class MockPracticeService implements PracticeService {
   }
 
   /// F19：从 3 道样例题里按模块 / 排除 id 抽下一题；抽尽返回 null。
+  /// [sessionId] 为服务端会话 id；Mock 忽略它（没有任何服务端会话）。
   @override
   Future<PracticeNext?> drawNextQuestion({
     required String setId,
     String? module,
     required Set<String> excludedIds,
+    String? sessionId,
   }) async {
     var questions = await SampleData.loadSampleQuestions();
     final targetModule = module ?? setId;
@@ -69,6 +71,30 @@ class MockPracticeService implements PracticeService {
   Future<ContinueSession?> resumeSession({required String setId}) async {
     return null;
   }
+
+  // S11 会话 / 记录 / 进度接口未接后端：Mock 明说“未就绪”，一律返回
+  // null / 空列表，让 UI 保留本地会话与“待接口”文案，绝不编会话或计数。
+  @override
+  Future<PracticeSessionInfo?> startPracticeSession({String? module}) async =>
+      null;
+
+  @override
+  Future<PracticeSessionInfo?> fetchPracticeSession(String sessionId) async =>
+      null;
+
+  @override
+  Future<PracticeSessionInfo?> endPracticeSession(String sessionId) async =>
+      null;
+
+  @override
+  Future<List<PracticeRecordSummary>> fetchPracticeRecords({
+    int page = 1,
+    int pageSize = 20,
+  }) async => const <PracticeRecordSummary>[];
+
+  @override
+  Future<List<PracticeModuleProgress>> fetchPracticeProgress() async =>
+      const <PracticeModuleProgress>[];
 
   @override
   Future<ContinueSession?> getContinueSession() async {

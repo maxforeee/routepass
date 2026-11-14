@@ -7,7 +7,7 @@
 /// 不许编造契约之外的字段（§4.8.9）。
 library;
 
-import 'question.dart' show QuestionOption;
+import 'question.dart' show Question, QuestionOption;
 
 /// 考试快照的单题条目（§4.8.6 `snapshot`，v3.1 D9）。
 ///
@@ -184,4 +184,34 @@ class ExamResult {
 
   @override
   String toString() => 'ExamResult(score: $score)';
+}
+
+/// 考试断点恢复（S11 `GET /api/v1/exam/{session_id}`）。
+///
+/// 服务端返回会话 + 不含答案的卷面，已保存选项在 `answers` 键下，形状是
+/// **列表** `[{questionId, chosen}]`（不是 map）。客户端按题号还原选项；
+/// 卷面题不含答案，[Question.answer] 为空数组。
+class ExamRecovery {
+  const ExamRecovery({
+    required this.id,
+    required this.questions,
+    required this.answers,
+    this.startedAt = 0,
+    this.total = 0,
+    this.lastQuestionId,
+  });
+
+  final String id;
+  final List<Question> questions;
+
+  /// question id → 已保存选项；按 `answers` 列表原样还原。
+  final Map<String, List<String>> answers;
+
+  final int startedAt;
+  final int total;
+  final String? lastQuestionId;
+
+  @override
+  String toString() =>
+      'ExamRecovery($id, ${questions.length} 题, ${answers.length} 已答)';
 }

@@ -59,4 +59,8 @@ class MockExamService implements ExamService {
   Future<List<ExamSession>> getHistory() async {
     return <ExamSession>[];
   }
+
+  /// S11 断点恢复未接后端：返回 null，沿用本地进行态快照续考。
+  @override
+  Future<ExamRecovery?> loadExamForResume(String examId) async => null;
 }

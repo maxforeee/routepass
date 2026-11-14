@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/kv_store.dart';
 import 'package:routepass/core/theme.dart';
+import 'package:routepass/models/answer_session_state.dart';
 import 'package:routepass/models/exam.dart';
 import 'package:routepass/models/practice.dart';
 import 'package:routepass/models/question.dart';
@@ -43,18 +44,25 @@ class _FakePracticeService implements PracticeService {
   final List<Question> questions;
   bool failSubmit;
   int submitCalls = 0;
+  int startSessionCalls = 0;
+  int endSessionCalls = 0;
+  PracticeSessionInfo? serverSession;
+  List<String> serverAnsweredIds = const <String>[];
+  String? lastDrawSessionId;
 
   @override
   Future<PracticeNext?> drawNextQuestion({
     required String setId,
     String? module,
     required Set<String> excludedIds,
+    String? sessionId,
   }) async {
+    lastDrawSessionId = sessionId;
     for (final q in questions) {
       if (!excludedIds.contains(q.id)) {
         return PracticeNext(
           question: q,
-          sessionId: 'S-1',
+          sessionId: sessionId ?? 'S-1',
           doneCount: excludedIds.length,
         );
       }
@@ -104,6 +112,43 @@ class _FakePracticeService implements PracticeService {
 
   @override
   Future<ContinueSession?> getContinueSession() async => null;
+
+  @override
+  Future<PracticeSessionInfo?> startPracticeSession({String? module}) async {
+    startSessionCalls++;
+    return serverSession;
+  }
+
+  @override
+  Future<PracticeSessionInfo?> fetchPracticeSession(String sessionId) async {
+    final info = serverSession;
+    if (info == null) return null;
+    return PracticeSessionInfo(
+      id: info.id,
+      module: info.module,
+      status: info.status,
+      answeredCount: info.answeredCount,
+      correctCount: info.correctCount,
+      startedAt: info.startedAt,
+      answeredQuestionIds: serverAnsweredIds,
+    );
+  }
+
+  @override
+  Future<PracticeSessionInfo?> endPracticeSession(String sessionId) async {
+    endSessionCalls++;
+    return serverSession;
+  }
+
+  @override
+  Future<List<PracticeRecordSummary>> fetchPracticeRecords({
+    int page = 1,
+    int pageSize = 20,
+  }) async => const <PracticeRecordSummary>[];
+
+  @override
+  Future<List<PracticeModuleProgress>> fetchPracticeProgress() async =>
+      const <PracticeModuleProgress>[];
 }
 
 class _FakeExamService implements ExamService {
@@ -159,6 +204,11 @@ class _FakeExamService implements ExamService {
 
   @override
   Future<List<ExamSession>> getHistory() async => <ExamSession>[];
+
+  ExamRecovery? recovery;
+
+  @override
+  Future<ExamRecovery?> loadExamForResume(String examId) async => recovery;
 }
 
 Widget _host(Widget quiz) {
@@ -348,6 +398,60 @@ void main() {
       expect(find.text('确认作答'), findsOneWidget);
       expect(records.recordsFor(setId: 'VLAN', mode: 'practice'), isEmpty);
     });
+
+    testWidgets('S11 会话：进页开/续会话，抽题与交卷带 sessionId，退出结束会话', (tester) async {
+      final practice = _FakePracticeService(<Question>[
+        for (var i = 1; i <= 10; i++) _question(i),
+      ]);
+      practice.serverSession = PracticeSessionInfo(
+        id: 'sess-abc',
+        module: 'VLAN',
+        status: PracticeSessionInfo.statusInProgress,
+        answeredCount: 0,
+        correctCount: 0,
+        startedAt: DateTime.now().millisecondsSinceEpoch,
+      );
+      await _launch(tester, practicePage(practice));
+
+      expect(practice.startSessionCalls, 1, reason: 'POST /practice/sessions');
+      expect(
+        practice.lastDrawSessionId,
+        'sess-abc',
+        reason: '/practice/next 带会话',
+      );
+
+      await _tapOption(tester, <String>['A']);
+      await _confirm(tester);
+      expect(find.text('正确答案：A'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('退出并保留进度'));
+      await tester.pumpAndSettle();
+
+      expect(practice.endSessionCalls, 1, reason: 'POST /sessions/{id}/end');
+    });
+
+    testWidgets('S11 续接：服务端 in_progress 会话的 answeredQuestionIds 恢复已答', (
+      tester,
+    ) async {
+      final practice = _FakePracticeService(<Question>[
+        for (var i = 1; i <= 10; i++) _question(i),
+      ]);
+      practice.serverSession = PracticeSessionInfo(
+        id: 'sess-resume',
+        module: 'VLAN',
+        status: PracticeSessionInfo.statusInProgress,
+        answeredCount: 2,
+        correctCount: 1,
+        startedAt: DateTime.now().millisecondsSinceEpoch,
+      );
+      practice.serverAnsweredIds = <String>['VLAN-0001', 'VLAN-0002'];
+      await _launch(tester, practicePage(practice));
+
+      expect(find.text('第 3/20 题'), findsOneWidget);
+      expect(find.text('题干 3'), findsOneWidget);
+    });
   });
 
   group('QuizPage exam', () {
@@ -374,6 +478,61 @@ void main() {
         sessionService: sessions,
       );
     }
+
+    testWidgets('S11 考试恢复：本地无卷面时用 GET /exam/{id} 的 answers 列表还原', (
+      tester,
+    ) async {
+      final questions = <Question>[for (var i = 1; i <= 3; i++) _question(i)];
+      final exam = _FakeExamService(questions);
+      exam.recovery = ExamRecovery(
+        id: 'EX-9',
+        questions: questions
+            .map(
+              (q) => Question(
+                id: q.id,
+                module: q.module,
+                type: q.type,
+                stem: q.stem,
+                options: q.options,
+                answer: const <String>[],
+                explanation: '',
+                knowledge_point_id: q.knowledge_point_id,
+                difficulty: q.difficulty,
+                set_no: q.set_no,
+                row_version: q.row_version,
+              ),
+            )
+            .toList(),
+        answers: <String, List<String>>{
+          'VLAN-0001': <String>['B'],
+        },
+        startedAt: DateTime.now().millisecondsSinceEpoch,
+        total: 3,
+      );
+      sessions.save(
+        AnswerSessionState(
+          setId: 'h3cne-2026-01',
+          setTitle: 'A卷',
+          mode: 'exam',
+          examId: 'EX-9',
+          targetCount: 3,
+          answeredCount: 0,
+          correctCount: 0,
+          answeredIds: const <String>[],
+          answers: const <String, List<String>>{},
+          startedAt: DateTime.now().millisecondsSinceEpoch,
+          updatedAt: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+
+      await _launch(tester, examPage(exam));
+
+      expect(find.text('第 1/3 题'), findsOneWidget);
+      final tiles = tester
+          .widgetList<OptionTile>(find.byType(OptionTile))
+          .toList();
+      expect(tiles[1].state, OptionTileState.selected, reason: '恢复已保存选项 B');
+    });
 
     testWidgets('作答只暂存，不判分、不显示解析；交卷写 completion', (tester) async {
       final exam = _FakeExamService(<Question>[
