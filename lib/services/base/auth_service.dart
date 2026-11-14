@@ -1,43 +1,55 @@
-/// 认证服务抽象接口（规格文档第 4 章 §4.7.1）。
+/// 认证服务抽象接口（规格文档第 4 章 §4.7.1；F19 接入真实后端）。
 ///
 /// 服务的页面：登录/注册页、G-03 AccountSheet、设置页。
-/// 现在的实现是 Mock（演示登录：点登录进首页，不发任何请求）；以后真实实现走
-/// `POST /auth/register`、`/auth/login`、`/auth/refresh`、`/auth/logout`、
-/// `GET /auth/me`、`PATCH /auth/me`、`POST /auth/password`、
-/// `POST /auth/recover`、`GET /auth/devices`。
+/// Mock 实现是本地演示登录（不发请求）；生产实现 [HttpAuthService] 走
+/// `POST /api/v1/auth/login`、`/auth/refresh`、`/auth/logout` 等真实契约。
+///
+/// Token 生命周期只由本接口管理：UI 与 HTTP 服务都不自己存 Token。
 library;
 
 import '../../models/auth.dart';
 import '../../models/user.dart';
 
 abstract class AuthService {
-  /// 当前用户。未登录返回 null。调用时机：进首页（H-04 头像态）、打开 G-03、进设置页时。
-  /// Mock：固定返回 null（未登录态）；演示登录成功后返回 {username: 'Max', nickname: 'Max'} 的本地对象。
-  /// 以后：GET /auth/me（本地 Token 有效时）。
+  /// 会话失效回调（refreshToken 也 401 时触发）。main.dart 接到登录页；
+  /// 默认 null（测试与 Mock 不需要强制跳转）。
+  void Function()? onSessionExpired;
+
+  /// 当前用户。未登录返回 null。调用时机：启动页、首页头像、G-03、设置页。
   Future<User?> getCurrentUser();
 
-  /// 演示登录。调用时机：登录页点“登录”时。
-  /// Mock：只做第 2 章 §14.6 的本地格式校验（用户名 4–20 位字母数字下划线；密码 8–32 位含字母数字），
-  /// 通过后直接进首页，不发任何网络请求。这是 M0 空壳已有的行为，保持原样。
-  /// 以后：POST /auth/login，返回双 Token（access 15 分钟 + refresh 30 天），Token 只存 TokenStore。
-  Future<LoginResult> login({
-    required String username,
-    required String password,
-  });
+  /// 登录（v1.2：登录即注册）。调用时机：登录页点“login”时。
+  /// 未知手机号由服务端创建账号并随结果下发一次性恢复码。
+  Future<LoginResult> login({required String phone, required String password});
 
-  /// 注册。Mock：与登录相同的本地演示流程。以后：POST /auth/register，注册成功发 12 词恢复码（v3.1 D17）。
+  /// 注册（保留接口；真实后端登录即注册，本方法目前只被 Mock 使用）。
   Future<RegisterResult> register({
-    required String username,
+    required String phone,
     required String password,
     required String nickname,
   });
 
-  /// 登出。Mock：清本地演示态。以后：POST /auth/logout（撤销当前设备 sid），清 Token。
+  /// 登出：撤销服务端会话 + 清本地 Token。
   Future<void> logout();
 
-  /// 设备列表（G-03 内“设备列表”项）。Mock：返回本机 1 条。以后：GET /auth/devices。
+  /// 设备列表（G-03 内“设备列表”项）。
   Future<List<Device>> getDevices();
 
-  /// 恢复码（G-03 内“恢复码”项）。Mock：返回 null（显示“未设置”）。以后：POST /auth/recover。
+  /// 恢复码提示（G-03 内“恢复码”项）。
   Future<String?> getRecoveryCodeHint();
+
+  /// 取 accessToken 供已鉴权请求使用；快过期时先自动刷新。
+  /// 未登录（或刷新被服务端拒绝）返回 null。
+  Future<String?> accessToken({bool forceRefresh = false});
+
+  /// 主动刷新一次 accessToken。成功返回 true；refreshToken 被服务端拒绝
+  /// （401）时清本地会话并触发 [onSessionExpired]，返回 false。
+  Future<bool> refreshAccessToken();
+
+  /// 同步取缓存中的 accessToken（供 HTTP 服务的 `tokenProvider` 钩子；
+  /// 不做刷新，刷新由 [AuthHttpClient] 处理）。
+  String? get cachedAccessToken;
+
+  /// 清本地会话（不调服务端）。
+  void clearSession();
 }

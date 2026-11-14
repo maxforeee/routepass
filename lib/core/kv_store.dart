@@ -48,6 +48,14 @@ abstract class KvStore {
   static String answerSessionKey(String mode, String setId) =>
       'answer.session.$mode.$setId';
 
+  /// `auth.session`：登录会话（JSON 对象，含 accessToken / refreshToken /
+  /// tokenType / accessExpiresAt / user）。登出或 refresh 失效时删除。
+  static const String keyAuthSession = 'auth.session';
+
+  /// `auth.deviceId`：设备唯一码（v1.2 设备绑定；首次启动生成后不再变化，
+  /// 登录时作为 deviceId 上送，服务端按它做设备绑定）。
+  static const String keyAuthDeviceId = 'auth.deviceId';
+
   /// 读取字符串值，不存在时返回 null。
   String? getString(String key);
 

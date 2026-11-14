@@ -159,10 +159,13 @@ class _AccountSheetState extends State<AccountSheet> {
   }
 
   Future<void> _logout() async {
+    final navigator = Navigator.of(context);
     await ServiceLocator.authService.logout();
     if (!mounted) return;
-    Navigator.of(context).pop();
     showAppSnackBar(context, '已登出');
+    navigator.pop();
+    // 登出后清空会话，直接回登录页（不保留已鉴权的壳层）。
+    navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
   }
 
   @override

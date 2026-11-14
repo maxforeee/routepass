@@ -4,6 +4,8 @@ import 'app.dart';
 import 'core/kv_store.dart';
 import 'core/local_db.dart';
 import 'core/service_locator.dart';
+import 'router/app_router.dart';
+import 'services/auth/auth_service.dart';
 import 'services/bank/answer_record_service.dart';
 import 'services/bank/answer_session_service.dart';
 import 'services/bank/bank_manifest_service_http.dart';
@@ -14,7 +16,6 @@ import 'services/bank/exam_service.dart';
 import 'services/bank/local_cache_service.dart';
 import 'services/bank/practice_service.dart';
 import 'services/bank/question_bank_source.dart';
-import 'services/mock/mock_auth_service.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
 import 'services/mock/mock_exam_service.dart';
@@ -40,9 +41,24 @@ Future<void> main() async {
   // 只改这里的装配与 config.dart 的 baseUrl，UI 文件不动。
   // F19：SQLite 本地缓存是读取的第一层（overview 计数、练习题库、作答）。
   final localCache = SqliteBankLocalCache(SqfliteLocalDatabase());
+  // F19：登录接真实后端；accessToken 只活 15 分钟，AuthHttpClient 负责
+  // 附加 Bearer、401 时刷新一次并重放。
+  final authService = HttpAuthService();
+  authService.onSessionExpired = () {
+    appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+      AppRoutes.login,
+      (route) => false,
+    );
+  };
+  final authClient = AuthHttpClient(auth: authService);
+  String? cachedToken() => authService.cachedAccessToken;
   // S11：练习会话 / 抽题 / 判分 / 记录 / 进度走真实契约；接口未上线
   // （404）或未鉴权（401）时由 HttpPracticeService 内部回落到 Mock。
-  final practiceHttp = HttpPracticeService(fallback: MockPracticeService());
+  final practiceHttp = HttpPracticeService(
+    fallback: MockPracticeService(),
+    client: authClient,
+    tokenProvider: cachedToken,
+  );
   ServiceLocator.init(
     questionRepository: CachedQuestionRepository(
       delegate: MockQuestionRepository(),
@@ -51,6 +67,8 @@ Future<void> main() async {
       // 考试卷 / 未匹配模块回落 `/bank/sets/{id}/overview`（当前 404）。
       overviewSource: HttpPracticeProgressOverviewSource(
         fallback: HttpBankSetOverviewSource(),
+        client: authClient,
+        tokenProvider: cachedToken,
       ),
     ),
     bankManifestService: HttpBankManifestService(),
@@ -63,7 +81,11 @@ Future<void> main() async {
       cache: localCache,
       bankSource: HttpBankQuestionBankSource(),
     ),
-    examService: HttpExamService(local: MockExamService()),
+    examService: HttpExamService(
+      local: MockExamService(),
+      client: authClient,
+      tokenProvider: cachedToken,
+    ),
     dailyPracticeService: HttpDailyPracticeService(),
     wrongService: MockWrongService(),
     favoriteService: MockFavoriteService(),
@@ -75,7 +97,7 @@ Future<void> main() async {
     pingService: MockPingService(),
     portScanService: MockPortScanService(),
     cliService: MockCliService(),
-    authService: MockAuthService(),
+    authService: authService,
     syncService: MockSyncService(),
     contentService: MockContentService(),
   );

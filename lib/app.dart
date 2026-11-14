@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'core/theme.dart';
 import 'router/app_router.dart';
 
+/// 全局导航 key：refreshToken 失效时 AuthService 用它把用户送回登录页
+/// （不依赖具体页面的 context）。
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 class RoutePassApp extends StatelessWidget {
   const RoutePassApp({super.key});
 
@@ -10,6 +14,7 @@ class RoutePassApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'RoutePass',
+      navigatorKey: appNavigatorKey,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,

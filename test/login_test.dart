@@ -1,22 +1,31 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:routepass/core/kv_store.dart';
 import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/core/theme.dart';
+import 'package:routepass/models/auth.dart';
+import 'package:routepass/models/user.dart';
 import 'package:routepass/pages/base/login_page.dart';
 import 'package:routepass/pages/shell/app_shell.dart';
 import 'package:routepass/router/app_router.dart';
+import 'package:routepass/services/auth/auth_service.dart';
+import 'package:routepass/services/base/auth_service.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 
 import 'test_helpers.dart';
 
-Future<void> _pumpLogin(WidgetTester tester) async {
+Future<void> _pumpLogin(WidgetTester tester, {AuthService? authService}) async {
   // 1:1 参考稿的 390x844 画幅，保证两个胶囊与 login 按钮都在视口内。
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
-      home: const LoginPage(),
+      home: LoginPage(authService: authService),
       onGenerateRoute: AppRouter.onGenerateRoute,
     ),
   );
@@ -25,9 +34,17 @@ Future<void> _pumpLogin(WidgetTester tester) async {
 }
 
 Future<void> _submitPhone(WidgetTester tester, String phone) async {
+  await _submitCredentials(tester, phone, 'Demo1234');
+}
+
+Future<void> _submitCredentials(
+  WidgetTester tester,
+  String phone,
+  String password,
+) async {
   final fields = find.byType(TextField);
   await tester.enterText(fields.at(0), phone);
-  await tester.enterText(fields.at(1), 'Demo1234');
+  await tester.enterText(fields.at(1), password);
   await tester.tap(find.text('login'));
   await tester.pump();
   await tester.pump();
@@ -57,13 +74,13 @@ void main() {
     () async {
       final service = MockAuthService();
       final created = await service.login(
-        username: '13900139000',
+        phone: '13900139000',
         password: 'Demo1234',
       );
       await service.logout();
 
       final loggedIn = await service.login(
-        username: '13900139000',
+        phone: '13900139000',
         password: 'Other5678',
       );
 
@@ -278,6 +295,415 @@ void main() {
     expect(blob, findsOneWidget);
     expect(tester.getRect(blob).center.dx, 205);
   });
+
+  // ---- F19：登录接线（真实契约 / 错误 / 恢复码 / 刷新 / 登出） ----
+
+  testWidgets('server 401 shows the message and stays on the login page', (
+    tester,
+  ) async {
+    final stub = _StubAuthService(
+      const LoginResult(success: false, message: '手机号或密码错误'),
+    );
+    await _pumpLogin(tester, authService: stub);
+
+    await _submitPhone(tester, '13800138000');
+
+    expect(stub.loginCalls, 1);
+    expect(find.text('手机号或密码错误'), findsOneWidget);
+    expect(find.byType(LoginPage), findsOneWidget);
+    expect(find.byType(AppShell), findsNothing);
+  });
+
+  testWidgets('password shorter than 6 bytes is rejected before any request', (
+    tester,
+  ) async {
+    final stub = _StubAuthService(const LoginResult(success: true));
+    await _pumpLogin(tester, authService: stub);
+
+    await _submitCredentials(tester, '13800138000', '12345');
+
+    final field = tester.widget<TextField>(find.byType(TextField).last);
+    expect(field.decoration?.errorText, '密码长度需为 6-72 字节');
+    expect(stub.loginCalls, 0);
+    expect(find.byType(LoginPage), findsOneWidget);
+  });
+
+  testWidgets('new-account restoreCode is shown once before entering the app', (
+    tester,
+  ) async {
+    const code = 'apple river cloud stone bright maple harbor silver';
+    final stub = _StubAuthService(
+      const LoginResult(
+        success: true,
+        user: User(id: '7', username: '13800138000', nickname: 'Max'),
+        restoreCode: code,
+      ),
+    );
+    await _pumpLogin(tester, authService: stub);
+
+    await _submitPhone(tester, '13800138000');
+
+    expect(find.text('请保存恢复码'), findsOneWidget);
+    final shown = tester.widget<SelectableText>(
+      find.byKey(const Key('restore-code')),
+    );
+    expect(shown.data, code);
+    expect(find.byType(AppShell), findsNothing);
+
+    await tester.tap(find.text('我已保存，进入 App'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(AppShell), findsOneWidget);
+  });
+
+  test(
+    'HttpAuthService sends deviceId and persists tokens (not password)',
+    () async {
+      final kv = InMemoryKvStore();
+      http.Request? loginRequest;
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/auth/login') {
+          loginRequest = request;
+          return _jsonResponse(
+            200,
+            _loginJson(restoreCode: 'apple river cloud stone'),
+          );
+        }
+        return _jsonResponse(404, <String, Object?>{'detail': 'not found'});
+      });
+      final auth = HttpAuthService(
+        client: client,
+        kvStore: kv,
+        baseUrl: 'http://test',
+        deviceId: 'device-abc',
+      );
+
+      final result = await auth.login(
+        phone: '13800138000',
+        password: 'secret123',
+      );
+
+      expect(result.success, isTrue);
+      expect(result.user?.username, '13800138000');
+      expect(result.restoreCode, 'apple river cloud stone');
+      expect(auth.cachedAccessToken, 'access-1');
+
+      final body = jsonDecode(loginRequest!.body) as Map<String, dynamic>;
+      expect(body['phone'], '13800138000');
+      expect(body['deviceId'], 'device-abc');
+      expect(body['deviceModel'], isNotEmpty);
+      expect(body['appVersion'], isNotEmpty);
+      expect(body['password'], 'secret123');
+
+      final stored = kv.getString(KvStore.keyAuthSession);
+      expect(stored, isNotNull);
+      expect(stored, contains('access-1'));
+      expect(stored, contains('refresh-1'));
+      expect(stored, isNot(contains('secret123')));
+    },
+  );
+
+  test('deviceId is generated once and reused on later logins', () async {
+    final kv = InMemoryKvStore();
+    final seenIds = <String>[];
+    http.Client buildClient() => MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      seenIds.add(body['deviceId'] as String);
+      return _jsonResponse(200, _loginJson());
+    });
+
+    final first = HttpAuthService(
+      client: buildClient(),
+      kvStore: kv,
+      baseUrl: 'http://test',
+    );
+    await first.login(phone: '13800138000', password: 'secret123');
+    final generated = kv.getString(KvStore.keyAuthDeviceId);
+    expect(generated, isNotNull);
+    expect(generated, isNotEmpty);
+    expect(generated!.length, lessThanOrEqualTo(40));
+
+    final second = HttpAuthService(
+      client: buildClient(),
+      kvStore: kv,
+      baseUrl: 'http://test',
+    );
+    await second.login(phone: '13800138000', password: 'secret123');
+
+    expect(seenIds, hasLength(2));
+    expect(seenIds.first, generated);
+    expect(seenIds.last, generated);
+  });
+
+  test('login 401 surfaces the server message and keeps no session', () async {
+    final kv = InMemoryKvStore();
+    final client = MockClient(
+      (_) async => _jsonResponse(401, <String, Object?>{
+        'error': <String, Object?>{
+          'code': 'INVALID_CREDENTIALS',
+          'message': '手机号或密码错误',
+          'requestId': 'req-1',
+        },
+      }),
+    );
+    final auth = HttpAuthService(
+      client: client,
+      kvStore: kv,
+      baseUrl: 'http://test',
+    );
+
+    final result = await auth.login(
+      phone: '13800138000',
+      password: 'secret123',
+    );
+
+    expect(result.success, isFalse);
+    expect(result.message, '手机号或密码错误');
+    expect(auth.cachedAccessToken, isNull);
+    expect(kv.getString(KvStore.keyAuthSession), isNull);
+  });
+
+  test('live error envelope (409 device bound) is surfaced verbatim', () async {
+    final client = MockClient(
+      (_) async => _jsonResponse(409, <String, Object?>{
+        'error': <String, Object?>{
+          'code': 'DEVICE_BOUND',
+          'message': '该设备已绑定其他账号',
+          'requestId': 'req-2',
+        },
+      }),
+    );
+    final auth = HttpAuthService(
+      client: client,
+      kvStore: InMemoryKvStore(),
+      baseUrl: 'http://test',
+    );
+
+    final result = await auth.login(
+      phone: '13800138000',
+      password: 'secret123',
+    );
+
+    expect(result.success, isFalse);
+    expect(result.message, '该设备已绑定其他账号');
+  });
+
+  test('login 422 joins FastAPI validation messages', () async {
+    final client = MockClient(
+      (_) async => _jsonResponse(422, <String, Object?>{
+        'detail': [
+          <String, Object?>{'msg': '手机号格式不正确'},
+          <String, Object?>{'msg': 'deviceId 不能为空且不超过 40 字符'},
+        ],
+      }),
+    );
+    final auth = HttpAuthService(
+      client: client,
+      kvStore: InMemoryKvStore(),
+      baseUrl: 'http://test',
+    );
+
+    final result = await auth.login(
+      phone: '12800138000',
+      password: 'secret123',
+    );
+
+    expect(result.success, isFalse);
+    expect(result.message, '手机号格式不正确；deviceId 不能为空且不超过 40 字符');
+  });
+
+  test('expired access token is refreshed before the request', () async {
+    final kv = InMemoryKvStore();
+    var refreshes = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/auth/login') {
+        return _jsonResponse(200, _loginJson(expiresIn: 30));
+      }
+      if (request.url.path == '/api/v1/auth/refresh') {
+        refreshes++;
+        return _jsonResponse(
+          200,
+          _refreshJson(access: 'access-2', refresh: 'refresh-2'),
+        );
+      }
+      return _jsonResponse(404, <String, Object?>{});
+    });
+    final auth = HttpAuthService(
+      client: client,
+      kvStore: kv,
+      baseUrl: 'http://test',
+    );
+    await auth.login(phone: '13800138000', password: 'secret123');
+
+    final token = await auth.accessToken();
+
+    expect(refreshes, 1);
+    expect(token, 'access-2');
+    expect(auth.cachedAccessToken, 'access-2');
+  });
+
+  test('401 triggers one refresh and retries with the new token', () async {
+    final kv = InMemoryKvStore();
+    final authorization = <String?>[];
+    final refreshBodies = <String>[];
+    final client = MockClient((request) async {
+      final path = request.url.path;
+      if (path == '/api/v1/auth/login') {
+        return _jsonResponse(200, _loginJson());
+      }
+      if (path == '/api/v1/auth/refresh') {
+        refreshBodies.add(
+          (jsonDecode(request.body) as Map<String, dynamic>)['refreshToken']
+              as String,
+        );
+        return _jsonResponse(
+          200,
+          _refreshJson(access: 'access-2', refresh: 'refresh-2'),
+        );
+      }
+      if (path == '/api/v1/practice/progress') {
+        final header = request.headers['authorization'];
+        authorization.add(header);
+        if (header == 'Bearer access-1') {
+          return _jsonResponse(401, <String, Object?>{'detail': '登录会话已失效'});
+        }
+        return _jsonResponse(200, <Object?>[]);
+      }
+      return _jsonResponse(404, <String, Object?>{});
+    });
+    final auth = HttpAuthService(
+      client: client,
+      kvStore: kv,
+      baseUrl: 'http://test',
+    );
+    await auth.login(phone: '13800138000', password: 'secret123');
+    final authed = AuthHttpClient(auth: auth, inner: client);
+
+    final response = await authed.get(
+      Uri.parse('http://test/api/v1/practice/progress'),
+    );
+
+    expect(response.statusCode, 200);
+    expect(authorization, <String>['Bearer access-1', 'Bearer access-2']);
+    expect(refreshBodies, <String>['refresh-1']);
+    expect(auth.cachedAccessToken, 'access-2');
+  });
+
+  test('refresh 401 clears the session and notifies the app', () async {
+    final kv = InMemoryKvStore();
+    var expired = false;
+    final client = MockClient((request) async {
+      final path = request.url.path;
+      if (path == '/api/v1/auth/login') {
+        return _jsonResponse(200, _loginJson());
+      }
+      if (path == '/api/v1/auth/refresh') {
+        return _jsonResponse(401, <String, Object?>{'detail': '登录会话已失效，请重新登录'});
+      }
+      return _jsonResponse(401, <String, Object?>{'detail': 'expired'});
+    });
+    final auth = HttpAuthService(
+      client: client,
+      kvStore: kv,
+      baseUrl: 'http://test',
+    );
+    auth.onSessionExpired = () => expired = true;
+    await auth.login(phone: '13800138000', password: 'secret123');
+    final authed = AuthHttpClient(auth: auth, inner: client);
+
+    final response = await authed.get(
+      Uri.parse('http://test/api/v1/practice/progress'),
+    );
+
+    expect(response.statusCode, 401);
+    expect(expired, isTrue);
+    expect(auth.cachedAccessToken, isNull);
+    expect(kv.getString(KvStore.keyAuthSession), isNull);
+  });
+
+  test('logout posts the bearer token and clears the local session', () async {
+    final kv = InMemoryKvStore();
+    String? logoutAuthorization;
+    final client = MockClient((request) async {
+      final path = request.url.path;
+      if (path == '/api/v1/auth/login') {
+        return _jsonResponse(200, _loginJson());
+      }
+      if (path == '/api/v1/auth/logout') {
+        logoutAuthorization = request.headers['authorization'];
+        return _jsonResponse(200, <String, Object?>{'success': true});
+      }
+      return _jsonResponse(404, <String, Object?>{});
+    });
+    final auth = HttpAuthService(
+      client: client,
+      kvStore: kv,
+      baseUrl: 'http://test',
+    );
+    await auth.login(phone: '13800138000', password: 'secret123');
+
+    await auth.logout();
+
+    expect(logoutAuthorization, 'Bearer access-1');
+    expect(auth.cachedAccessToken, isNull);
+    expect(kv.getString(KvStore.keyAuthSession), isNull);
+    expect(await auth.getCurrentUser(), isNull);
+  });
+}
+
+http.Response _jsonResponse(int statusCode, Object body) {
+  return http.Response(
+    jsonEncode(body),
+    statusCode,
+    headers: <String, String>{
+      'content-type': 'application/json; charset=utf-8',
+    },
+  );
+}
+
+Map<String, Object?> _loginJson({
+  String access = 'access-1',
+  String refresh = 'refresh-1',
+  int expiresIn = 900,
+  String? restoreCode,
+}) {
+  return <String, Object?>{
+    'accessToken': access,
+    'refreshToken': refresh,
+    'tokenType': 'Bearer',
+    'expiresIn': expiresIn,
+    'user': <String, Object?>{'id': 7, 'nickname': 'Max', 'avatarUrl': null},
+    'restoreCode': ?restoreCode,
+  };
+}
+
+Map<String, Object?> _refreshJson({
+  required String access,
+  required String refresh,
+}) {
+  return <String, Object?>{
+    'accessToken': access,
+    'refreshToken': refresh,
+    'tokenType': 'Bearer',
+    'expiresIn': 900,
+  };
+}
+
+class _StubAuthService extends MockAuthService {
+  _StubAuthService(this.result);
+
+  final LoginResult result;
+  int loginCalls = 0;
+
+  @override
+  Future<LoginResult> login({
+    required String phone,
+    required String password,
+  }) async {
+    loginCalls++;
+    return result;
+  }
 }
 
 /// F15 专用画幅：~410dp 宽真机 + 可注入系统 inset / 深浅色。

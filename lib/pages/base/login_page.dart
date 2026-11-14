@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../router/app_router.dart';
+import '../../services/base/auth_service.dart';
 
 // F14a 登录页 1:1 参考稿（routepass_login_1to1.html）专用尺寸；
 // 色值已在 F14b 提升为 AppColors 登录色板 token，本页只引用 token。
@@ -121,7 +124,10 @@ const OutlineInputBorder _pillBorder = OutlineInputBorder(
 );
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.authService});
+
+  /// 测试可注入；生产为 ServiceLocator.authService。
+  final AuthService? authService;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -134,6 +140,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   final _passwordFocus = FocusNode();
   String? _phoneError;
   String? _passwordError;
+  bool _submitting = false;
 
   late final AnimationController _blobFloat;
   late final AnimationController _blobMorph;
@@ -144,8 +151,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   late final Animation<double> _clusterFloatCurve;
 
   static final RegExp _phoneRegExp = RegExp(r'^1[3-9]\d{9}$');
-  static final RegExp _letterRegExp = RegExp(r'[A-Za-z]');
-  static final RegExp _digitRegExp = RegExp(r'[0-9]');
 
   @override
   void initState() {
@@ -216,16 +221,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     if (value.isEmpty) {
       return '请输入密码';
     }
-    if (value.length < 8 || value.length > 32) {
-      return '密码长度需为 8-32 位';
-    }
-    if (!_letterRegExp.hasMatch(value) || !_digitRegExp.hasMatch(value)) {
-      return '密码需同时包含字母和数字';
+    // 服务端规则：密码 6–72 **字节**（中文等多字节字符按字节算）。
+    final bytes = utf8.encode(value).length;
+    if (bytes < 6 || bytes > 72) {
+      return '密码长度需为 6-72 字节';
     }
     return null;
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     final phoneError = _validatePhone(_phoneController.text.trim());
     final passwordError = _validatePassword(_passwordController.text);
     setState(() {
@@ -235,18 +240,90 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     if (phoneError != null || passwordError != null) {
       return;
     }
-    final result = await ServiceLocator.authService.login(
-      username: _phoneController.text.trim(),
+    setState(() => _submitting = true);
+    final auth = widget.authService ?? ServiceLocator.authService;
+    final result = await auth.login(
+      phone: _phoneController.text.trim(),
       password: _passwordController.text,
     );
     if (!mounted) return;
+    setState(() => _submitting = false);
     if (!result.success) {
-      showAppSnackBar(context, result.message ?? '登录失败');
+      // 服务端文案（401 / 422 / 409）或网络错误；留在登录页，不导航。
+      showAppSnackBar(context, result.message ?? '登录失败', aboveNav: false);
       return;
     }
-    showAppSnackBar(context, '演示登录，后端未接入', aboveNav: false);
+    final restoreCode = result.restoreCode;
+    if (restoreCode != null && restoreCode.isNotEmpty) {
+      // 新账号的一次性恢复码：必须让用户看到并存下。
+      await _showRestoreCode(restoreCode);
+      if (!mounted) return;
+    }
+    // cache-first：登录后后台把服务端记录 / 增量拉进本地，不阻塞进首页。
+    unawaited(_syncAfterLogin());
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+  }
+
+  Future<void> _syncAfterLogin() async {
+    try {
+      await ServiceLocator.answerRecordService.syncFromServer();
+    } catch (_) {
+      // 接口未就绪 / 离线：本地缓存照常可用。
+    }
+    try {
+      await ServiceLocator.syncService.pullIncremental();
+    } catch (_) {
+      // 同上，同步失败不影响登录结果。
+    }
+  }
+
+  Future<void> _showRestoreCode(String code) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('请保存恢复码'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('新账号已创建成功。下面是 12 词恢复码，只显示这一次；忘记密码时凭它找回，请立即抄下或复制保存。'),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(dialogContext).colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(
+                  code,
+                  key: const Key('restore-code'),
+                  style: const TextStyle(fontFamily: 'monospace', height: 1.5),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: code));
+                if (!dialogContext.mounted) return;
+                showAppSnackBar(dialogContext, '恢复码已复制');
+              },
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('复制'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('我已保存，进入 App'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   TextStyle _pillTextStyle(Color color) {
@@ -520,7 +597,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                     width: pillWidth / 2,
                     height: _pillHeight,
                     child: FilledButton(
-                      onPressed: _submit,
+                      onPressed: _submitting ? null : _submit,
                       style: FilledButton.styleFrom(
                         backgroundColor: pillColor,
                         foregroundColor: textColor,
@@ -528,7 +605,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         padding: EdgeInsets.zero,
                         textStyle: _pillTextStyle(textColor),
                       ),
-                      child: const Text('login'),
+                      child: _submitting
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: textColor,
+                              ),
+                            )
+                          : const Text('login'),
                     ),
                   ),
                 ],

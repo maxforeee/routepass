@@ -19,7 +19,7 @@ import 'test_helpers.dart';
 Future<void> _ensureLoggedIn() async {
   if (await ServiceLocator.authService.getCurrentUser() != null) return;
   await ServiceLocator.authService.login(
-    username: 'demo_user1',
+    phone: '13800138000',
     password: 'Demo1234',
   );
 }
