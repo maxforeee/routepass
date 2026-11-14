@@ -20,6 +20,7 @@ import '../../models/bank_manifest.dart';
 import '../../models/question.dart';
 import '../../router/app_router.dart';
 import '../../services/bank/bank_manifest_service.dart';
+import '../../widgets/app_search_bar.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/set_row_card.dart';
 import '../../widgets/set_row_tags.dart';
@@ -41,6 +42,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   List<Question> _samples = const <Question>[];
   String _query = '';
   _BankTab _tab = _BankTab.practice;
+  final TextEditingController _searchController = TextEditingController();
 
   late final BankManifestService _manifestService;
   BankManifest? _manifest;
@@ -54,6 +56,12 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         widget.manifestService ?? ServiceLocator.bankManifestService;
     _loadManifest();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   /// tab 切回时刷新（重拉模块 / 样题）。
@@ -150,7 +158,11 @@ class BankModuleListPageState extends State<BankModuleListPage> {
                 AppSpacing.md,
                 AppSpacing.cardGap,
               ),
-              child: _buildSearchBar(theme),
+              child: AppSearchBar(
+                controller: _searchController,
+                hintText: '搜索题目',
+                onChanged: (v) => setState(() => _query = v.trim()),
+              ),
             ),
             if (_query.isEmpty) _buildTabs(),
             Expanded(
@@ -158,61 +170,6 @@ class BankModuleListPageState extends State<BankModuleListPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 搜索条（canva 参考：白色胶囊，高 48，全圆角；右端蓝色圆形搜索按钮）。
-  Widget _buildSearchBar(ThemeData theme) {
-    return Container(
-      height: AppSizes.bankSearchBarHeight,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.xxs,
-        AppSpacing.xxs,
-        AppSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(context),
-        borderRadius: BorderRadius.circular(AppRadii.searchPill),
-        border: Border.all(
-          color: AppColors.cardBorder(context),
-          width: AppSizes.borderWidth,
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: AppColors.cardTitle(context),
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintText: '搜索题目',
-                hintStyle: theme.textTheme.labelLarge?.copyWith(
-                  color: AppColors.cardCaption(context),
-                ),
-              ),
-              onChanged: (v) => setState(() => _query = v.trim()),
-            ),
-          ),
-          Container(
-            width: AppSizes.bankSearchButtonSize,
-            height: AppSizes.bankSearchButtonSize,
-            decoration: BoxDecoration(
-              color: AppColors.accent(context),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.search,
-              size: AppSizes.icon,
-              color: AppColors.brandOnPrimary,
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -111,6 +111,9 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _selectTab(int index) {
+    // 切 tab / 回栈底时收起键盘：IndexedStack 保栈，被隐藏页面上的搜索框
+    // 不会自己失焦，切回来会带着焦点和键盘（用户 2026-11-14 反馈）。
+    FocusManager.instance.primaryFocus?.unfocus();
     if (index == _currentIndex) {
       // 点当前 tab：回到该 tab 栈底。
       _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
@@ -387,13 +390,23 @@ class _TabObserver extends NavigatorObserver {
 
   final void Function(Route<dynamic>? route) onRouteChanged;
 
+  /// 收起键盘：主页面搜索框被点过后一直持有焦点，打开子页时若不主动放弃，
+  /// 返回时 Flutter 的路由焦点恢复会把焦点还给它、键盘自动弹出（用户
+  /// 2026-11-14 反馈）。push 时立即失焦，返回时就没有可恢复的焦点。
+  void _unfocus() {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (previousRoute != null) _unfocus();
     onRouteChanged(route);
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    // 返回的这一帧焦点可能刚被恢复，帧后再兜一次底。
+    WidgetsBinding.instance.addPostFrameCallback((_) => _unfocus());
     onRouteChanged(previousRoute);
   }
 

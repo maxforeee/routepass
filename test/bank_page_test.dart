@@ -9,6 +9,7 @@ import 'package:routepass/pages/knowledge/knowledge_home_page.dart';
 import 'package:routepass/pages/toolbox/toolbox_home_page.dart';
 import 'package:routepass/services/bank/bank_manifest_service.dart';
 import 'package:routepass/services/mock/mock_bank_manifest_service.dart';
+import 'package:routepass/widgets/app_search_bar.dart';
 import 'package:routepass/widgets/capsule_nav_bar.dart';
 import 'package:routepass/widgets/module_tag.dart';
 import 'package:routepass/widgets/page_header.dart';
@@ -195,28 +196,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final searchBar = find
-          .ancestor(
-            of: find.byType(TextField),
-            matching: find.byType(Container),
-          )
-          .first;
-      final decoration =
-          tester.widget<Container>(searchBar).decoration! as BoxDecoration;
-      final context = tester.element(find.byType(TextField));
-      expect(decoration.color, AppColors.cardSurface(context));
-      expect(decoration.color, isNot(AppColors.brandSurface));
-      expect(
-        (decoration.border! as Border).top.color,
-        AppColors.cardBorder(context),
+      // F19 修复 1：题库搜索条与知识库同一套样式（浅灰填充、圆角 22、无描边）。
+      final fieldFinder = find.descendant(
+        of: find.byType(AppSearchBar),
+        matching: find.byType(TextField),
       );
-
-      final textField = tester.widget<TextField>(find.byType(TextField));
-      expect(textField.style?.color, AppColors.cardTitle(context));
-      expect(
-        textField.decoration?.hintStyle?.color,
-        AppColors.cardCaption(context),
+      final decoration = tester.widget<TextField>(fieldFinder).decoration!;
+      final context = tester.element(fieldFinder);
+      final scheme = Theme.of(context).colorScheme;
+      expect(decoration.filled, isTrue);
+      expect(decoration.fillColor, scheme.surfaceContainerHighest);
+      expect(decoration.fillColor, isNot(AppColors.brandSurface));
+      final border = decoration.border! as OutlineInputBorder;
+      expect(border.borderSide, BorderSide.none);
+      expect(border.borderRadius, BorderRadius.circular(AppRadii.search));
+      expect(decoration.hintStyle?.color, scheme.onSurfaceVariant);
+      final icon = tester.widget<Icon>(
+        find.descendant(of: fieldFinder, matching: find.byIcon(Icons.search)),
       );
+      expect(icon.color, scheme.onSurfaceVariant);
       expect(tester.takeException(), isNull);
     });
 
@@ -224,13 +222,9 @@ void main() {
       await _openBank(tester, size);
 
       final titleLeft = tester.getTopLeft(_inBank(find.text('题库'))).dx;
-      final searchBar = find
-          .ancestor(
-            of: _inBank(find.byType(TextField)),
-            matching: find.byType(Container),
-          )
-          .first;
-      final searchLeft = tester.getTopLeft(searchBar).dx;
+      final searchLeft = tester
+          .getTopLeft(_inBank(find.byType(AppSearchBar)))
+          .dx;
 
       expect(titleLeft, AppSpacing.md);
       expect(searchLeft, AppSpacing.md);

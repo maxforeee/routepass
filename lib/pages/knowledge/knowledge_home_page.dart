@@ -7,6 +7,7 @@ import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/knowledge_point.dart';
 import '../../router/app_router.dart';
+import '../../widgets/app_search_bar.dart';
 import '../../widgets/page_header.dart';
 
 /// 知识库页（R7：按 06_knowledge mockup 重排：页头 + 搜索 + 章卡片 + 节 + 知识点行）。
@@ -284,54 +285,14 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     return widgets;
   }
 
-  /// K-02 搜索框：高 44，圆角 22；输入即过滤，提交进搜索页。
+  /// K-02 搜索框：统一搜索条（与题库页共用 [AppSearchBar]）；输入即过滤，
+  /// 提交进搜索页。
   Widget _buildSearch() {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return SizedBox(
-      height: AppSizes.searchBarHeight,
-      child: TextField(
-        controller: _searchController,
-        onChanged: _onSearchChanged,
-        onSubmitted: (_) => _openSearchPage(),
-        decoration: InputDecoration(
-          hintText: '搜索知识点、命令…',
-          hintStyle: theme.textTheme.labelLarge?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-          prefixIcon: Icon(
-            Icons.search,
-            size: AppSizes.icon,
-            color: scheme.onSurfaceVariant,
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: AppSizes.searchBarHeight,
-            minHeight: AppSizes.searchBarHeight,
-          ),
-          suffixIcon: _query.isEmpty
-              ? null
-              : IconButton(
-                  icon: const Icon(Icons.clear, size: AppSizes.icon),
-                  onPressed: () {
-                    _searchController.clear();
-                    _onSearchChanged('');
-                  },
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: AppSizes.searchBarHeight,
-                    minHeight: AppSizes.searchBarHeight,
-                  ),
-                ),
-          isDense: true,
-          filled: true,
-          fillColor: scheme.surfaceContainerHighest,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadii.search),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        ),
-      ),
+    return AppSearchBar(
+      controller: _searchController,
+      hintText: '搜索知识点、命令…',
+      onChanged: _onSearchChanged,
+      onSubmitted: (_) => _openSearchPage(),
     );
   }
 
