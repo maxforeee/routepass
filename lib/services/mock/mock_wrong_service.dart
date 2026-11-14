@@ -15,24 +15,27 @@ class MockWrongService implements WrongService {
   final List<WrongItem> _items = <WrongItem>[];
 
   /// 演示用错题样例：只引用题库里已有的样例题（SAMPLE-10 / 20 / 30），
-  /// 不编造题目内容；last_wrong_at 取“今天的前 1–3 小时”，保证任何日期
-  /// 跑起来都落在当天。这是首页预览卡的排版演示数据，待真实错题接口
-  /// 接上后删除。
+  /// 不编造题目内容；last_wrong_at 取“今天的前 1–3 小时”。凌晨 0–3 点
+  /// 跑起来时“前 N 小时”会跨过 0 点落到昨天，所以夹到今天 0 点之后，
+  /// 保证条目始终算“今日新增”。这是首页预览卡的排版演示数据，待真实
+  /// 错题接口接上后删除。
   void _seedDemoItems() {
     final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
     const seeds = <(String, int, int)>[
       ('SAMPLE-10', 2, 1),
       ('SAMPLE-20', 1, 2),
       ('SAMPLE-30', 1, 3),
     ];
     for (final (id, count, hoursAgo) in seeds) {
+      final happenedAt = now.subtract(Duration(hours: hoursAgo));
       _items.add(
         WrongItem(
           question_id: id,
           wrong_count: count,
-          last_wrong_at: now
-              .subtract(Duration(hours: hoursAgo))
-              .millisecondsSinceEpoch,
+          last_wrong_at:
+              (happenedAt.isBefore(startOfDay) ? startOfDay : happenedAt)
+                  .millisecondsSinceEpoch,
           mastered: false,
         ),
       );
