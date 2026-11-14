@@ -416,6 +416,30 @@ void main() {
       expect(records.breakpointOf(setId: 'VLAN', mode: 'practice'), isNull);
     });
 
+    testWidgets('达标后继续答题，题号继续累加而不是卡在 20/20', (tester) async {
+      final practice = _FakePracticeService(<Question>[
+        for (var i = 1; i <= 40; i++) _question(i),
+      ]);
+      await _launch(tester, practicePage(practice));
+
+      for (var i = 0; i < 20; i++) {
+        await _tapOption(tester, <String>['A']);
+        await _confirm(tester);
+        if (i < 19) await _next(tester);
+      }
+      expect(find.text('第 20/20 题'), findsOneWidget);
+
+      await tester.tap(find.text('继续答题'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('第 21/21 题'), findsOneWidget);
+      expect(find.text('题干 21'), findsOneWidget);
+
+      await _tapOption(tester, <String>['A']);
+      await _confirm(tester);
+      expect(find.text('第 21/21 题'), findsOneWidget);
+    });
+
     testWidgets('提交失败不本地判分、不写记录', (tester) async {
       final practice = _FakePracticeService(<Question>[
         for (var i = 1; i <= 10; i++) _question(i),

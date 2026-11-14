@@ -137,11 +137,22 @@ class _QuizPageState extends State<QuizPage> {
 
   bool get _isLastQuestion => _currentIndex >= _questions.length - 1;
 
-  int get _denominator => _isExam ? _total : _target;
+  /// 当前这道题的累计序号：判过分就是已答题数，未判分是下一题。
+  int get _practiceOrdinal {
+    final q = _current;
+    if (q != null && _graded.containsKey(q.id)) return _answeredCount;
+    return _answeredCount + 1;
+  }
 
-  int get _displayIndex => _isExam
-      ? _currentIndex + 1
-      : (_answeredCount + 1).clamp(1, _target).toInt();
+  /// 达标后继续答题时序号会超过目标，分母跟着长大，题号才不会被卡在 20/20。
+  int get _denominator => _isExam ? _total : max(_target, _practiceOrdinal);
+
+  int get _displayIndex {
+    if (_isExam) return _currentIndex + 1;
+    final ordinal = _practiceOrdinal;
+    if (ordinal > _target) return ordinal;
+    return (_answeredCount + 1).clamp(1, _target).toInt();
+  }
 
   String get _elapsedText {
     final m = _elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
