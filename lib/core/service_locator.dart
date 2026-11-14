@@ -18,8 +18,10 @@ import '../services/bank/stats_service.dart';
 import '../services/bank/wrong_service.dart';
 import '../services/base/auth_service.dart';
 import '../services/base/content_service.dart';
+import '../services/connectivity_service.dart';
 import '../services/knowledge/knowledge_repo.dart';
 import '../services/knowledge/search_service.dart';
+import '../services/sync_mode_service.dart';
 import '../services/toolbox/cli_service.dart';
 import '../services/toolbox/ip_convert_service.dart';
 import '../services/toolbox/ping_service.dart';
@@ -53,6 +55,10 @@ class ServiceLocator {
   static late final SyncService syncService;
   static late final ContentService contentService;
 
+  /// 首页同步模式（网络 + 登录态 + 服务器可达性）。
+  /// 非 final：测试可替换为可控实现（生产只在 init 里装配一次）。
+  static late SyncModeService syncModeService;
+
   /// 本地 kv（设备本地 UI 状态，见规格文档 §4.9.1；不是 16 个后端服务接口之一）。
   /// 默认内存实现（测试用）；main.dart 在 runApp 前升级为 shared_preferences
   /// 持久实现（F17：每日一练日期锁必须重启不丢），调用方不动。
@@ -80,6 +86,7 @@ class ServiceLocator {
     required AuthService authService,
     required SyncService syncService,
     required ContentService contentService,
+    SyncModeService? syncModeService,
   }) {
     if (_initialized) return;
     ServiceLocator.questionRepository = questionRepository;
@@ -102,6 +109,13 @@ class ServiceLocator {
     ServiceLocator.authService = authService;
     ServiceLocator.syncService = syncService;
     ServiceLocator.contentService = contentService;
+    ServiceLocator.syncModeService =
+        syncModeService ??
+        SyncModeService(
+          connectivity: PlatformConnectivityService(),
+          syncService: syncService,
+          isLoggedIn: () async => (await authService.getCurrentUser()) != null,
+        );
     _initialized = true;
   }
 }

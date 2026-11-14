@@ -24,8 +24,14 @@ import 'package:routepass/services/mock/mock_sync_service.dart';
 import 'package:routepass/services/mock/mock_wrong_service.dart';
 import 'package:routepass/services/toolbox/ip_convert_service_impl.dart';
 import 'package:routepass/services/toolbox/subnet_calc_service_impl.dart';
+import 'package:routepass/services/sync_mode_service.dart';
+
+import 'support/fake_connectivity.dart';
 
 void initTestServices() {
+  final syncService = MockSyncService();
+  // 测试默认离线：同步条显示“本地模式”，不依赖真实网络。
+  final connectivity = FakeConnectivityService();
   ServiceLocator.init(
     questionRepository: MockQuestionRepository(),
     bankManifestService: MockBankManifestService(),
@@ -45,8 +51,14 @@ void initTestServices() {
     portScanService: MockPortScanService(),
     cliService: MockCliService(),
     authService: MockAuthService(),
-    syncService: MockSyncService(),
+    syncService: syncService,
     contentService: MockContentService(),
+    syncModeService: SyncModeService(
+      connectivity: connectivity,
+      syncService: syncService,
+      isLoggedIn: () async =>
+          (await ServiceLocator.authService.getCurrentUser()) != null,
+    ),
   );
 }
 

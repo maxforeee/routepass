@@ -6,21 +6,22 @@ library;
 export '../../widgets/daily_card_border_painter.dart'
     show DailyCardBorderPainter;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
-import '../../models/content.dart';
 import '../../models/daily_question.dart';
 import '../../models/question.dart';
 import '../../models/stats.dart';
-import '../../models/sync.dart';
 import '../../models/user.dart';
 import '../../models/wrong_favorite.dart';
 import '../../router/app_router.dart';
+import '../../services/sync_mode_service.dart';
 import '../../widgets/account_sheet.dart';
 import '../../widgets/daily_card_border_painter.dart';
+import '../../widgets/sync_detail_sheet.dart';
 import '../../widgets/user_avatar.dart';
 
 class HomeContentPage extends StatefulWidget {
@@ -35,8 +36,12 @@ class HomeContentPage extends StatefulWidget {
 class HomeContentPageState extends State<HomeContentPage> {
   User? _user;
   StatsOverview? _overview;
-  SyncStatus? _syncStatus;
-  ContentVersion? _contentVersion;
+
+  /// 同步模式快照（网络 + 登录态 + 服务器可达性）；同步条的唯一状态源。
+  SyncModeSnapshot? _syncMode;
+
+  /// 网络变化订阅：连通性一变就重读同步模式，不只查启动时一次。
+  StreamSubscription<bool>? _connectivitySubscription;
 
   /// 今天加入错题本的题目数，供首页“错题本”方块展示。
   int _todayWrongCount = 0;
@@ -54,6 +59,15 @@ class HomeContentPageState extends State<HomeContentPage> {
   void initState() {
     super.initState();
     _load();
+    _connectivitySubscription = ServiceLocator.syncModeService.onChanged.listen(
+      (_) => _refreshSyncMode(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   /// tab 切回时刷新（重拉用户 / 统计 / 同步状态）。
@@ -72,17 +86,11 @@ class HomeContentPageState extends State<HomeContentPage> {
     } catch (_) {
       overview = null;
     }
-    SyncStatus? syncStatus;
+    SyncModeSnapshot? syncMode;
     try {
-      syncStatus = await ServiceLocator.syncService.getSyncStatus();
+      syncMode = await ServiceLocator.syncModeService.load();
     } catch (_) {
-      syncStatus = null;
-    }
-    ContentVersion? contentVersion;
-    try {
-      contentVersion = await ServiceLocator.contentService.getContentVersion();
-    } catch (_) {
-      contentVersion = null;
+      syncMode = null;
     }
     var todayWrongCount = 0;
     try {
@@ -115,8 +123,7 @@ class HomeContentPageState extends State<HomeContentPage> {
     setState(() {
       _user = user;
       _overview = overview;
-      _syncStatus = syncStatus;
-      _contentVersion = contentVersion;
+      _syncMode = syncMode;
       _todayWrongCount = todayWrongCount;
       _todayFavoriteCount = todayFavoriteCount;
       _dailyQuestion = dailyQuestion;
@@ -186,67 +193,36 @@ class HomeContentPageState extends State<HomeContentPage> {
     return '晚上好！';
   }
 
-  /// 本地模式时显示同步提示条（未连接服务器 / 未同步）。
-  bool get _showSyncTip {
-    final sync = _syncStatus;
-    return sync == null || sync.state == 'local_only';
+  /// 同步条文案：只有“有网络 + 已登录 + 同步接口可用”才显示同步模式。
+  String get _syncStripTitle {
+    final mode = _syncMode;
+    if (mode == null) return '本地模式 · 未连接服务器';
+    if (mode.mode == SyncMode.sync) return '同步模式';
+    if (!mode.networkOnline) return '本地模式 · 未连接服务器';
+    if (!mode.loggedIn) return '本地模式 · 未登录';
+    return '本地模式 · 服务器未响应';
   }
 
-  void _openSyncSheet() {
-    final sync = _syncStatus;
-    final content = _contentVersion;
-    final lastSyncText = sync?.lastSyncAt == null
-        ? '从未同步'
-        : DateTime.fromMillisecondsSinceEpoch(sync!.lastSyncAt!)
-              .toLocal()
-              .toString();
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadii.bottomSheet),
-        ),
-      ),
-      builder: (sheetContext) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.md,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('同步诊断', style: Theme.of(sheetContext).textTheme.titleLarge),
-              const SizedBox(height: AppSpacing.md),
-              _SyncRow(label: '状态', value: sync?.state ?? '未知'),
-              _SyncRow(label: '待同步', value: '${sync?.pendingCount ?? 0} 条'),
-              _SyncRow(label: '上次同步', value: lastSyncText),
-              _SyncRow(label: '题库版本', value: content?.bank_version ?? '—'),
-              _SyncRow(
-                label: '知识库版本',
-                value: content?.knowledge_version ?? '—',
-              ),
-              const SizedBox(height: AppSpacing.md),
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(sheetContext).pop();
-                  showAppSnackBar(context, '演示环境，同步未接入');
-                },
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(
-                    AppSizes.sheetButtonHeight,
-                  ),
-                ),
-                child: const Text('同步'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  String get _syncStripSubtitle {
+    final mode = _syncMode;
+    if (mode == null) return '学习记录保存在本机，点击查看同步诊断';
+    if (mode.mode == SyncMode.sync) return '已连接服务器，学习记录自动同步';
+    if (!mode.networkOnline) return '学习记录保存在本机，点击查看同步诊断';
+    if (!mode.loggedIn) return '登录后可将学习记录同步到服务器';
+    return '服务器暂未响应，学习记录保存在本机';
+  }
+
+  /// 打开同步诊断：sheet 自己重读实时状态，关闭后首页也刷新一次。
+  Future<void> _openSyncSheet() async {
+    await showSyncDetailSheet(context);
+    await _refreshSyncMode();
+  }
+
+  /// 只重读同步模式（网络变化 / 关闭诊断后），不重拉整页数据。
+  Future<void> _refreshSyncMode() async {
+    final mode = await ServiceLocator.syncModeService.load();
+    if (!mounted) return;
+    setState(() => _syncMode = mode);
   }
 
   /// 首页错题本 / 收藏入口：两个并排的正方形方块，只放图标 + 标题 + 今日数量。
@@ -405,15 +381,20 @@ class HomeContentPageState extends State<HomeContentPage> {
                 ),
                 child: _buildSquareTiles(),
               ),
-              if (_showSyncTip) ...[
-                const SizedBox(height: sectionGap),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.contentInset,
-                  ),
-                  child: _SyncTipStrip(onTap: _openSyncSheet),
+              // 同步条常显：离线 / 未登录 / 服务器未响应 → 本地模式，
+              // 只有网络在线且同步接口可用时才显示同步模式。
+              const SizedBox(height: sectionGap),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.contentInset,
                 ),
-              ],
+                child: _SyncTipStrip(
+                  title: _syncStripTitle,
+                  subtitle: _syncStripSubtitle,
+                  synced: _syncMode?.mode == SyncMode.sync,
+                  onTap: _openSyncSheet,
+                ),
+              ),
               const SizedBox(height: sectionGap),
             ],
           ),
@@ -423,9 +404,20 @@ class HomeContentPageState extends State<HomeContentPage> {
   }
 }
 
-/// 浅蓝同步提示条（#DBEAFE）：云同步图标 + 两行文案，点按打开同步诊断 sheet。
+/// 浅紫同步模式条：云图标 + 两行文案，点按打开同步诊断 sheet。
 class _SyncTipStrip extends StatelessWidget {
-  const _SyncTipStrip({required this.onTap});
+  const _SyncTipStrip({
+    required this.title,
+    required this.subtitle,
+    required this.synced,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+
+  /// true = 同步模式（网络 + 服务器都可用）。
+  final bool synced;
 
   final VoidCallback onTap;
 
@@ -445,7 +437,7 @@ class _SyncTipStrip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-              Icons.cloud_sync,
+              synced ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
               size: AppSizes.icon,
               color: theme.colorScheme.onPrimaryContainer,
             ),
@@ -455,7 +447,7 @@ class _SyncTipStrip extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '本地模式 · 未连接服务器',
+                    title,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.bold,
@@ -463,7 +455,7 @@ class _SyncTipStrip extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
-                    '学习记录保存在本机，点击查看同步诊断',
+                    subtitle,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -473,36 +465,6 @@ class _SyncTipStrip extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// 同步诊断 sheet 里的一行。
-class _SyncRow extends StatelessWidget {
-  const _SyncRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-      child: Row(
-        children: [
-          SizedBox(
-            width: AppSizes.syncLabelWidth,
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
-        ],
       ),
     );
   }

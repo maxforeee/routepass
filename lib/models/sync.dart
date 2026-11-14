@@ -71,6 +71,7 @@ class SyncStatus {
     required this.state,
     this.serverTime,
     this.watermark,
+    this.serverReachable = false,
   });
 
   /// 待同步操作数。
@@ -88,6 +89,12 @@ class SyncStatus {
   /// 服务端水位（`GET /sync/pull` 的 `watermark`）。
   final int? watermark;
 
+  /// 这次状态查询是否真的拿到了服务端响应（而不是缓存回落）。
+  ///
+  /// 401 / 404 / 网络失败时为 false；首页同步条只有在它为 true 时才显示
+  /// “同步模式”。缓存写回时会一并保存，但读取缓存的一方不能据此声称可达。
+  final bool serverReachable;
+
   factory SyncStatus.fromJson(Map<String, dynamic> json) {
     return SyncStatus(
       pendingCount: (json['pendingCount'] as num?)?.toInt() ?? 0,
@@ -95,6 +102,7 @@ class SyncStatus {
       state: json['state'] as String? ?? 'local_only',
       serverTime: json['serverTime'] as String?,
       watermark: (json['watermark'] as num?)?.toInt(),
+      serverReachable: json['serverReachable'] as bool? ?? false,
     );
   }
 
@@ -105,6 +113,7 @@ class SyncStatus {
       'state': state,
       'serverTime': serverTime,
       'watermark': watermark,
+      'serverReachable': serverReachable,
     };
   }
 

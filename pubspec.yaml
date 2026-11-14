@@ -29,6 +29,7 @@ dependencies:
 
   # F19: 客户端 SQLite（cache-first / offline-first 数据层）。
   sqflite: ^2.4.6
+  connectivity_plus: ^7.3.2
 
 dev_dependencies:
   flutter_test:

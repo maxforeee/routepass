@@ -2,6 +2,8 @@
     <!-- 题库接口（GET /api/v1/bank/manifest）需要联网；release 构建不会合并
          debug/profile 里的 INTERNET 权限，所以必须在这里声明。 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- F19：首页同步模式条读取网络状态（connectivity_plus）。 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="routepass"
         android:name="${applicationName}"

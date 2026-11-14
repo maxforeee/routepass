@@ -95,6 +95,7 @@ class HttpSyncService implements SyncService {
       state: pending > 0 ? 'pending' : 'synced',
       serverTime: page.serverTime,
       watermark: page.watermark,
+      serverReachable: true,
     );
     _writeCachedStatus(status);
     return status;
@@ -133,6 +134,7 @@ class HttpSyncService implements SyncService {
         state: 'synced',
         serverTime: page.serverTime,
         watermark: page.watermark,
+        serverReachable: true,
       ),
     );
     return PullResult(
@@ -184,6 +186,7 @@ class HttpSyncService implements SyncService {
         state: 'synced',
         serverTime: pulled.serverTime,
         watermark: pulled.watermark,
+        serverReachable: true,
       );
       _writeCachedStatus(status);
       return ManualSyncResult(
@@ -205,6 +208,7 @@ class HttpSyncService implements SyncService {
           state: 'pending',
           serverTime: pulled.serverTime,
           watermark: pulled.watermark,
+          serverReachable: true,
         );
         _writeCachedStatus(status);
         return ManualSyncResult(
@@ -231,6 +235,7 @@ class HttpSyncService implements SyncService {
       state: remaining > 0 ? 'pending' : 'synced',
       serverTime: pulled.serverTime,
       watermark: pulled.watermark,
+      serverReachable: true,
     );
     _writeCachedStatus(status);
 
