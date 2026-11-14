@@ -861,6 +861,10 @@ class DailyCardBorderPainter extends CustomPainter {
   final double gapStart;
   final double gapEnd;
 
+  /// 首页三块 legend 卡片专用描边宽度。比共享的 AppSizes.borderWidth 粗一档，
+  /// 且不改动该 token，避免影响 AppCard / SetRowCard 等其他卡片。
+  static const double strokeWidth = 1.5;
+
   @override
   void paint(Canvas canvas, Size size) {
     final rrect = RRect.fromRectAndRadius(
@@ -872,7 +876,7 @@ class DailyCardBorderPainter extends CustomPainter {
       rrect,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = AppSizes.borderWidth
+        ..strokeWidth = strokeWidth
         ..color = color,
     );
     // 擦掉标题覆盖段的上边框，形成 fieldset-legend 式缺口。
@@ -881,7 +885,7 @@ class DailyCardBorderPainter extends CustomPainter {
       Offset(gapEnd, 0),
       Paint()
         ..blendMode = BlendMode.clear
-        ..strokeWidth = AppSizes.borderWidth * 3,
+        ..strokeWidth = strokeWidth * 3,
     );
     canvas.restore();
   }
