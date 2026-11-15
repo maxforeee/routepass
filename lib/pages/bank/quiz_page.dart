@@ -53,7 +53,7 @@ class QuizPage extends StatefulWidget {
   State<QuizPage> createState() => _QuizPageState();
 }
 
-class _QuizPageState extends State<QuizPage> {
+class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   late final PracticeService _practice;
   late final ExamService _exam;
   late final AnswerRecordService _recordService;
@@ -100,6 +100,18 @@ class _QuizPageState extends State<QuizPage> {
   Timer? _timer;
   Duration _elapsed = Duration.zero;
 
+  /// F25：用时 = 本次进入页面前的累计值 + 本次在前台的时长。离开页面（返回 /
+  /// 退到后台）就把累计值冻结并写回进行态，再进入同一会话从冻结值续计，
+  /// 页面外的时间一律不计。
+  Duration _elapsedBeforeVisit = Duration.zero;
+  DateTime _visitStartedAt = DateTime.now();
+  DateTime? _pausedAt;
+  bool _timerRunning = false;
+
+  /// 本地进行态当前是否有一条活会话：完成 / 交卷会 clear，此时不能再落盘，
+  /// 否则 dispose 里的暂停会把已结算的会话复活。
+  bool _sessionPersisted = false;
+
   String? _completionRecordId;
   int _completionCreatedAt = 0;
 
@@ -133,16 +145,70 @@ class _QuizPageState extends State<QuizPage> {
     _questionStartedAt = _startedAt;
     _refreshRecords();
     _init();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _elapsed = DateTime.now().difference(_startedAt));
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _startTimer();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    // 页面被销毁（返回 / 被替换）即视为离开：冻结用时并落盘，下次续计。
+    _pauseTimer();
     super.dispose();
+  }
+
+  /// 退到后台 / 被系统挂起时冻结用时，回到前台从冻结值续计（F25）。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startTimer();
+    } else {
+      _pauseTimer();
+    }
+  }
+
+  /// 当前累计用时：只在计时器运行时叠加本次在前台的时长。
+  Duration get _currentElapsed => _timerRunning
+      ? _elapsedBeforeVisit + DateTime.now().difference(_visitStartedAt)
+      : _elapsedBeforeVisit;
+
+  void _startTimer() {
+    if (_timerRunning) return;
+    final pausedAt = _pausedAt;
+    if (pausedAt != null) {
+      // 单题用时（practice submit 的 durationSec）同样扣掉页面外的时间：
+      // 把起点整体后移这段暂停时长。
+      _questionStartedAt = _questionStartedAt.add(
+        DateTime.now().difference(pausedAt),
+      );
+      _pausedAt = null;
+    }
+    _timerRunning = true;
+    _visitStartedAt = DateTime.now();
+    _elapsed = _elapsedBeforeVisit;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _elapsed = _currentElapsed);
+    });
+  }
+
+  void _pauseTimer() {
+    if (!_timerRunning) return;
+    _elapsedBeforeVisit = _currentElapsed;
+    _elapsed = _elapsedBeforeVisit;
+    _pausedAt = DateTime.now();
+    _timerRunning = false;
+    _timer?.cancel();
+    _timer = null;
+    // 没有活会话、或本次还没拿到题（抽题 / 开考失败）就不落盘：否则会把
+    // 上次的好快照覆盖成空卷面。
+    if (!_sessionPersisted || _questions.isEmpty) return;
+    if (_isExam) {
+      _saveExamSession();
+    } else {
+      _savePracticeSession();
+    }
   }
 
   Question? get _current =>
@@ -202,9 +268,13 @@ class _QuizPageState extends State<QuizPage> {
       _sessionId = saved.sessionId ?? '';
       _startedAt = DateTime.fromMillisecondsSinceEpoch(saved.startedAt);
       _questionStartedAt = DateTime.now();
+      // F25：从上次离开时冻结的用时续计，不是从 0、也不是从 startedAt 的墙钟。
+      _elapsedBeforeVisit = Duration(milliseconds: saved.elapsedMs);
+      _elapsed = _elapsedBeforeVisit;
     } else if (saved != null) {
       // 达标后退出：保留 completion，不恢复进行态（下次从新会话开始）。
       _sessionService.clear(setId: _setId, mode: 'practice');
+      _sessionPersisted = false;
     }
 
     await _openServerSession();
@@ -284,6 +354,10 @@ class _QuizPageState extends State<QuizPage> {
     final saved = _sessionService.load(setId: _setId, mode: 'exam');
     if (saved != null && saved.examId != null) {
       _examId = saved.examId;
+      // F25：续考从冻结的用时续计，本地卷面 / 服务端恢复两条路都用它。
+      _elapsedBeforeVisit = Duration(milliseconds: saved.elapsedMs);
+      _elapsed = _elapsedBeforeVisit;
+      _sessionPersisted = true;
       final hasLocalSnapshot =
           saved.snapshot != null && saved.snapshot!.isNotEmpty;
       if (!hasLocalSnapshot) {
@@ -319,6 +393,9 @@ class _QuizPageState extends State<QuizPage> {
 
     final session = await _exam.startExam(drawCount: _total, setId: _setId);
     _examId = session.id;
+    // 新开考：旧断点的累计用时不属于这张新卷，从 0 起。
+    _elapsedBeforeVisit = Duration.zero;
+    _elapsed = Duration.zero;
     _questions = session.snapshot.asMap().entries.map((entry) {
       final snapshot = entry.value;
       return Question(
@@ -566,7 +643,7 @@ class _QuizPageState extends State<QuizPage> {
         totalCount: _total,
         correctCount: _correctCount,
         lastQuestionId: _current?.id,
-        durationMs: DateTime.now().difference(_startedAt).inMilliseconds,
+        durationMs: _currentElapsed.inMilliseconds,
         createdAt: _completionCreatedAt,
         updatedAt: now,
       ),
@@ -576,6 +653,7 @@ class _QuizPageState extends State<QuizPage> {
   void _finalizeCompletion() {
     if (_answeredCount > 0) _writeCompletion();
     _sessionService.clear(setId: _setId, mode: 'practice');
+    _sessionPersisted = false;
     // S11：退出时结束会话，满 20 题由服务端结算为 completed。
     unawaited(_finishServerSession());
     _refreshRecords();
@@ -596,7 +674,7 @@ class _QuizPageState extends State<QuizPage> {
         totalCount: _total,
         correctCount: _correctCount,
         lastQuestionId: _current?.id,
-        durationMs: DateTime.now().difference(_startedAt).inMilliseconds,
+        durationMs: _currentElapsed.inMilliseconds,
         createdAt: now,
         updatedAt: now,
       ),
@@ -619,8 +697,10 @@ class _QuizPageState extends State<QuizPage> {
         lastQuestionId: _current?.id,
         startedAt: _startedAt.millisecondsSinceEpoch,
         updatedAt: DateTime.now().millisecondsSinceEpoch,
+        elapsedMs: _currentElapsed.inMilliseconds,
       ),
     );
+    _sessionPersisted = true;
   }
 
   void _saveExamSession() {
@@ -640,8 +720,10 @@ class _QuizPageState extends State<QuizPage> {
         lastQuestionId: _current?.id,
         startedAt: _startedAt.millisecondsSinceEpoch,
         updatedAt: DateTime.now().millisecondsSinceEpoch,
+        elapsedMs: _currentElapsed.inMilliseconds,
       ),
     );
+    _sessionPersisted = true;
   }
 
   Future<void> _nextExam() async {
@@ -675,7 +757,7 @@ class _QuizPageState extends State<QuizPage> {
       final result = await _exam.submitExam(
         examId: _examId ?? '',
         answers: Map<String, List<String>>.from(_answers),
-        durationMs: DateTime.now().difference(_startedAt).inMilliseconds,
+        durationMs: _currentElapsed.inMilliseconds,
       );
       score = result?.score;
       detail = result?.detail ?? '';
@@ -693,6 +775,7 @@ class _QuizPageState extends State<QuizPage> {
     });
     _writeExamCompletion(score);
     _sessionService.clear(setId: _setId, mode: 'exam');
+    _sessionPersisted = false;
     _refreshRecords();
 
     await showAppSheet<void>(
@@ -705,7 +788,7 @@ class _QuizPageState extends State<QuizPage> {
         return ResultSheetContent(
           total: _total,
           answered: _answeredCount,
-          elapsed: DateTime.now().difference(_startedAt),
+          elapsed: _currentElapsed,
           score: score,
           detail: detail,
           isExam: true,
@@ -764,7 +847,7 @@ class _QuizPageState extends State<QuizPage> {
         answeredCount: _answeredCount,
         totalCount: _total,
         score: score,
-        durationMs: DateTime.now().difference(_startedAt).inMilliseconds,
+        durationMs: _currentElapsed.inMilliseconds,
         createdAt: now,
         updatedAt: now,
       ),
@@ -785,7 +868,7 @@ class _QuizPageState extends State<QuizPage> {
         answeredCount: _answeredCount,
         totalCount: _total,
         lastQuestionId: _current?.id,
-        durationMs: DateTime.now().difference(_startedAt).inMilliseconds,
+        durationMs: _currentElapsed.inMilliseconds,
         createdAt: now,
         updatedAt: now,
       ),

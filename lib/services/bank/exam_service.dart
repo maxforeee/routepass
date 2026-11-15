@@ -314,8 +314,9 @@ class HttpExamService implements ExamService {
         durationMs: durationMs,
       );
     }
-    // SubmitBody.answers 是列表 [{questionId, answer: list[int]}]，不是 map；
-    // 用时由服务端按 started_at 计算，body 不带 duration 字段。
+    // SubmitBody.answers 是列表 [{questionId, answer: list[int]}]，不是 map。
+    // F25：durationSec 是页面内累计用时（离开页面即暂停），服务端按它写
+    // duration_ms，不再用 started_at 的墙钟——页面外的时间不计入用时。
     final decoded = await _post(
       '/api/v1/exam/${Uri.encodeComponent(examId)}/submit',
       <String, Object?>{
@@ -326,6 +327,7 @@ class HttpExamService implements ExamService {
               'answer': bankAnswerIndices(entry.value),
             },
         ],
+        'durationSec': durationMs < 0 ? 0 : durationMs ~/ 1000,
       },
     );
     if (decoded == null) {

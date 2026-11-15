@@ -23,6 +23,7 @@ class AnswerSessionState {
     this.sessionId,
     this.snapshot,
     this.lastQuestionId,
+    this.elapsedMs = 0,
   });
 
   final String setId;
@@ -54,6 +55,10 @@ class AnswerSessionState {
   final int startedAt;
   final int updatedAt;
 
+  /// F25：离开答题页时冻结的累计用时（毫秒），只累计页面在前台的时长。
+  /// 再次进入同一会话从这里续计；0 表示旧数据（尚未暂停过）。
+  final int elapsedMs;
+
   bool get isExam => mode == 'exam';
 
   AnswerSessionState copyWith({
@@ -71,6 +76,7 @@ class AnswerSessionState {
     String? sessionId,
     int? startedAt,
     int? updatedAt,
+    int? elapsedMs,
   }) {
     return AnswerSessionState(
       setId: setId ?? this.setId,
@@ -87,6 +93,7 @@ class AnswerSessionState {
       sessionId: sessionId ?? this.sessionId,
       startedAt: startedAt ?? this.startedAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      elapsedMs: elapsedMs ?? this.elapsedMs,
     );
   }
 
@@ -111,6 +118,7 @@ class AnswerSessionState {
       sessionId: json['sessionId'] as String?,
       startedAt: (json['startedAt'] as num?)?.toInt() ?? 0,
       updatedAt: (json['updatedAt'] as num?)?.toInt() ?? 0,
+      elapsedMs: (json['elapsedMs'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -130,6 +138,7 @@ class AnswerSessionState {
       'sessionId': sessionId,
       'startedAt': startedAt,
       'updatedAt': updatedAt,
+      'elapsedMs': elapsedMs,
     };
   }
 
