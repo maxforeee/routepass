@@ -34,6 +34,7 @@ abstract class PracticeService {
 
   /// 提交单题作答。调用时机：用户选完选项点“下一题”或“确认”时。
   /// [sessionId] 为服务端会话 id（S11 `POST /practice/submit` 的 `sessionId`）。
+  /// [chosen] 是客户端选项 key；HTTP 实现按 S11 契约转成 0 基下标数组上传。
   /// Mock：只在本地记一笔，不判对错，correct 字段返回 null。
   Future<AnswerResult> submitAnswer({
     required String sessionId,
@@ -218,12 +219,15 @@ class HttpPracticeService implements PracticeService {
     String? opId,
     String? mode,
   }) async {
+    // S11 契约：answer 是 0 基下标数组（不是字母）、durationSec 是秒、
+    // opId 必填且不超过 40 字符，否则服务端直接 rejected。
+    final resolvedOpId = _submitOpId(opId, sessionId, questionId);
     final body = <String, Object?>{
       'setId': ?setId,
       'questionId': questionId,
-      'chosen': chosen,
-      'durationMs': durationMs,
-      'opId': ?opId,
+      'answer': bankAnswerIndices(chosen),
+      'durationSec': durationMs < 0 ? 0 : durationMs ~/ 1000,
+      'opId': resolvedOpId,
       'mode': mode ?? 'practice',
       if (sessionId.isNotEmpty) 'sessionId': sessionId,
     };
@@ -242,12 +246,13 @@ class HttpPracticeService implements PracticeService {
         );
       }
       final decoded = _decode(response);
-      final answer = (decoded['answer'] as List<dynamic>?)?.cast<String>();
+      // 服务端 answer 是 0 基下标数组，转成选项 key 再交给 UI 判分。
+      final answer = bankAnswerKeys(decoded['answer']);
       return AnswerResult(
         correct: decoded['correct'] as bool?,
         explanation: decoded['explanation'] as String? ?? '',
         correctKeys: answer,
-        opId: decoded['opId'] as String? ?? opId,
+        opId: decoded['opId'] as String? ?? resolvedOpId,
       );
     } catch (_) {
       final local = fallback;
@@ -340,6 +345,16 @@ class HttpPracticeService implements PracticeService {
     final local = fallback;
     if (local == null) return null;
     return local.getContinueSession();
+  }
+
+  /// 服务端幂等键（attempts.op_id 为 VARCHAR(40)）：缺省用会话 + 题目拼，
+  /// 超长时保留首尾两段——同一会话同一题仍得到同一个键，重复提交才能去重。
+  static String _submitOpId(String? opId, String sessionId, String questionId) {
+    final raw = (opId == null || opId.isEmpty)
+        ? '$sessionId-$questionId'
+        : opId;
+    if (raw.length <= 40) return raw;
+    return '${raw.substring(0, 20)}-${raw.substring(raw.length - 19)}';
   }
 
   Map<String, String> get _headers {

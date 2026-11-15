@@ -179,6 +179,45 @@ Question? mapBankQuestionJson(
 
 String _letter(int index) => String.fromCharCode('A'.codeUnitAt(0) + index);
 
+/// 客户端选项 key（`["A", "C"]`）→ 服务端 0 基下标数组（`[0, 2]`）。
+///
+/// S11 `POST /practice/submit` 与 `POST /exam/{id}/answers|submit` 的
+/// `answer` 契约都是下标数组；无法识别的 key 直接丢弃，不猜下标。
+List<int> bankAnswerIndices(List<String> keys) {
+  final indices = <int>[];
+  for (final key in keys) {
+    final normalized = key.trim().toUpperCase();
+    if (normalized.length != 1) continue;
+    final index = normalized.codeUnitAt(0) - 'A'.codeUnitAt(0);
+    if (index < 0 || index > 25) continue;
+    indices.add(index);
+  }
+  return indices;
+}
+
+/// 服务端答案数组 → 客户端选项 key 列表。
+///
+/// 既接受 0 基下标数组（S11 判分返回的 `answer`），也接受字母数组（旧
+/// 本地 JSON）。形状不认识时返回 null，绝不编答案。
+List<String>? bankAnswerKeys(Object? raw) {
+  if (raw is! List) return null;
+  final keys = <String>[];
+  for (final item in raw) {
+    if (item is num) {
+      final index = item.toInt();
+      if (index < 0 || index > 25) return null;
+      keys.add(_letter(index));
+    } else if (item is String) {
+      final key = item.trim().toUpperCase();
+      if (key.isEmpty) return null;
+      keys.add(key);
+    } else {
+      return null;
+    }
+  }
+  return keys;
+}
+
 /// `/bank/sets/{setId}/overview` 的 HTTP 实现。
 class HttpBankSetOverviewSource implements BankSetOverviewSource {
   HttpBankSetOverviewSource({http.Client? client, String? baseUrl})

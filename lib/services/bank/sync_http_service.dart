@@ -21,6 +21,7 @@ import '../../core/service_locator.dart';
 import '../../models/sync.dart';
 import 'bank_sync_service.dart';
 import 'local_cache_service.dart';
+import 'question_bank_source.dart';
 
 /// 同步 HTTP 实现。
 class HttpSyncService implements SyncService {
@@ -461,8 +462,10 @@ class HttpSyncService implements SyncService {
     if (op.kind != LocalSyncOp.kindPracticeAnswer) return null;
     final payload = op.payload;
     final questionId = payload['questionId'] as String?;
-    final chosen = payload['chosen'];
-    if (questionId == null || questionId.isEmpty || chosen is! List) {
+    // 队列里存的是选项 key（`["A","C"]`），服务端 attempts.answer 是 0 基
+    // 下标数组：不转换的话每条离线作答都会被判成错答。
+    final keys = bankAnswerKeys(payload['answer'] ?? payload['chosen']);
+    if (questionId == null || questionId.isEmpty || keys == null) {
       return null;
     }
     final durationMs = (payload['durationMs'] as num?)?.toInt() ?? 0;
@@ -474,8 +477,8 @@ class HttpSyncService implements SyncService {
       'clientAt': _iso(op.createdAt),
       'data': <String, Object?>{
         'questionId': questionId,
-        'answer': chosen,
-        'durationSec': (durationMs / 1000).round(),
+        'answer': bankAnswerIndices(keys),
+        'durationSec': durationMs < 0 ? 0 : durationMs ~/ 1000,
         'mode': payload['mode'] as String? ?? 'practice',
       },
     };
