@@ -308,6 +308,80 @@ class PracticeRecordSummary {
   String toString() => 'PracticeRecordSummary($id, $answeredCount 题)';
 }
 
+/// F25 记录详情的薄弱点项（`GET /practice/records/{id}` 的 `weakPoints`）。
+///
+/// 契约字段：`{module, wrong, total}`；只统计本会话真实答错的题，
+/// 没有错题时服务端返回空列表，客户端不得虚构薄弱点。
+class PracticeWeakPoint {
+  const PracticeWeakPoint({
+    required this.module,
+    required this.wrong,
+    required this.total,
+  });
+
+  final String module;
+  final int wrong;
+  final int total;
+
+  factory PracticeWeakPoint.fromJson(Map<String, dynamic> json) {
+    return PracticeWeakPoint(
+      module: json['module'] as String? ?? '',
+      wrong: (json['wrong'] as num?)?.toInt() ?? 0,
+      total: (json['total'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  String toString() => 'PracticeWeakPoint($module, $wrong/$total)';
+}
+
+/// F25 答题记录详情（`GET /practice/records/{id}`）。
+///
+/// 契约字段：`{sessionId, module, status, answered, total, correct, score,
+/// weakPoints}`；全部由服务端 attempts 真实数据计算。`score` 是正确率
+/// 百分数（correct / answered），`total` 无卷面题数时等于 answered。
+class PracticeRecordDetail {
+  const PracticeRecordDetail({
+    required this.sessionId,
+    required this.module,
+    required this.status,
+    required this.answered,
+    required this.total,
+    required this.correct,
+    required this.score,
+    this.weakPoints = const <PracticeWeakPoint>[],
+  });
+
+  final String sessionId;
+  final String module;
+  final String status;
+  final int answered;
+  final int total;
+  final int correct;
+  final int score;
+  final List<PracticeWeakPoint> weakPoints;
+
+  factory PracticeRecordDetail.fromJson(Map<String, dynamic> json) {
+    return PracticeRecordDetail(
+      sessionId: json['sessionId'] as String? ?? '',
+      module: json['module'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      answered: (json['answered'] as num?)?.toInt() ?? 0,
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      correct: (json['correct'] as num?)?.toInt() ?? 0,
+      score: (json['score'] as num?)?.toInt() ?? 0,
+      weakPoints: (json['weakPoints'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(PracticeWeakPoint.fromJson)
+          .toList(),
+    );
+  }
+
+  @override
+  String toString() =>
+      'PracticeRecordDetail($sessionId, $correct/$answered, score $score)';
+}
+
 /// S11 模块进度（`GET /practice/progress` 的裸数组元素）。
 ///
 /// 契约字段：`{module, total, answered, remaining}`；`answered` 为该模块

@@ -191,6 +191,18 @@ class _SetDetailPageState extends State<SetDetailPage> {
     );
   }
 
+  /// F25：记录行进详情页（摘要 + 删除）；返回后重读记录，
+  /// 详情页删掉的记录（含断点）立即从列表与「继续练习」里消失。
+  Future<void> _openRecord(AnswerRecord record) async {
+    await Navigator.of(context).pushNamed(
+      AppRoutes.bankRecordDetail,
+      arguments: <String, Object?>{'record': record},
+    );
+    final setId = _setId;
+    if (!mounted || setId == null) return;
+    _loadRecords(setId);
+  }
+
   String get _startLabel {
     final bp = _breakpoint;
     if (bp != null && bp.isBreakpoint) {
@@ -397,6 +409,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
                               onContinue: _records.any((r) => r.isBreakpoint)
                                   ? _start
                                   : null,
+                              onRecordTap: _openRecord,
                             ),
                           ),
                         ],

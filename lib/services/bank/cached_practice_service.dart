@@ -169,6 +169,14 @@ class CachedPracticeService implements PracticeService {
   }) => delegate.fetchPracticeRecords(page: page, pageSize: pageSize);
 
   @override
+  Future<PracticeRecordDetail?> getRecordDetail(String sessionId) =>
+      delegate.getRecordDetail(sessionId);
+
+  @override
+  Future<bool> deleteRecord(String sessionId) =>
+      delegate.deleteRecord(sessionId);
+
+  @override
   Future<List<PracticeModuleProgress>> fetchPracticeProgress() =>
       delegate.fetchPracticeProgress();
 

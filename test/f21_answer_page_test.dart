@@ -74,6 +74,12 @@ class _BankPracticeService implements PracticeService {
   Set<String> lastExcludedIds = <String>{};
 
   @override
+  Future<PracticeRecordDetail?> getRecordDetail(String sessionId) async => null;
+
+  @override
+  Future<bool> deleteRecord(String sessionId) async => false;
+
+  @override
   Future<PracticeNext?> drawNextQuestion({
     required String setId,
     String? module,

@@ -87,6 +87,12 @@ class _PracticeFake implements PracticeService {
   int drawCalls = 0;
 
   @override
+  Future<PracticeRecordDetail?> getRecordDetail(String sessionId) async => null;
+
+  @override
+  Future<bool> deleteRecord(String sessionId) async => false;
+
+  @override
   Future<PracticeNext?> drawNextQuestion({
     required String setId,
     String? module,

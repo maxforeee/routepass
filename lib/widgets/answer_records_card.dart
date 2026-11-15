@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 import '../models/answer_record.dart';
+import '../router/app_router.dart';
 import 'daily_card_border_painter.dart';
 
 class AnswerRecordsCard extends StatelessWidget {
@@ -17,6 +18,7 @@ class AnswerRecordsCard extends StatelessWidget {
     required this.records,
     this.currentSummary,
     this.onContinue,
+    this.onRecordTap,
     this.maxHeightFactor = AppSizes.recordsCardMaxHeightFactor,
   });
 
@@ -27,6 +29,10 @@ class AnswerRecordsCard extends StatelessWidget {
 
   /// 前置页断点行「继续」；答题页 null。
   final VoidCallback? onContinue;
+
+  /// F25：点记录行进详情页。宿主（前置页）注入以便返回后刷新列表；
+  /// 不传时行内直接 push [AppRoutes.bankRecordDetail]。
+  final void Function(AnswerRecord record)? onRecordTap;
 
   final double maxHeightFactor;
 
@@ -100,6 +106,7 @@ class AnswerRecordsCard extends StatelessWidget {
                     itemBuilder: (context, index) => _RecordRow(
                       record: records[index],
                       onContinue: onContinue,
+                      onRecordTap: onRecordTap,
                     ),
                   ),
           ),
@@ -148,10 +155,24 @@ class AnswerRecordsCard extends StatelessWidget {
 }
 
 class _RecordRow extends StatelessWidget {
-  const _RecordRow({required this.record, this.onContinue});
+  const _RecordRow({required this.record, this.onContinue, this.onRecordTap});
 
   final AnswerRecord record;
   final VoidCallback? onContinue;
+  final void Function(AnswerRecord record)? onRecordTap;
+
+  /// F25：点行进记录详情（摘要 + 删除），不在行内展开题目。
+  void _openDetail(BuildContext context) {
+    final handler = onRecordTap;
+    if (handler != null) {
+      handler(record);
+      return;
+    }
+    Navigator.of(context).pushNamed(
+      AppRoutes.bankRecordDetail,
+      arguments: <String, Object?>{'record': record},
+    );
+  }
 
   String get _kindLabel => record.isBreakpoint ? '断点' : '已完成';
 
@@ -200,52 +221,55 @@ class _RecordRow extends StatelessWidget {
             ),
           );
 
-    return SizedBox(
-      height: AppSizes.recordsRowHeight,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '$_kindLabel · ${record.answeredCount}/${record.targetCount} 题',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: AppFontSizes.detailBody,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.title(context),
+    return InkWell(
+      onTap: () => _openDetail(context),
+      child: SizedBox(
+        height: AppSizes.recordsRowHeight,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '$_kindLabel · ${record.answeredCount}/${record.targetCount} 题',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: AppFontSizes.detailBody,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.title(context),
+                    ),
                   ),
                 ),
-              ),
-              right,
-            ],
-          ),
-          Text(
-            '${record.mode == 'exam' ? '考试' : '练习'} · ${record.setTitle} · $_dateText · 用时 $_durationText',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: AppFontSizes.detailStat,
-              color: AppColors.cardCaption(context),
+                right,
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: Container(
-              height: 3,
-              color: AppColors.cardBorder(context),
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: progress,
-                child: Container(color: AppColors.accent(context)),
+            Text(
+              '${record.mode == 'exam' ? '考试' : '练习'} · ${record.setTitle} · $_dateText · 用时 $_durationText',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: AppFontSizes.detailStat,
+                color: AppColors.cardCaption(context),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: Container(
+                height: 3,
+                color: AppColors.cardBorder(context),
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: progress,
+                  child: Container(color: AppColors.accent(context)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

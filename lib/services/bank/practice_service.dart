@@ -7,6 +7,8 @@
 /// - `POST /api/v1/practice/submit`：判分，带 sessionId 时同步会话计数；
 /// - `POST /api/v1/practice/sessions/{id}/end`：结算或留断点；
 /// - `GET  /api/v1/practice/records`：服务端记录列表（只读，无批量上传）；
+/// - `GET  /api/v1/practice/records/{id}`：记录详情（F25，真实统计 + 薄弱点）；
+/// - `DELETE /api/v1/practice/records/{id}`：删除记录（F25，断点一并废弃）；
 /// - `GET  /api/v1/practice/sessions/{id}`：断点会话详情（含已答题目 id）；
 /// - `GET  /api/v1/practice/progress`：裸数组模块进度（无题型分布）。
 ///
@@ -81,6 +83,15 @@ abstract class PracticeService {
     int page = 1,
     int pageSize = 20,
   }) async => const <PracticeRecordSummary>[];
+
+  /// F25 记录详情（`GET /practice/records/{sessionId}`）：真实作答统计 +
+  /// 薄弱点。未登录 / 离线 / 接口未就绪返回 null，详情页回落本地摘要。
+  Future<PracticeRecordDetail?> getRecordDetail(String sessionId) async => null;
+
+  /// F25 删除记录（`DELETE /practice/records/{sessionId}`）：服务端删除
+  /// 会话与 attempts（断点会话一并废弃）。成功返回 true；未登录 / 离线 /
+  /// 404 返回 false，调用方仍删本地记录。
+  Future<bool> deleteRecord(String sessionId) async => false;
 
   /// 模块进度（S11 `GET /practice/progress`，裸数组）。
   /// 未就绪返回空列表，前置页回落到缓存 / “待接口”。
@@ -319,6 +330,26 @@ class HttpPracticeService implements PracticeService {
   }
 
   @override
+  Future<PracticeRecordDetail?> getRecordDetail(String sessionId) async {
+    if (sessionId.isEmpty) return null;
+    final data = await _send(
+      'GET',
+      '/api/v1/practice/records/${Uri.encodeComponent(sessionId)}',
+    );
+    return data == null ? null : PracticeRecordDetail.fromJson(data);
+  }
+
+  @override
+  Future<bool> deleteRecord(String sessionId) async {
+    if (sessionId.isEmpty) return false;
+    final data = await _send(
+      'DELETE',
+      '/api/v1/practice/records/${Uri.encodeComponent(sessionId)}',
+    );
+    return data != null && data['deleted'] == true;
+  }
+
+  @override
   Future<List<PracticeModuleProgress>> fetchPracticeProgress() async {
     final data = await _send(
       'GET',
@@ -385,6 +416,10 @@ class HttpPracticeService implements PracticeService {
               headers: _headers,
               body: body == null ? null : jsonEncode(body),
             )
+            .timeout(_timeout);
+      } else if (method == 'DELETE') {
+        response = await _client
+            .delete(uri, headers: _headers)
             .timeout(_timeout);
       } else {
         response = await _client.get(uri, headers: _headers).timeout(_timeout);
