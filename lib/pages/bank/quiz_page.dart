@@ -67,6 +67,11 @@ class _QuizPageState extends State<QuizPage> {
   List<Question> _questions = <Question>[];
   final Map<String, List<String>> _answers = <String, List<String>>{};
   final Map<String, AnswerResult> _graded = <String, AnswerResult>{};
+
+  /// B14：交卷后服务端逐题判分（question id → 明细），进入回顾时拉取。
+  /// 为空 / 拉取失败保持空 map，回顾沿用「只标已选 + 解析待接口」兜底。
+  final Map<String, ExamQuestionGrade> _examGrading =
+      <String, ExamQuestionGrade>{};
   final Set<String> _answeredIds = <String>{};
   List<AnswerRecord> _records = <AnswerRecord>[];
 
@@ -713,6 +718,7 @@ class _QuizPageState extends State<QuizPage> {
               _reviewMode = true;
               _currentIndex = index.clamp(0, _questions.length - 1);
             });
+            unawaited(_loadExamGrading());
           },
           onRetryWrong: () {
             Navigator.of(sheetContext).pop();
@@ -724,6 +730,24 @@ class _QuizPageState extends State<QuizPage> {
         );
       },
     );
+  }
+
+  /// B14：进入回顾后拉取服务端判分，不阻塞回顾界面。失败或空结果保持
+  /// 空 map——没有判分依据就只标已选，绝不本地猜对错。
+  Future<void> _loadExamGrading() async {
+    final examId = _examId;
+    if (examId == null || examId.isEmpty) return;
+    try {
+      final grading = await _exam.loadExamGrading(examId);
+      if (!mounted || grading.isEmpty) return;
+      setState(() {
+        _examGrading
+          ..clear()
+          ..addAll(grading);
+      });
+    } catch (_) {
+      // 保持空 map，回顾走原有兜底。
+    }
   }
 
   void _writeExamCompletion(int? score) {
@@ -814,6 +838,19 @@ class _QuizPageState extends State<QuizPage> {
             ? OptionTileState.selected
             : OptionTileState.idle;
       }
+      final grade = _examGrading[q.id];
+      if (grade != null) {
+        // B14：服务端判分优先。correct 未下发不涂红绿；答案键标绿，
+        // 用户错选标红。
+        if (grade.correct == null) {
+          return chosen.contains(key)
+              ? OptionTileState.selected
+              : OptionTileState.idle;
+        }
+        if (grade.answer.contains(key)) return OptionTileState.correct;
+        if (chosen.contains(key)) return OptionTileState.wrong;
+        return OptionTileState.idle;
+      }
       if (q.answer.isEmpty) {
         // 卷面不含答案（考试作答接口不返回答案）：没有判分依据，就只标已选，
         // 不把用户选项涂成“错”——与 _resultFor 的 correct: null 保持一致。
@@ -841,6 +878,19 @@ class _QuizPageState extends State<QuizPage> {
   AnswerResult? _resultFor(Question q) {
     if (_isExam) {
       if (!_reviewMode) return null;
+      final grade = _examGrading[q.id];
+      if (grade != null) {
+        // B14：对错以服务端为准；解析 / 答案键缺什么用题目自带数据补什么。
+        final keys = grade.answer.isNotEmpty ? grade.answer : q.answer;
+        final explanation = grade.explanation.isNotEmpty
+            ? grade.explanation
+            : (q.explanation.isEmpty ? '解析待接口' : q.explanation);
+        return AnswerResult(
+          correct: grade.correct,
+          explanation: explanation,
+          correctKeys: keys,
+        );
+      }
       return AnswerResult(
         correct: q.answer.isEmpty
             ? null
