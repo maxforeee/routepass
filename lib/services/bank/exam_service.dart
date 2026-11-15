@@ -19,6 +19,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/config.dart';
 import '../../models/exam.dart';
+import '../../models/practice.dart' show epochMillisFromJson;
 import '../../models/question.dart';
 import 'question_bank_source.dart';
 
@@ -184,8 +185,8 @@ class HttpExamService implements ExamService {
       questions: questions,
       answers: _parseAnswers(decoded['answers']),
       startedAt:
-          (decoded['startedAt'] as num?)?.toInt() ??
-          (decoded['started_at'] as num?)?.toInt() ??
+          epochMillisFromJson(decoded['startedAt']) ??
+          epochMillisFromJson(decoded['started_at']) ??
           0,
       total: (decoded['total'] as num?)?.toInt() ?? questions.length,
       lastQuestionId: decoded['lastQuestionId'] as String?,

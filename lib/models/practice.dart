@@ -10,6 +10,20 @@ library;
 
 import 'question.dart' show Question;
 
+/// 服务端时间字段解析（B6）。
+///
+/// 线上后端 `startedAt` / `completedAt` 是 ISO 8601 字符串（东八区偏移，
+/// 如 `2026-11-15T09:30:00.123456+08:00`），旧契约与本地快照是毫秒时间戳。
+/// 两种都接受：字符串经 [DateTime] 解析（保留时区偏移）后统一成毫秒时间戳，
+/// 数字原样取整。空值 / 无法解析返回 null，由调用方决定默认值。
+int? epochMillisFromJson(Object? value) {
+  if (value is num) return value.toInt();
+  if (value is String && value.isNotEmpty) {
+    return DateTime.tryParse(value)?.millisecondsSinceEpoch;
+  }
+  return null;
+}
+
 /// 单题作答记录（§4.8.4，客户端表 `practice_records`，只追加）。
 class PracticeRecord {
   const PracticeRecord({
@@ -241,7 +255,7 @@ class PracticeSessionInfo {
       status: json['status'] as String? ?? statusInProgress,
       answeredCount: (json['answeredCount'] as num?)?.toInt() ?? 0,
       correctCount: (json['correctCount'] as num?)?.toInt() ?? 0,
-      startedAt: (json['startedAt'] as num?)?.toInt() ?? 0,
+      startedAt: epochMillisFromJson(json['startedAt']) ?? 0,
       answeredQuestionIds:
           (json['answeredQuestionIds'] as List<dynamic>?)?.cast<String>() ??
           const <String>[],
@@ -285,8 +299,8 @@ class PracticeRecordSummary {
       status: json['status'] as String? ?? PracticeSessionInfo.statusInProgress,
       answeredCount: (json['answeredCount'] as num?)?.toInt() ?? 0,
       correctCount: (json['correctCount'] as num?)?.toInt() ?? 0,
-      startedAt: (json['startedAt'] as num?)?.toInt() ?? 0,
-      completedAt: (json['completedAt'] as num?)?.toInt(),
+      startedAt: epochMillisFromJson(json['startedAt']) ?? 0,
+      completedAt: epochMillisFromJson(json['completedAt']),
     );
   }
 
