@@ -19,6 +19,7 @@ import '../../widgets/coming_soon_view.dart';
 import '../../widgets/version_banner.dart';
 import '../bank/answer_page.dart';
 import '../bank/answer_record_detail_page.dart';
+import '../bank/answer_record_paper_page.dart';
 import '../bank/favorites_page.dart';
 import '../bank/module_list_page.dart';
 import '../bank/quiz_page.dart';
@@ -253,6 +254,8 @@ class _AppShellState extends State<AppShell> {
         page = SetDetailPage(args: _routeArgs(settings));
       case AppRoutes.bankRecordDetail:
         page = AnswerRecordDetailPage(args: _routeArgs(settings));
+      case AppRoutes.bankRecordPaper:
+        page = AnswerRecordPaperPage(args: _routeArgs(settings));
       case AppRoutes.bankExam:
         page = AnswerPage(args: _routeArgs(settings));
       case AppRoutes.bankDaily:

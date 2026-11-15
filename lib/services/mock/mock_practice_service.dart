@@ -99,6 +99,9 @@ class MockPracticeService implements PracticeService {
   Future<bool> deleteRecord(String sessionId) async => false;
 
   @override
+  Future<PracticeRecordPaper?> getRecordPaper(String sessionId) async => null;
+
+  @override
   Future<List<PracticeModuleProgress>> fetchPracticeProgress() async =>
       const <PracticeModuleProgress>[];
 

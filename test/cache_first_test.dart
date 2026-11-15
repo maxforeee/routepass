@@ -136,6 +136,9 @@ class _FakePracticeService implements PracticeService {
   Future<bool> deleteRecord(String sessionId) async => false;
 
   @override
+  Future<PracticeRecordPaper?> getRecordPaper(String sessionId) async => null;
+
+  @override
   Future<PracticeNext?> drawNextQuestion({
     required String setId,
     String? module,

@@ -382,6 +382,56 @@ class PracticeRecordDetail {
       'PracticeRecordDetail($sessionId, $correct/$answered, score $score)';
 }
 
+/// F25 试卷回顾单题（`GET /practice/records/{id}/paper` 的 `items` 元素）。
+///
+/// 契约字段：`{questionId, question, chosen, correct, explanation}`；
+/// `question` 与 `/practice/next` 同一题库投影（含正确答案与解析），
+/// `chosen` 上传时为 0 基下标数组（与 submit 同约定），服务层转成选项 key。
+class PracticePaperItem {
+  const PracticePaperItem({
+    required this.questionId,
+    required this.question,
+    required this.chosen,
+    required this.correct,
+    required this.explanation,
+  });
+
+  final String questionId;
+
+  /// 题目本体（answer 为正确答案 key 列表，explanation 为解析）。
+  final Question question;
+
+  /// 用户所选选项 key（如 `["A"]`）；未作答为空列表。
+  final List<String> chosen;
+
+  final bool correct;
+  final String explanation;
+
+  @override
+  String toString() => 'PracticePaperItem($questionId, correct: $correct)';
+}
+
+/// F25 答题记录试卷（`GET /practice/records/{id}/paper`）。
+///
+/// 契约字段：`{sessionId, module, status, items}`；只读回顾，items 按作答
+/// 顺序一题一条。空会话 items 为空列表，客户端显示空态，绝不虚构题目。
+class PracticeRecordPaper {
+  const PracticeRecordPaper({
+    required this.sessionId,
+    required this.module,
+    required this.status,
+    this.items = const <PracticePaperItem>[],
+  });
+
+  final String sessionId;
+  final String module;
+  final String status;
+  final List<PracticePaperItem> items;
+
+  @override
+  String toString() => 'PracticeRecordPaper($sessionId, ${items.length} 题)';
+}
+
 /// S11 模块进度（`GET /practice/progress` 的裸数组元素）。
 ///
 /// 契约字段：`{module, total, answered, remaining}`；`answered` 为该模块

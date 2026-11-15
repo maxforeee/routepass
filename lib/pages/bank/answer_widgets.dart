@@ -372,11 +372,15 @@ class AnalysisCard extends StatefulWidget {
     required this.question,
     required this.result,
     required this.chosen,
+    this.sampleData = true,
   });
 
   final Question question;
   final AnswerResult result;
   final List<String> chosen;
+
+  /// Mock 数据显示「样例数据」标注；真实服务端数据（F25 试卷回顾）传 false。
+  final bool sampleData;
 
   @override
   State<AnalysisCard> createState() => _AnalysisCardState();
@@ -401,17 +405,18 @@ class _AnalysisCardState extends State<AnalysisCard> {
             Row(
               children: [
                 Expanded(child: Text('解析', style: theme.textTheme.titleMedium)),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+                if (widget.sampleData)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('样例数据', style: theme.textTheme.labelMedium),
                   ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text('样例数据', style: theme.textTheme.labelMedium),
-                ),
                 IconButton(
                   icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
                   tooltip: _expanded ? '收起解析' : '展开解析',

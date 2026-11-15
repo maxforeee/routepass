@@ -24,7 +24,7 @@ class AppRoutes {
   static const String bankAnswer = '/bank/answer';
   static const String bankSetDetail = '/bank/set/detail';
   static const String bankRecordDetail = '/bank/record-detail';
-  // F25 Chunk 2b 装配试卷页；2a 只预留路由名（查看试卷入口已接线）。
+  // F25 Chunk 2b：试卷回顾页（详情页「查看试卷」入口进入，只读）。
   static const String bankRecordPaper = '/bank/record-paper';
   static const String bankExam = '/bank/exam';
   static const String bankExamResult = '/bank/exam/result';

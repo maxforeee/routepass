@@ -8,6 +8,7 @@
 /// - `POST /api/v1/practice/sessions/{id}/end`：结算或留断点；
 /// - `GET  /api/v1/practice/records`：服务端记录列表（只读，无批量上传）；
 /// - `GET  /api/v1/practice/records/{id}`：记录详情（F25，真实统计 + 薄弱点）；
+/// - `GET  /api/v1/practice/records/{id}/paper`：试卷回顾（F25，只读逐题复盘）；
 /// - `DELETE /api/v1/practice/records/{id}`：删除记录（F25，断点一并废弃）；
 /// - `GET  /api/v1/practice/sessions/{id}`：断点会话详情（含已答题目 id）；
 /// - `GET  /api/v1/practice/progress`：裸数组模块进度（无题型分布）。
@@ -92,6 +93,11 @@ abstract class PracticeService {
   /// 会话与 attempts（断点会话一并废弃）。成功返回 true；未登录 / 离线 /
   /// 404 返回 false，调用方仍删本地记录。
   Future<bool> deleteRecord(String sessionId) async => false;
+
+  /// F25 试卷回顾（`GET /practice/records/{sessionId}/paper`）：按作答顺序
+  /// 返回题目 + 用户答案 + 正确答案 + 解析，只读。未登录 / 离线 / 接口未就绪
+  /// 返回 null，试卷页显示重试 / 空态，绝不编题。
+  Future<PracticeRecordPaper?> getRecordPaper(String sessionId) async => null;
 
   /// 模块进度（S11 `GET /practice/progress`，裸数组）。
   /// 未就绪返回空列表，前置页回落到缓存 / “待接口”。
@@ -347,6 +353,40 @@ class HttpPracticeService implements PracticeService {
       '/api/v1/practice/records/${Uri.encodeComponent(sessionId)}',
     );
     return data != null && data['deleted'] == true;
+  }
+
+  @override
+  Future<PracticeRecordPaper?> getRecordPaper(String sessionId) async {
+    if (sessionId.isEmpty) return null;
+    final data = await _send(
+      'GET',
+      '/api/v1/practice/records/${Uri.encodeComponent(sessionId)}/paper',
+    );
+    if (data == null) return null;
+    final items = <PracticePaperItem>[];
+    for (final raw in _itemList(data)) {
+      if (raw is! Map<String, dynamic>) continue;
+      final questionJson = raw['question'];
+      if (questionJson is! Map<String, dynamic>) continue;
+      final question = mapBankQuestionJson(questionJson);
+      if (question == null) continue;
+      items.add(
+        PracticePaperItem(
+          questionId: raw['questionId'] as String? ?? question.id,
+          question: question,
+          // 服务端 chosen 是 0 基下标数组（与 submit 同约定），转成选项 key。
+          chosen: bankAnswerKeys(raw['chosen']) ?? const <String>[],
+          correct: raw['correct'] == true,
+          explanation: raw['explanation'] as String? ?? question.explanation,
+        ),
+      );
+    }
+    return PracticeRecordPaper(
+      sessionId: data['sessionId'] as String? ?? sessionId,
+      module: data['module'] as String? ?? '',
+      status: data['status'] as String? ?? '',
+      items: items,
+    );
   }
 
   @override
