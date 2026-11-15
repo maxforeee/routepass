@@ -1,16 +1,23 @@
 /// 考试服务抽象接口（规格文档第 4 章 §4.4.3）+ S11 HTTP 实现。
 ///
 /// 服务的页面：考试页、交卷 dialog、结果页。
-/// [HttpExamService] 接 S11 的三条考试接口：
-/// - `POST /api/v1/exam/{session_id}/answers`：逐题暂存，只返回 `{saved: true}`，
-///   不返回对错 / 答案 / 解析；同一题重复保存即覆盖（upsert）。
+/// [HttpExamService] 接后端 `api/app/api/v1/exam.py` 的考试接口：
+/// - `POST /api/v1/exam/start`：开考，body `{paperId}`（套卷 id，缺省则服务端
+///   按比例抽题）；返回会话字段 + `questions` 卷面（含服务端题目 id / 题型，
+///   不含答案）。
+/// - `POST /api/v1/exam/{session_id}/answers`：逐题暂存，`answer` 是 **0 基下标
+///   数组**，只返回 `{saved: true}`，不返回对错 / 答案 / 解析；重复保存即覆盖。
 /// - `GET  /api/v1/exam/{session_id}`：断点恢复，卷面不含答案，已保存选项在
-///   `answers` 键下（列表 `[{questionId, chosen}]`）。
-/// - `POST /api/v1/exam/{session_id}/submit`：服务端按已保存选项合并 body.answers
-///   判分（body 优先），重复提交返回已存结果。
+///   `answers` 键下（列表 `[{questionId, chosen}]`，chosen 同为下标数组）。
+/// - `POST /api/v1/exam/{session_id}/submit`：`answers` 是
+///   **列表** `[{questionId, answer}]`（不是 map），服务端按已保存选项合并
+///   body.answers 判分（body 优先），返回 `{score, total, correct, submittedAt}`；
+///   重复提交返回已存结果。
+/// - `GET  /api/v1/exam/history`：分页历史 `{items, page, pageSize, total}`。
 ///
-/// 开考 / 历史不在 S11 范围内，仍委托 [local]（生产为 MockExamService）；
-/// 接口未上线（404）/ 401 / 网络失败时同样回落 [local]，不编分数、不编答案。
+/// 超时（`410 EXAM_EXPIRED`，90 分钟）与已交卷（`409 EXAM_SUBMITTED`）由
+/// [ExamServiceException.statusCode] 透出；其余接口未上线（404）/ 401 / 网络
+/// 失败回落 [local]（生产为 MockExamService），不编分数、不编答案。
 library;
 
 import 'dart:convert';
@@ -28,6 +35,21 @@ abstract class ExamService {
   /// Mock：本地用样例题组卷，examId 为本地生成的 "MOCK-EXAM-10" 样式编号；
   /// 返回的题目不含答案（answer 为 []），与以后行为一致。
   Future<ExamSession> startExam({required int drawCount, String? setId});
+
+  /// 开考并返回**真实卷面**：服务端题目 id / 题型 / 截止时间。
+  ///
+  /// 考试暂存与交卷都按服务端题目 id 定位，所以页面必须用这里返回的
+  /// [Question.id]，不能自己编 `EXAM-0` 之类的序号（服务端会判
+  /// “题目不属于该考试”）。默认实现回落 [startExam] 的快照（Mock 无服务端
+  /// id，仍用序号），[HttpExamService] 走真实 `POST /exam/start`。
+  Future<ExamStart> startExamPaper({
+    required int drawCount,
+    String? setId,
+  }) async {
+    return examStartFromSession(
+      await startExam(drawCount: drawCount, setId: setId),
+    );
+  }
 
   /// 考试逐题暂存（S11 `POST /exam/{sessionId}/answers`，不判分）。
   /// 同一题重复保存覆盖旧选项。接口未就绪时静默失败，本地进行态快照保证续考。
@@ -54,6 +76,94 @@ abstract class ExamService {
   /// 断点恢复（S11 `GET /exam/{sessionId}`）：卷面 + `answers` 列表还原的
   /// 已选选项。接口未就绪返回 null，由本地 `AnswerSessionState` 快照续考。
   Future<ExamRecovery?> loadExamForResume(String examId) async => null;
+
+  /// 交卷后的逐题判分（B14）：question id → 已选 / 对错 / 正确答案 / 解析。
+  ///
+  /// 只在服务端**已交卷**且返回判分明细时才有内容；未部署该字段的线上服务
+  /// 返回空 map，页面保持原有兜底（只标已选、解析显示“解析待接口”），
+  /// 绝不本地猜对错。
+  Future<Map<String, ExamQuestionGrade>> loadExamGrading(String examId) async =>
+      const <String, ExamQuestionGrade>{};
+}
+
+/// 开考结果（`POST /exam/start`）：真实卷面 + 会话时间。
+class ExamStart {
+  const ExamStart({
+    required this.id,
+    required this.questions,
+    required this.startedAt,
+    required this.total,
+    this.deadlineAt,
+  });
+
+  final String id;
+
+  /// 卷面题目，[Question.id] 是服务端题目 id；answer 为空（服务端不下发）。
+  final List<Question> questions;
+
+  /// 开考时刻毫秒时间戳（服务端 `startedAt`，ISO 字符串）。
+  final int startedAt;
+
+  /// 截止时刻毫秒时间戳（服务端 `deadlineAt`，开考 + 90 分钟）；缺省为 null。
+  final int? deadlineAt;
+
+  final int total;
+
+  @override
+  String toString() => 'ExamStart($id, ${questions.length} 题)';
+}
+
+/// 本地 / Mock 会话 → [ExamStart]：没有服务端题目 id，按快照序号编
+/// `EXAM-0` 样式 id（只用于本地样例卷，真实考试走 `POST /exam/start`）。
+ExamStart examStartFromSession(ExamSession session) {
+  return ExamStart(
+    id: session.id,
+    startedAt: session.started_at,
+    total: session.total,
+    questions: <Question>[
+      for (var i = 0; i < session.snapshot.length; i++)
+        Question(
+          id: 'EXAM-$i',
+          module: '',
+          type: 'single',
+          stem: session.snapshot[i].stem,
+          options: session.snapshot[i].options,
+          answer: session.snapshot[i].answer,
+          explanation: session.snapshot[i].analysis,
+          knowledge_point_id: '',
+          difficulty: 1,
+          set_no: 0,
+          row_version: 0,
+        ),
+    ],
+  );
+}
+
+/// 交卷后单题判分明细（B14，服务端已交卷才下发）。
+class ExamQuestionGrade {
+  const ExamQuestionGrade({
+    required this.questionId,
+    required this.chosen,
+    required this.answer,
+    required this.explanation,
+    this.correct,
+  });
+
+  final String questionId;
+
+  /// 用户已选选项 key（`["A", "C"]`）。
+  final List<String> chosen;
+
+  /// 正确答案 key；服务端未下发时为空数组。
+  final List<String> answer;
+
+  final String explanation;
+
+  /// 服务端判分结果；未下发时为 null（页面不涂红绿）。
+  final bool? correct;
+
+  @override
+  String toString() => 'ExamQuestionGrade($questionId, correct: $correct)';
 }
 
 class ExamServiceException implements Exception {
@@ -66,7 +176,7 @@ class ExamServiceException implements Exception {
   String toString() => 'ExamServiceException($message)';
 }
 
-/// S11 考试接口的 HTTP 实现；开考 / 历史 / 失败兜底委托 [local]。
+/// S11 考试接口的 HTTP 实现；请求失败 / 接口未就绪时兜底委托 [local]。
 class HttpExamService implements ExamService {
   HttpExamService({
     required this.local,
@@ -76,7 +186,8 @@ class HttpExamService implements ExamService {
   }) : _client = client ?? http.Client(),
        _baseUrl = baseUrl ?? AppConfig.baseUrl;
 
-  /// 开考 / 历史仍用本地实现（S11 未提供 /exam/start），请求失败时也回落它。
+  /// 本地兜底实现（生产为 MockExamService）：开考 / 历史 / 交卷在接口未上线
+  /// （404）、401 或网络失败时回落它，不编分数、不编答案。
   final ExamService local;
 
   final http.Client _client;
@@ -88,11 +199,88 @@ class HttpExamService implements ExamService {
   static const Duration _timeout = Duration(seconds: 10);
 
   @override
-  Future<ExamSession> startExam({required int drawCount, String? setId}) =>
-      local.startExam(drawCount: drawCount, setId: setId);
+  Future<ExamSession> startExam({required int drawCount, String? setId}) async {
+    final paper = await startExamPaper(drawCount: drawCount, setId: setId);
+    return ExamSession(
+      id: paper.id,
+      started_at: paper.startedAt,
+      total: paper.total > 0 ? paper.total : paper.questions.length,
+      detail: '',
+      snapshot: paper.questions
+          .map(
+            (q) => ExamSnapshot(
+              stem: q.stem,
+              options: q.options,
+              answer: const <String>[],
+              analysis: '',
+            ),
+          )
+          .toList(),
+    );
+  }
 
   @override
-  Future<List<ExamSession>> getHistory() => local.getHistory();
+  Future<ExamStart> startExamPaper({
+    required int drawCount,
+    String? setId,
+  }) async {
+    Map<String, dynamic>? decoded;
+    try {
+      decoded = await _post('/api/v1/exam/start', <String, Object?>{
+        // paperId 是套卷 id（h3cne-2026-01/02）；缺省由服务端按比例抽题。
+        if (setId != null && setId.isNotEmpty) 'paperId': setId,
+      });
+    } on ExamServiceException {
+      decoded = null;
+    }
+    // 回落必须走 local，不能走 startExam——后者又调回本方法。
+    if (decoded == null) {
+      return examStartFromSession(
+        await local.startExam(drawCount: drawCount, setId: setId),
+      );
+    }
+    final questions = _parseQuestions(decoded['questions']);
+    if (questions.isEmpty) {
+      return examStartFromSession(
+        await local.startExam(drawCount: drawCount, setId: setId),
+      );
+    }
+    return ExamStart(
+      id: decoded['id'] as String? ?? '',
+      startedAt: epochMillisFromJson(decoded['startedAt']) ?? 0,
+      deadlineAt: epochMillisFromJson(decoded['deadlineAt']),
+      total: (decoded['total'] as num?)?.toInt() ?? questions.length,
+      questions: questions,
+    );
+  }
+
+  @override
+  Future<List<ExamSession>> getHistory() async {
+    final decoded = await _get('/api/v1/exam/history');
+    final items = decoded?['items'];
+    if (items is! List) return local.getHistory();
+    final sessions = <ExamSession>[];
+    for (final item in items) {
+      if (item is! Map<String, dynamic>) continue;
+      final id = item['id'];
+      if (id is! String) continue;
+      sessions.add(
+        ExamSession(
+          id: id,
+          started_at: epochMillisFromJson(item['startedAt']) ?? 0,
+          submitted_at: epochMillisFromJson(item['submittedAt']),
+          duration_ms: (item['durationMs'] as num?)?.toInt(),
+          score: (item['score'] as num?)?.toInt(),
+          passed: item['passed'] as bool?,
+          total: (item['total'] as num?)?.toInt() ?? 0,
+          correct: (item['correct'] as num?)?.toInt(),
+          detail: '',
+          snapshot: const <ExamSnapshot>[],
+        ),
+      );
+    }
+    return sessions;
+  }
 
   @override
   Future<void> saveAnswer({
@@ -102,10 +290,14 @@ class HttpExamService implements ExamService {
     required String opId,
   }) async {
     if (examId.isEmpty) return;
-    // 只发 questionId + answer；失败静默（本地快照仍可续考）。
+    // 契约是 0 基下标数组（SaveAnswerBody.answer: list[int]），不是字母。
+    // 410/409 由 _post 抛出交给页面提示；其余失败静默（本地快照仍可续考）。
     await _post(
       '/api/v1/exam/${Uri.encodeComponent(examId)}/answers',
-      <String, Object?>{'questionId': questionId, 'answer': chosen},
+      <String, Object?>{
+        'questionId': questionId,
+        'answer': bankAnswerIndices(chosen),
+      },
     );
   }
 
@@ -122,9 +314,19 @@ class HttpExamService implements ExamService {
         durationMs: durationMs,
       );
     }
+    // SubmitBody.answers 是列表 [{questionId, answer: list[int]}]，不是 map；
+    // 用时由服务端按 started_at 计算，body 不带 duration 字段。
     final decoded = await _post(
       '/api/v1/exam/${Uri.encodeComponent(examId)}/submit',
-      <String, Object?>{'answers': answers, 'durationMs': durationMs},
+      <String, Object?>{
+        'answers': <Map<String, Object?>>[
+          for (final entry in answers.entries)
+            <String, Object?>{
+              'questionId': entry.key,
+              'answer': bankAnswerIndices(entry.value),
+            },
+        ],
+      },
     );
     if (decoded == null) {
       return local.submitExam(
@@ -134,6 +336,8 @@ class HttpExamService implements ExamService {
       );
     }
     final detail = decoded['detail'];
+    // 交卷响应只有 score/total/correct/submittedAt：passed 仅在服务端确实
+    // 下发时才读，绝不按分数自己推一个通过与否。
     return ExamResult(
       score: (decoded['score'] as num?)?.toInt(),
       passed: decoded['passed'] as bool?,
@@ -141,6 +345,14 @@ class HttpExamService implements ExamService {
           ? detail
           : (detail == null ? '' : jsonEncode(detail)),
     );
+  }
+
+  @override
+  Future<Map<String, ExamQuestionGrade>> loadExamGrading(String examId) async {
+    if (examId.isEmpty) return const <String, ExamQuestionGrade>{};
+    final decoded = await _get('/api/v1/exam/${Uri.encodeComponent(examId)}');
+    if (decoded == null) return const <String, ExamQuestionGrade>{};
+    return parseExamGrading(decoded['grading']);
   }
 
   @override
@@ -170,15 +382,7 @@ class HttpExamService implements ExamService {
     if (examId.isEmpty) return null;
     final decoded = await _get('/api/v1/exam/${Uri.encodeComponent(examId)}');
     if (decoded == null) return null;
-    final rawQuestions = decoded['questions'];
-    final questions = <Question>[];
-    if (rawQuestions is List) {
-      for (final item in rawQuestions) {
-        if (item is! Map<String, dynamic>) continue;
-        final mapped = mapBankQuestionJson(item, requireAnswer: false);
-        if (mapped != null) questions.add(mapped);
-      }
-    }
+    final questions = _parseQuestions(decoded['questions']);
     if (questions.isEmpty) return null;
     return ExamRecovery(
       id: decoded['id'] as String? ?? examId,
@@ -193,7 +397,22 @@ class HttpExamService implements ExamService {
     );
   }
 
-  /// `answers` 是列表 `[{questionId, chosen}]`；也接受 map 形状的旧数据。
+  /// 卷面 `questions`：服务端题目 id / 题型原样保留，answer 允许为空
+  /// （考试进行中服务端不下发答案）。
+  List<Question> _parseQuestions(Object? raw) {
+    final questions = <Question>[];
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is! Map<String, dynamic>) continue;
+        final mapped = mapBankQuestionJson(item, requireAnswer: false);
+        if (mapped != null) questions.add(mapped);
+      }
+    }
+    return questions;
+  }
+
+  /// `answers` 是列表 `[{questionId, chosen}]`，`chosen` 是 **0 基下标数组**；
+  /// 也接受字母数组与 map 形状的旧数据。
   Map<String, List<String>> _parseAnswers(Object? raw) {
     final result = <String, List<String>>{};
     if (raw is List) {
@@ -201,12 +420,12 @@ class HttpExamService implements ExamService {
         if (item is! Map<String, dynamic>) continue;
         final id = item['questionId'] as String?;
         if (id == null) continue;
-        result[id] = (item['chosen'] as List<dynamic>? ?? const [])
-            .cast<String>();
+        result[id] = bankAnswerKeys(item['chosen']) ?? const <String>[];
       }
     } else if (raw is Map<String, dynamic>) {
       raw.forEach((key, value) {
-        if (value is List) result[key] = value.cast<String>();
+        final keys = bankAnswerKeys(value);
+        if (keys != null) result[key] = keys;
       });
     }
     return result;
@@ -237,19 +456,72 @@ class HttpExamService implements ExamService {
     String path,
     Map<String, Object?> body,
   ) async {
+    final http.Response response;
     try {
-      final response = await _client
+      response = await _client
           .post(
             Uri.parse('$_baseUrl$path'),
             headers: _headers,
             body: jsonEncode(body),
           )
           .timeout(_timeout);
-      if (response.statusCode != 200) return null;
+    } catch (_) {
+      return null;
+    }
+    // 超时 / 已交卷是明确的业务终态，必须让页面知道，不能静默回落本地。
+    if (response.statusCode == 410 || response.statusCode == 409) {
+      throw ExamServiceException(
+        _errorMessage(response) ??
+            (response.statusCode == 410 ? '考试已超时' : '考试已提交'),
+        statusCode: response.statusCode,
+      );
+    }
+    if (response.statusCode != 200) return null;
+    try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       return decoded is Map<String, dynamic> ? decoded : null;
     } catch (_) {
       return null;
     }
   }
+
+  /// 错误信封 `{"error": {code, message, requestId}}`（v1.1 §5.1）。
+  String? _errorMessage(http.Response response) {
+    try {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is Map<String, dynamic>) {
+        final error = decoded['error'];
+        if (error is Map<String, dynamic>) {
+          final message = error['message'];
+          if (message is String && message.isNotEmpty) return message;
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+}
+
+/// 服务端交卷判分明细（B14 `grading`）→ question id → [ExamQuestionGrade]。
+///
+/// `chosen` / `answer` 都是 0 基下标数组，转成客户端选项 key。字段缺失或
+/// 形状不认识时返回空 map / 空答案，页面据此保持“无判分依据”的兜底，
+/// 绝不本地猜对错。
+Map<String, ExamQuestionGrade> parseExamGrading(Object? raw) {
+  final result = <String, ExamQuestionGrade>{};
+  if (raw is! List) return result;
+  for (final item in raw) {
+    if (item is! Map<String, dynamic>) continue;
+    final id = item['questionId'];
+    if (id is! String || id.isEmpty) continue;
+    result[id] = ExamQuestionGrade(
+      questionId: id,
+      chosen: bankAnswerKeys(item['chosen']) ?? const <String>[],
+      answer: bankAnswerKeys(item['answer']) ?? const <String>[],
+      explanation: item['explanation'] as String? ?? '',
+      correct: item['correct'] as bool?,
+    );
+  }
+  return result;
 }

@@ -198,6 +198,16 @@ class _ExamFake implements ExamService {
   }
 
   @override
+  Future<ExamStart> startExamPaper({
+    required int drawCount,
+    String? setId,
+  }) async {
+    return examStartFromSession(
+      await startExam(drawCount: drawCount, setId: setId),
+    );
+  }
+
+  @override
   Future<void> saveAnswer({
     required String examId,
     required String questionId,
@@ -225,6 +235,10 @@ class _ExamFake implements ExamService {
 
   @override
   Future<ExamRecovery?> loadExamForResume(String examId) async => null;
+
+  @override
+  Future<Map<String, ExamQuestionGrade>> loadExamGrading(String examId) async =>
+      const <String, ExamQuestionGrade>{};
 }
 
 Widget _host(Widget quiz) {

@@ -32,6 +32,17 @@ class MockExamService implements ExamService {
     );
   }
 
+  /// Mock 无服务端题目 id：沿用本地样例卷快照（EXAM-0 样式序号）。
+  @override
+  Future<ExamStart> startExamPaper({
+    required int drawCount,
+    String? setId,
+  }) async {
+    return examStartFromSession(
+      await startExam(drawCount: drawCount, setId: setId),
+    );
+  }
+
   @override
   Future<void> saveAnswer({
     required String examId,
@@ -63,4 +74,9 @@ class MockExamService implements ExamService {
   /// S11 断点恢复未接后端：返回 null，沿用本地进行态快照续考。
   @override
   Future<ExamRecovery?> loadExamForResume(String examId) async => null;
+
+  /// Mock 不判分：永远空 map，绝不编造对错 / 正确答案 / 解析。
+  @override
+  Future<Map<String, ExamQuestionGrade>> loadExamGrading(String examId) async =>
+      const <String, ExamQuestionGrade>{};
 }

@@ -363,7 +363,9 @@ void main() {
         opId: 'op-1',
       );
       expect(sent['questionId'], 'Q-1');
-      expect(sent['answer'], <String>['B']);
+      expect(sent['answer'], <int>[
+        1,
+      ], reason: 'SaveAnswerBody.answer 是 0 基下标数组，B → 1');
       expect(sent.containsKey('correct'), isFalse);
     });
 
