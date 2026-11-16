@@ -21,6 +21,7 @@ import 'services/bank/question_repo_http.dart';
 import 'services/bank/stats_service.dart';
 import 'services/bank/sync_http_service.dart';
 import 'services/bank/wrong_service.dart';
+import 'services/knowledge/search_service_http.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
 import 'services/mock/mock_exam_service.dart';
@@ -119,7 +120,13 @@ Future<void> main() async {
       tokenProvider: cachedToken,
     ),
     knowledgeRepository: MockKnowledgeRepository(),
-    searchService: MockSearchService(),
+    // F26：搜索接真实契约（GET /knowledge/search + /bank/questions/search）；
+    // 未登录 / 离线 / 接口未就绪时按区回落 Mock，不拿样例冒充真实命中。
+    searchService: HttpSearchService(
+      fallback: MockSearchService(),
+      client: authClient,
+      tokenProvider: cachedToken,
+    ),
     subnetCalcService: LocalSubnetCalcService(),
     ipConvertService: LocalIpConvertService(),
     pingService: MockPingService(),

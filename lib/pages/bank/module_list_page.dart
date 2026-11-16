@@ -5,11 +5,14 @@
 /// 现在都来自后端 `GET /api/v1/bank/manifest`（F10）：练习 = practiceByModule
 /// 每个模块一条，考试 = exams[] 每卷一条，异步加载并复用 SetRowCard 渲染；
 /// 加载中显示进度圈，失败显示错误 + 重试，绝不静默回退到占位数据。
-/// 输入搜索后切换为题目结果列表。
+/// 输入搜索后切换为题目结果列表（F26：防抖 300ms 走 SearchService 真实
+/// 搜索，不再本地过滤样题；空关键词恢复默认套卷列表，不发请求）。
 /// （G2b：筛选 chips 已按 canva 参考移除，文本搜索行为不变。F8：标题改为与
 /// 知识库 / 工具箱相同的 PageHeader（22 粗体 + 副标题），与搜索条左缘对齐，
 /// 头像只在首页，模块标签按 canva 参考排成 3 列两行。）
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -21,6 +24,7 @@ import '../../models/bank_manifest.dart';
 import '../../models/question.dart';
 import '../../router/app_router.dart';
 import '../../services/bank/bank_manifest_service.dart';
+import '../../services/knowledge/search_service.dart';
 import '../../widgets/app_search_bar.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/set_row_card.dart';
@@ -30,17 +34,23 @@ import '../../widgets/set_row_tags.dart';
 enum _BankTab { practice, exam }
 
 class BankModuleListPage extends StatefulWidget {
-  const BankModuleListPage({super.key, this.manifestService});
+  const BankModuleListPage({
+    super.key,
+    this.manifestService,
+    this.searchService,
+  });
 
   /// 测试可注入 Mock；生产环境不传，走 ServiceLocator 里的 HTTP 实现。
   final BankManifestService? manifestService;
+
+  /// 测试可注入替身；生产环境不传，走 ServiceLocator 里的搜索服务（F26）。
+  final SearchService? searchService;
 
   @override
   State<BankModuleListPage> createState() => BankModuleListPageState();
 }
 
 class BankModuleListPageState extends State<BankModuleListPage> {
-  List<Question> _samples = const <Question>[];
   String _query = '';
   _BankTab _tab = _BankTab.practice;
   final TextEditingController _searchController = TextEditingController();
@@ -50,23 +60,30 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   bool _manifestLoading = true;
   String? _manifestError;
 
+  late final SearchService _searchService;
+  Timer? _debounce;
+  List<Question> _results = const <Question>[];
+  bool _searching = false;
+  int _searchSeq = 0;
+
   @override
   void initState() {
     super.initState();
     _manifestService =
         widget.manifestService ?? ServiceLocator.bankManifestService;
+    _searchService = widget.searchService ?? ServiceLocator.searchService;
     _loadManifest();
-    _load();
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  /// tab 切回时刷新（重拉模块 / 样题）。
-  Future<void> refresh() => _load();
+  /// tab 切回时刷新（重拉题库清单；搜索结果随输入实时重查，无需缓存）。
+  Future<void> refresh() => _loadManifest();
 
   /// 拉取题库清单（练习 / 考试 tab 的数据源）。失败时保留错误信息供重试。
   Future<void> _loadManifest() async {
@@ -90,22 +107,42 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     }
   }
 
-  Future<void> _load() async {
-    try {
-      final samples = await ServiceLocator.questionRepository.drawQuestions(
-        mode: 'practice',
-        drawCount: 100,
-      );
-      if (!mounted) return;
-      setState(() {
-        _samples = samples;
-      });
-    } catch (_) {}
+  /// F26：输入防抖 300ms 后走 SearchService 真实搜索（与知识库搜索页同
+  /// 节奏）。空关键词立即恢复默认套卷列表，不发请求。
+  void _onSearchChanged(String value) {
+    final query = value.trim();
+    _debounce?.cancel();
+    setState(() {
+      _query = query;
+      if (query.isEmpty) {
+        _results = const <Question>[];
+        _searching = false;
+      } else {
+        _searching = true;
+      }
+    });
+    if (query.isEmpty) return;
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _runSearch(query);
+    });
   }
 
-  List<Question> get _filtered => _query.isEmpty
-      ? _samples
-      : _samples.where((q) => q.stem.contains(_query)).toList();
+  Future<void> _runSearch(String query) async {
+    final seq = ++_searchSeq;
+    List<Question> questions;
+    try {
+      final result = await _searchService.search(query);
+      questions = result.questions;
+    } catch (_) {
+      questions = const <Question>[];
+    }
+    // 过期响应丢弃：期间又输入了新关键词 / 清空了搜索框。
+    if (!mounted || seq != _searchSeq || query != _query) return;
+    setState(() {
+      _results = questions;
+      _searching = false;
+    });
+  }
 
   /// F16：把当前 tab 的真实 mode 与套卷标识传给详情页——练习 tab 进
   /// practice 前置页（不显示答题说明卡），考试 tab 进 exam 前置页。
@@ -162,7 +199,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
               child: AppSearchBar(
                 controller: _searchController,
                 hintText: '搜索题目',
-                onChanged: (v) => setState(() => _query = v.trim()),
+                onChanged: _onSearchChanged,
               ),
             ),
             if (_query.isEmpty) _buildTabs(),
@@ -363,7 +400,10 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   }
 
   Widget _buildResults(ThemeData theme) {
-    final results = _filtered;
+    if (_searching) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final results = _results;
     if (results.isEmpty) {
       return Center(
         child: Column(
