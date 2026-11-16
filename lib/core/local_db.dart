@@ -108,7 +108,9 @@ class SqfliteLocalDatabase implements LocalDatabase {
         onUpgrade: (db, oldVersion, newVersion) async {
           // v1 → v2（F26）：老库补 accuracy 列，既有行保持 null（未知）。
           if (oldVersion < 2) {
-            await db.execute('ALTER TABLE set_overview ADD COLUMN accuracy REAL');
+            await db.execute(
+              'ALTER TABLE set_overview ADD COLUMN accuracy REAL',
+            );
           }
         },
       ),

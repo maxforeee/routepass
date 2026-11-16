@@ -157,12 +157,9 @@ void main() {
       final source = HttpBankSetOverviewSource(
         baseUrl: _base,
         client: MockClient(
-          (request) async => _json(_overviewPayload(
-            done: 0,
-            answered: 0,
-            correct: 0,
-            accuracy: null,
-          )),
+          (request) async => _json(
+            _overviewPayload(done: 0, answered: 0, correct: 0, accuracy: null),
+          ),
         ),
       );
 
@@ -189,15 +186,9 @@ void main() {
       final source = HttpBankSetOverviewSource(
         baseUrl: _base,
         client: MockClient(
-          (request) async => _json(
-            <String, Object?>{
-              'error': <String, Object?>{
-                'code': 'NOT_FOUND',
-                'message': '套卷不存在',
-              },
-            },
-            404,
-          ),
+          (request) async => _json(<String, Object?>{
+            'error': <String, Object?>{'code': 'NOT_FOUND', 'message': '套卷不存在'},
+          }, 404),
         ),
       );
 
