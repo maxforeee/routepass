@@ -140,6 +140,51 @@ class HttpAuthService extends AuthService {
   }
 
   @override
+  Future<RecoverResult> recover({
+    required String phone,
+    required String restoreCode,
+    required String newPassword,
+  }) async {
+    final body = <String, String>{
+      'phone': phone,
+      'restoreCode': restoreCode,
+      'newPassword': newPassword,
+    };
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('$_baseUrl/api/v1/auth/recover'),
+            headers: const <String, String>{'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 200) {
+        return RecoverResult(
+          success: false,
+          message: _messageFor(
+            response,
+            fallback: _recoverFallbackMessage(response.statusCode),
+          ),
+          statusCode: response.statusCode,
+        );
+      }
+      final decoded = _decodeMap(response);
+      final session = _sessionFromLogin(decoded, phone);
+      _session = session;
+      await _persist(session);
+      return RecoverResult(
+        success: true,
+        user: session.user,
+        restoreCode: decoded['restoreCode'] as String?,
+      );
+    } on FormatException {
+      return const RecoverResult(success: false, message: '找回密码响应格式错误，请稍后重试');
+    } catch (_) {
+      return const RecoverResult(success: false, message: '网络连接失败，请检查网络后重试');
+    }
+  }
+
+  @override
   Future<void> logout() async {
     await _ensureLoaded();
     final token = _session?.accessToken;
@@ -398,6 +443,18 @@ class HttpAuthService extends AuthService {
         return '手机号或密码格式不正确';
       default:
         return '登录失败（HTTP $statusCode）';
+    }
+  }
+
+  String _recoverFallbackMessage(int statusCode) {
+    switch (statusCode) {
+      case 401:
+        // 服务端不区分“手机号不存在”与“恢复码错误”，统一按恢复码无效提示。
+        return '恢复码无效，请核对后重试';
+      case 422:
+        return '手机号或新密码格式不正确';
+      default:
+        return '找回密码失败（HTTP $statusCode）';
     }
   }
 }

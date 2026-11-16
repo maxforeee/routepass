@@ -53,6 +53,39 @@ class LoginResult {
   String toString() => 'LoginResult(success: $success)';
 }
 
+/// 找回密码结果（F26 chunk 3：`POST /api/v1/auth/recover`）。
+///
+/// 成功时服务端签发全新双 Token 并**轮换恢复码**：旧 12 词恢复码被消耗，
+/// [restoreCode] 是新的唯一凭据，必须一次性展示给用户。
+class RecoverResult {
+  const RecoverResult({
+    required this.success,
+    this.user,
+    this.message,
+    this.restoreCode,
+    this.statusCode,
+  });
+
+  /// 是否找回成功（成功后会话已按登录流程持久化）。
+  final bool success;
+
+  /// 找回成功的用户；失败时为 null。
+  final User? user;
+
+  /// 失败原因或提示文案；成功时可为 null。
+  final String? message;
+
+  /// 服务端新签发的 12 词恢复码（旧码已失效）；失败时为 null。
+  final String? restoreCode;
+
+  /// 失败时的 HTTP 状态码（401 恢复码无效 / 422 格式校验）；
+  /// 网络失败或成功时为 null。
+  final int? statusCode;
+
+  @override
+  String toString() => 'RecoverResult(success: $success)';
+}
+
 /// 本地持久化的登录会话（access + refresh 双 Token + 用户）。
 ///
 /// accessToken 由后端签发，TTL 15 分钟；refreshToken TTL 30 天，刷新时轮换。

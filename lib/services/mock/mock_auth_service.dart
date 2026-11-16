@@ -63,6 +63,16 @@ class MockAuthService extends AuthService {
   }
 
   @override
+  Future<RecoverResult> recover({
+    required String phone,
+    required String restoreCode,
+    required String newPassword,
+  }) async {
+    // Mock 演示登录从不签发恢复码，没有可校验的凭据；不伪造找回成功。
+    return const RecoverResult(success: false, message: '演示账号未设置恢复码，无法找回密码');
+  }
+
+  @override
   Future<void> logout() async {
     await clearAllAccountData();
   }

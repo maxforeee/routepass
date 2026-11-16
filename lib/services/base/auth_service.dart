@@ -29,6 +29,15 @@ abstract class AuthService {
     required String nickname,
   });
 
+  /// 找回密码（F26 chunk 3）：凭 12 词恢复码重置密码。
+  /// 成功即登录：持久化新双 Token 与用户，并随结果下发**新的**一次性
+  /// 恢复码（旧码被消耗，服务端同时撤销全部旧会话）。
+  Future<RecoverResult> recover({
+    required String phone,
+    required String restoreCode,
+    required String newPassword,
+  });
+
   /// 登出：撤销服务端会话 + 清本地 Token。
   Future<void> logout();
 

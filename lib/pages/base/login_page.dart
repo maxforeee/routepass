@@ -11,6 +11,7 @@ import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../router/app_router.dart';
 import '../../services/base/auth_service.dart';
+import 'recover_page.dart';
 
 // F14a 登录页 1:1 参考稿（routepass_login_1to1.html）专用尺寸；
 // 色值已在 F14b 提升为 AppColors 登录色板 token，本页只引用 token。
@@ -651,11 +652,30 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  // F26 chunk 3：忘记密码入口，凭 12 词恢复码重置密码。
+                  TextButton(
+                    key: const Key('forgot-password'),
+                    onPressed: _submitting ? null : _openRecover,
+                    style: TextButton.styleFrom(
+                      foregroundColor: textColor,
+                      textStyle: const TextStyle(fontSize: 13),
+                    ),
+                    child: const Text('忘记密码？'),
+                  ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _openRecover() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RecoverPage(authService: widget.authService),
       ),
     );
   }
