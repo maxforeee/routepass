@@ -511,9 +511,11 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
       repo = null;
     }
     if (repo == null) return;
+    // 闭包捕获会使外部 null 提升失效，拷贝为非空 final 再进闭包。
+    final knowledgeRepo = repo;
     unawaited(() async {
       try {
-        final points = await repo.getPointsByQuestion(q.id);
+        final points = await knowledgeRepo.getPointsByQuestion(q.id);
         if (!mounted || points.isEmpty) return;
         setState(() => _questionPoints[q.id] = points);
       } catch (_) {}

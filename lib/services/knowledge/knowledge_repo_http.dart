@@ -223,7 +223,10 @@ class HttpKnowledgeRepository implements KnowledgeRepository {
         }
       }
       final total = (json['total'] as num?)?.toInt() ?? 0;
-      if (items.isEmpty || page * _pageSize >= total) break;
+      // 按已收集条数判断取完：后端可能返回比请求小的页，用请求页大小
+      // 判断会在短页后提前停、丢数据；空页兜底防 total 虚高或占位 KP
+      // 被过滤后凑不满 total，_maxPages 仍封顶。
+      if (items.isEmpty || points.length >= total) break;
       page++;
     }
     _cache = points;
