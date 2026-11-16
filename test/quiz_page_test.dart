@@ -12,6 +12,7 @@ import 'package:routepass/services/bank/answer_record_service.dart';
 import 'package:routepass/services/bank/answer_session_service.dart';
 import 'package:routepass/services/bank/exam_service.dart';
 import 'package:routepass/services/bank/practice_service.dart';
+import 'package:routepass/services/mock/mock_favorite_service.dart';
 
 Question _question(
   int index, {
@@ -305,6 +306,7 @@ void main() {
         practiceService: practice,
         recordService: records,
         sessionService: sessions,
+        favoriteService: MockFavoriteService(),
       );
     }
 
@@ -707,8 +709,8 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, '确认交卷'));
       await tester.pumpAndSettle();
 
-      // 交卷后从结果面板进入逐题回顾。
-      await tester.tap(find.text('题干 1'));
+      // 交卷后从全屏评分页的「逐题回顾」入口进入逐题回顾（F25）。
+      await tester.tap(find.text('逐题回顾'));
       await tester.pumpAndSettle();
 
       final tiles = tester

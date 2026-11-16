@@ -54,6 +54,31 @@ class MockWrongService implements WrongService {
   }
 
   @override
+  Future<void> addWrong(String questionId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final index = _items.indexWhere((item) => item.question_id == questionId);
+    if (index >= 0) {
+      // wrong_add：次数 +1、mastered 置回 false（§4.8.7）。
+      final item = _items[index];
+      _items[index] = WrongItem(
+        question_id: item.question_id,
+        wrong_count: item.wrong_count + 1,
+        last_wrong_at: now,
+        mastered: false,
+      );
+    } else {
+      _items.add(
+        WrongItem(
+          question_id: questionId,
+          wrong_count: 1,
+          last_wrong_at: now,
+          mastered: false,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<void> markMastered(String questionId) async {
     final index = _items.indexWhere((item) => item.question_id == questionId);
     if (index < 0) return;

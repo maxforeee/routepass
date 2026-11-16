@@ -23,6 +23,7 @@ import 'package:routepass/services/bank/answer_record_service.dart';
 import 'package:routepass/services/bank/answer_session_service.dart';
 import 'package:routepass/services/bank/exam_service.dart';
 import 'package:routepass/services/bank/practice_service.dart';
+import 'package:routepass/services/mock/mock_favorite_service.dart';
 
 const String _setId = 'h3cne-2026-01';
 
@@ -316,6 +317,7 @@ Future<void> _pumpPractice(
         practiceService: practice,
         recordService: records,
         sessionService: sessions,
+        favoriteService: MockFavoriteService(),
       ),
     ),
   );

@@ -13,10 +13,12 @@ import 'services/bank/cached_practice_service.dart';
 import 'services/bank/cached_question_repository.dart';
 import 'services/bank/daily_practice_service_http.dart';
 import 'services/bank/exam_service.dart';
+import 'services/bank/favorite_service.dart';
 import 'services/bank/local_cache_service.dart';
 import 'services/bank/practice_service.dart';
 import 'services/bank/question_bank_source.dart';
 import 'services/bank/sync_http_service.dart';
+import 'services/bank/wrong_service.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
 import 'services/mock/mock_exam_service.dart';
@@ -88,8 +90,18 @@ Future<void> main() async {
       tokenProvider: cachedToken,
     ),
     dailyPracticeService: HttpDailyPracticeService(),
-    wrongService: MockWrongService(),
-    favoriteService: MockFavoriteService(),
+    // F25：收藏 / 错题本接真实契约（GET/POST/DELETE）；接口未上线（404）
+    // 或未鉴权（401）时回落 Mock。「已掌握」服务端暂无接口，仍走本地。
+    wrongService: HttpWrongService(
+      local: MockWrongService(),
+      client: authClient,
+      tokenProvider: cachedToken,
+    ),
+    favoriteService: HttpFavoriteService(
+      local: MockFavoriteService(),
+      client: authClient,
+      tokenProvider: cachedToken,
+    ),
     statsService: MockStatsService(),
     knowledgeRepository: MockKnowledgeRepository(),
     searchService: MockSearchService(),

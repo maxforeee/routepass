@@ -22,6 +22,7 @@ import 'package:routepass/services/bank/answer_record_service.dart';
 import 'package:routepass/services/bank/answer_session_service.dart';
 import 'package:routepass/services/bank/exam_service.dart';
 import 'package:routepass/services/bank/practice_service.dart';
+import 'package:routepass/services/mock/mock_favorite_service.dart';
 
 Question _question(
   int index, {
@@ -318,6 +319,7 @@ void main() {
       practiceService: practice,
       recordService: records,
       sessionService: sessions,
+      favoriteService: MockFavoriteService(),
     );
   }
 
@@ -802,7 +804,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(exam.submitCalls, 1);
 
-      await tester.tap(find.text('题干 1'));
+      // F25：半屏结果 sheet 换成全屏评分页，从「逐题回顾」入口进回顾。
+      await tester.tap(find.text('逐题回顾'));
       await tester.pumpAndSettle();
       expect(_states(tester), <OptionTileState>[
         OptionTileState.correct,

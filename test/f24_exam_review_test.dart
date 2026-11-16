@@ -207,7 +207,7 @@ Future<void> _scrollTo(
   await tester.pump(const Duration(milliseconds: 300));
 }
 
-/// 第一题选 A、第二题选 B，交卷并确认，停在结果 sheet。
+/// 第一题选 A、第二题选 B，交卷并确认，停在全屏评分页（F25）。
 Future<void> _answerAndSubmit(WidgetTester tester) async {
   await tester.tap(_optionTile('A'));
   await tester.pump(const Duration(milliseconds: 300));
@@ -224,13 +224,19 @@ Future<void> _answerAndSubmit(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 600));
 }
 
-/// 点结果 sheet 里的逐题回顾进入回顾模式。页面有每秒 setState 的计时器，
-/// 全程用固定时长 pump，不用 pumpAndSettle。
+/// 点全屏评分页的「逐题回顾」进入回顾模式（落在第一题）；目标是第二题
+/// 时再点一次「下一题」。页面有每秒 setState 的计时器，全程用固定时长
+/// pump，不用 pumpAndSettle。
 Future<void> _enterReview(WidgetTester tester, String stem) async {
-  await tester.tap(find.widgetWithText(ListTile, stem));
+  await tester.tap(find.text('逐题回顾'));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 600));
   await tester.pump(const Duration(milliseconds: 600));
+  if (stem == '题干二') {
+    await tester.tap(find.text('下一题'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+  }
 }
 
 void main() {

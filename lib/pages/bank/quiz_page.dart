@@ -16,7 +16,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../core/app_animations.dart';
 import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
@@ -24,12 +23,16 @@ import '../../models/answer_record.dart';
 import '../../models/answer_session_state.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
+import '../../router/app_router.dart';
 import '../../services/bank/answer_record_service.dart';
 import '../../services/bank/answer_session_service.dart';
 import '../../services/bank/exam_service.dart';
+import '../../services/bank/favorite_service.dart';
 import '../../services/bank/practice_service.dart';
+import '../../services/bank/wrong_service.dart';
 import '../../widgets/answer_records_card.dart';
 import 'answer_widgets.dart';
+import 'exam_score_page.dart';
 
 class QuizPage extends StatefulWidget {
   const QuizPage({
@@ -39,6 +42,8 @@ class QuizPage extends StatefulWidget {
     this.examService,
     this.recordService,
     this.sessionService,
+    this.favoriteService,
+    this.wrongService,
   });
 
   final Map<String, Object?> args;
@@ -48,6 +53,8 @@ class QuizPage extends StatefulWidget {
   final ExamService? examService;
   final AnswerRecordService? recordService;
   final AnswerSessionService? sessionService;
+  final FavoriteService? favoriteService;
+  final WrongService? wrongService;
 
   @override
   State<QuizPage> createState() => _QuizPageState();
@@ -58,6 +65,7 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   late final ExamService _exam;
   late final AnswerRecordService _recordService;
   late final AnswerSessionService _sessionService;
+  late final FavoriteService _favorite;
 
   late final bool _isExam;
   late final String _setId;
@@ -73,6 +81,9 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   final Map<String, ExamQuestionGrade> _examGrading =
       <String, ExamQuestionGrade>{};
   final Set<String> _answeredIds = <String>{};
+
+  /// F25：练习收藏态（按题目 id），进页拉一次，切换时本地即时更新。
+  final Set<String> _favoriteIds = <String>{};
   List<AnswerRecord> _records = <AnswerRecord>[];
 
   int _currentIndex = 0;
@@ -87,6 +98,10 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   String _sessionId = '';
   String? _examId;
   int? _score;
+
+  /// F25：交卷成功即置 true。此后退出答题页直接走，不再弹确认、不写
+  /// breakpoint——会话已结算，评分页的「退出」就是离开整个答题流程。
+  bool _examFinished = false;
   bool _reviewMode = false;
   bool _loading = true;
   bool _submitting = false;
@@ -123,6 +138,7 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
       _exam = widget.examService ?? ServiceLocator.examService;
     } else {
       _practice = widget.practiceService ?? ServiceLocator.practiceService;
+      _favorite = widget.favoriteService ?? ServiceLocator.favoriteService;
     }
     _recordService = widget.recordService ?? ServiceLocator.answerRecordService;
     _sessionService =
@@ -257,6 +273,7 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   }
 
   Future<void> _initPractice() async {
+    await _refreshFavoriteIds();
     final saved = _sessionService.load(setId: _setId, mode: 'practice');
     if (saved != null && saved.answeredCount < saved.targetCount) {
       _target = saved.targetCount;
@@ -391,29 +408,66 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
       }
     }
 
-    final session = await _exam.startExam(drawCount: _total, setId: _setId);
-    _examId = session.id;
+    // F25 Chunk 4：走 startExamPaper 拿真实卷面——题目 id 必须是服务端题目
+    // id：暂存 / 交卷 / 判分明细 / 加入错题本都按它定位，自编 EXAM-N 序号
+    // 会被服务端判「题目不属于该考试」，错题本 POST 也会 404。Mock 兜底
+    // 仍按快照序号编 id（examStartFromSession），本地样例卷不受影响。
+    final paper = await _exam.startExamPaper(drawCount: _total, setId: _setId);
+    _examId = paper.id;
     // 新开考：旧断点的累计用时不属于这张新卷，从 0 起。
     _elapsedBeforeVisit = Duration.zero;
     _elapsed = Duration.zero;
-    _questions = session.snapshot.asMap().entries.map((entry) {
-      final snapshot = entry.value;
-      return Question(
-        id: 'EXAM-${entry.key}',
-        module: '',
-        type: 'single',
-        stem: snapshot.stem,
-        options: snapshot.options,
-        answer: snapshot.answer,
-        explanation: snapshot.analysis,
-        knowledge_point_id: '',
-        difficulty: 1,
-        set_no: 0,
-        row_version: 0,
-      );
-    }).toList();
+    _questions = paper.questions;
+    if (paper.startedAt > 0) {
+      _startedAt = DateTime.fromMillisecondsSinceEpoch(paper.startedAt);
+      _questionStartedAt = DateTime.now();
+    }
     if (_questions.isEmpty) {
       throw StateError('empty exam');
+    }
+  }
+
+  /// F25：进页拉收藏题号（GET /favorites）。失败静默——收藏按钮按未收藏
+  /// 显示，点收藏仍会尝试提交，不因列表拉取失败锁死按钮。
+  Future<void> _refreshFavoriteIds() async {
+    try {
+      final ids = await _favorite.getFavoriteIds();
+      if (!mounted) return;
+      setState(() {
+        _favoriteIds
+          ..clear()
+          ..addAll(ids);
+      });
+    } catch (_) {}
+  }
+
+  /// F25：练习收藏切换（POST /favorites / DELETE /favorites/{qid}）。
+  /// 本地即时更新图标，失败回滚并提示；考试页没有这个按钮。
+  Future<void> _toggleFavorite() async {
+    final q = _current;
+    if (q == null) return;
+    final on = !_favoriteIds.contains(q.id);
+    setState(() {
+      if (on) {
+        _favoriteIds.add(q.id);
+      } else {
+        _favoriteIds.remove(q.id);
+      }
+    });
+    try {
+      await _favorite.toggleFavorite(q.id, on);
+      if (!mounted) return;
+      showAppSnackBar(context, on ? '已收藏' : '已取消收藏');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (on) {
+          _favoriteIds.remove(q.id);
+        } else {
+          _favoriteIds.add(q.id);
+        }
+      });
+      showAppSnackBar(context, on ? '收藏失败，请重试' : '取消收藏失败，请重试');
     }
   }
 
@@ -772,64 +826,66 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
     setState(() {
       _submitting = false;
       _score = score;
+      _examFinished = true;
     });
     _writeExamCompletion(score);
     _sessionService.clear(setId: _setId, mode: 'exam');
     _sessionPersisted = false;
     _refreshRecords();
 
-    await showAppSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return ResultSheetContent(
+    // F25 Chunk 4：全屏评分页取代半屏结果 sheet。判分明细由评分页后台
+    // 拉取（不阻塞渲染），返回后错题列表自动刷新；回顾沿用同一份明细。
+    final exited = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        // 命名路由：外壳按名字隐藏底栏（_shouldHideNav），匿名 push 会让
+        // 底栏重新出现在「全屏」评分页上。
+        settings: const RouteSettings(name: AppRoutes.bankExamResult),
+        builder: (_) => ExamScorePage(
           total: _total,
           answered: _answeredCount,
           elapsed: _currentElapsed,
           score: score,
           detail: detail,
-          isExam: true,
           questions: _questions,
           answers: _answers,
+          grading: _examGrading,
+          loadGrading: _loadExamGrading,
+          wrongService: widget.wrongService,
           onReview: (index) {
-            Navigator.of(sheetContext).pop();
             if (!mounted) return;
             setState(() {
               _reviewMode = true;
               _currentIndex = index.clamp(0, _questions.length - 1);
             });
-            unawaited(_loadExamGrading());
           },
-          onRetryWrong: () {
-            Navigator.of(sheetContext).pop();
-          },
-          onClose: () {
-            Navigator.of(sheetContext).pop();
-            Navigator.of(context).pop();
-          },
-        );
-      },
+        ),
+      ),
     );
+    if (!mounted) return;
+    // 评分页「退出」：离开答题页。已交卷，_handleBack 直接 pop，
+    // 不弹确认、不写 breakpoint。
+    if (exited == true) await _handleBack();
   }
 
-  /// B14：进入回顾后拉取服务端判分，不阻塞回顾界面。失败或空结果保持
-  /// 空 map——没有判分依据就只标已选，绝不本地猜对错。
-  Future<void> _loadExamGrading() async {
+  /// B14 / F25：交卷后拉取服务端判分（评分页 initState 调用），不阻塞
+  /// 界面。失败或空结果保持空 map——没有判分依据就只标已选，绝不本地猜对错。
+  Future<Map<String, ExamQuestionGrade>> _loadExamGrading() async {
     final examId = _examId;
-    if (examId == null || examId.isEmpty) return;
+    if (examId == null || examId.isEmpty) {
+      return const <String, ExamQuestionGrade>{};
+    }
     try {
       final grading = await _exam.loadExamGrading(examId);
-      if (!mounted || grading.isEmpty) return;
+      if (!mounted || grading.isEmpty) return grading;
       setState(() {
         _examGrading
           ..clear()
           ..addAll(grading);
       });
+      return grading;
     } catch (_) {
-      // 保持空 map，回顾走原有兜底。
+      // 保持空 map，评分页 / 回顾走原有兜底。
+      return const <String, ExamQuestionGrade>{};
     }
   }
 
@@ -882,7 +938,8 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
       return;
     }
     if (_isExam) {
-      if (_answeredCount == 0) {
+      // F25：已交卷（_examFinished）或一题未答，直接退出，不写 breakpoint。
+      if (_examFinished || _answeredCount == 0) {
         Navigator.of(context).pop();
         return;
       }
@@ -1134,6 +1191,20 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
                   ),
                 ),
               ),
+              // F25：收藏按钮只在练习页出现，考试页没有。
+              if (!_isExam)
+                IconButton(
+                  icon: Icon(
+                    _favoriteIds.contains(q.id)
+                        ? Icons.bookmark
+                        : Icons.bookmark_border,
+                    color: _favoriteIds.contains(q.id)
+                        ? AppColors.accent(context)
+                        : null,
+                  ),
+                  tooltip: _favoriteIds.contains(q.id) ? '取消收藏' : '收藏',
+                  onPressed: _toggleFavorite,
+                ),
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.md),
                 child: Text(

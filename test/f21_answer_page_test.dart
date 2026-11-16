@@ -15,6 +15,7 @@ import 'package:routepass/services/bank/answer_record_service.dart';
 import 'package:routepass/services/bank/answer_session_service.dart';
 import 'package:routepass/services/bank/practice_service.dart';
 import 'package:routepass/services/bank/question_bank_source.dart';
+import 'package:routepass/services/mock/mock_favorite_service.dart';
 
 /// 线上题库 JSON 形状：options 是纯字符串数组，answer 是 0 基下标数组。
 Map<String, dynamic> _bankJson(
@@ -260,6 +261,7 @@ void main() {
       practiceService: practice,
       recordService: records,
       sessionService: sessions,
+      favoriteService: MockFavoriteService(),
     );
   }
 
