@@ -269,8 +269,9 @@ class HttpBankSetOverviewSource implements BankSetOverviewSource {
 ///
 /// 契约是**裸数组** `[{module, total, answered, remaining}]`：按 setId
 /// （练习模块代码）匹配数组元素，映射成 `{total, done: answered,
-/// remaining}`。该接口不提供题型分布，`byType` 一律 null（前置页显示
-/// “题型待接口”），绝不按比例推算。
+/// remaining}`。该接口不提供题型分布，`byType` 改从 [fallback] 的
+/// `/bank/sets/{setId}/overview` 取（F26 chunk 7）；取不到为 null
+/// （前置页显示“题型待接口”），绝不按比例推算。
 ///
 /// 找不到匹配元素（例如 setId 是考试卷 id）或接口 404 / 401 / 失败时，
 /// 回落到 [fallback]（`/bank/sets/{setId}/overview`）；仍取不到返回 null。
@@ -297,11 +298,15 @@ class HttpPracticeProgressOverviewSource implements BankSetOverviewSource {
       for (final item in progress) {
         if (item is! Map<String, dynamic>) continue;
         if (item['module'] != setId) continue;
+        // progress 不含题型分布：byType 从 fallback 的套卷概览取，
+        // 取不到保持 null（前置页“题型待接口”），绝不按比例推算。
+        final overview = await fallback?.fetchOverview(setId);
         return BankSetOverview(
           setId: setId,
           total: (item['total'] as num?)?.toInt() ?? 0,
           done: (item['answered'] as num?)?.toInt() ?? 0,
           remaining: (item['remaining'] as num?)?.toInt() ?? 0,
+          byType: overview?.byType,
         );
       }
     }
