@@ -884,6 +884,12 @@ void main() {
         200,
         scrollable: find.byType(Scrollable).first,
       );
+      // scrollUntilVisible 在 chip 刚进构建窗口时就返回，此时入场动画
+      // （AnimatedOpacity + IgnorePointer）尚未结束，直接 tap 会穿透到背后的
+      // 卡片 Material。先 ensureVisible 滚到 chip 自身的 Scrollable 完全可见，
+      // 再 pumpAndSettle 等动画落定（与 F22 _scrollTo 同一约定）。
+      await tester.ensureVisible(find.text('知识点：DR/BDR 选举'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('知识点：DR/BDR 选举'));
       await tester.pumpAndSettle();
 
