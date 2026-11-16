@@ -1787,7 +1787,9 @@ void main() {
       expect(find.text('知识点：常见 IP 协议号'), findsOneWidget);
     });
 
-    testWidgets('chunk 12：点按基础知识 chip 进详情，sectionId=基础知识-01-02', (tester) async {
+    testWidgets('chunk 12：点按基础知识 chip 进详情，sectionId=基础知识-01-02', (
+      tester,
+    ) async {
       final routes = <RouteSettings>[];
       await tester.pumpWidget(
         _host(basicPage(basicChipRouter()), onRoute: routes.add),
