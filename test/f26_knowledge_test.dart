@@ -101,6 +101,80 @@ List<Map<String, dynamic>> _vlanBank() {
   ];
 }
 
+/// chunk 9 真实的 16 个 OSPF KP（code 1.1..1.16，每 topic 一节）
+/// + 其余 4 个占位 KP（contentMd null，不进浏览结构）。
+List<Map<String, dynamic>> _ospfBank() {
+  const specs = <(String, String, String)>[
+    ('1.1', 'OSPF 概述', 'OSPF 特点与报文类型'),
+    ('1.2', '基本配置', 'Router ID 与网段宣告'),
+    ('1.3', '网络类型', '网络类型与组播地址'),
+    ('1.4', '定时器', 'Hello/Dead 定时器'),
+    ('1.5', '邻居状态机', 'OSPF 邻居状态机'),
+    ('1.6', 'DR/BDR', 'DR/BDR 选举'),
+    ('1.7', 'Cost', '参考带宽与接口 Cost'),
+    ('1.8', 'LSA', 'LSA 类型与泛洪范围'),
+    ('1.9', '区域架构', '区域架构与路由器角色'),
+    ('1.10', '特殊区域', 'Stub 与 NSSA 特殊区域'),
+    ('1.11', '路由优先级', 'OSPF 路由优先级'),
+    ('1.12', '路由引入', '路由引入与缺省通告'),
+    ('1.13', '路由聚合', 'OSPF 路由聚合'),
+    ('1.14', '虚连接', 'OSPF 虚连接'),
+    ('1.15', '安全与可靠性', '认证、静默接口与 GR'),
+    ('1.16', '排障', 'OSPF 查看命令与排障'),
+  ];
+  return <Map<String, dynamic>>[
+    for (var i = 0; i < specs.length; i++)
+      _backendPoint(
+        id: 'KP-OSPF-${(i + 1).toString().padLeft(2, '0')}',
+        module: 'OSPF',
+        code: specs[i].$1,
+        topic: specs[i].$2,
+        title: specs[i].$3,
+        orderNo: i + 1,
+      ),
+    _backendPoint(
+      id: 'KP-ACL-01',
+      module: 'ACL',
+      code: '1.3',
+      topic: 'ACL 基础',
+      title: 'ACL 综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 3,
+    ),
+    _backendPoint(
+      id: 'KP-NAT-01',
+      module: 'NAT',
+      code: '1.4',
+      topic: 'NAT 基础',
+      title: 'NAT 综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 4,
+    ),
+    _backendPoint(
+      id: 'KP-SUBNET-01',
+      module: '子网',
+      code: '1.5',
+      topic: '子网划分基础',
+      title: '子网划分综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 5,
+    ),
+    _backendPoint(
+      id: 'KP-BASIC-01',
+      module: '基础知识',
+      code: '1.6',
+      topic: '基础知识',
+      title: '基础知识综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 6,
+    ),
+  ];
+}
+
 http.Response _json(Object body, [int status = 200]) {
   return http.Response.bytes(
     utf8.encode(jsonEncode(body)),
@@ -236,6 +310,28 @@ Question _question(int index) {
     answer: const <String>['A'],
     explanation: '解析内容',
     knowledge_point_id: 'KP-VLAN-04',
+    difficulty: 1,
+    set_no: 1,
+    row_version: 1,
+  );
+}
+
+/// chunk 9：OSPF 模块题（DR/BDR 选举场景，真实题干 id）。
+Question _ospfQuestion() {
+  return Question(
+    id: 'OSPF-C031',
+    module: 'OSPF',
+    type: 'single',
+    stem: 'OSPF DR/BDR选举场景：R1(Priority=255) 和 R2(Priority=1) 同时启动，谁是 DR？',
+    options: const <QuestionOption>[
+      QuestionOption(key: 'A', text: 'R1'),
+      QuestionOption(key: 'B', text: 'R2'),
+      QuestionOption(key: 'C', text: 'R3'),
+      QuestionOption(key: 'D', text: '无法确定'),
+    ],
+    answer: const <String>['A'],
+    explanation: '解析内容',
+    knowledge_point_id: 'KP-OSPF-06',
     difficulty: 1,
     set_no: 1,
     row_version: 1,
@@ -501,6 +597,58 @@ void main() {
       final point = await repo.getDailyPoint();
       expect(point!.id, 'KP-VLAN-01');
     });
+
+    test('chunk 9：16 个 OSPF KP 进浏览结构，章 OSPF-01、16 节', () async {
+      final router = _Router(points: _ospfBank());
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      // 其余 4 个占位 KP（contentMd null）不进浏览结构
+      expect(chapters.length, 1);
+      expect(chapters.single.id, 'OSPF-01');
+      expect(chapters.single.module, 'OSPF');
+      expect(chapters.single.title, 'OSPF 路由协议');
+
+      final sections = await repo.getSections('OSPF-01');
+      expect(sections.length, 16);
+      expect(sections.first.id, 'OSPF-01-01');
+      expect(sections.first.title, 'OSPF 概述');
+      expect(sections[5].id, 'OSPF-01-06');
+      expect(sections[5].title, 'DR/BDR');
+      expect(sections.last.id, 'OSPF-01-16');
+      expect(sections.last.title, '排障');
+
+      final drPoints = await repo.getPointsBySection('OSPF-01-06');
+      expect(drPoints.single.id, 'KP-OSPF-06');
+      expect(drPoints.single.title, 'DR/BDR 选举');
+      expect(drPoints.single.content_md, isNotEmpty);
+      // 复用的 KP-OSPF-01 现在是正式 KP，出现在第一节
+      final overview = await repo.getPointsBySection('OSPF-01-01');
+      expect(overview.single.id, 'KP-OSPF-01');
+      expect(overview.single.title, 'OSPF 特点与报文类型');
+    });
+
+    test('chunk 9：VLAN + OSPF 两章共存，互不串节', () async {
+      final router = _Router(
+        points: <Map<String, dynamic>>[
+          ..._vlanBank().take(12),
+          ..._ospfBank(),
+        ],
+      );
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      expect(chapters.map((c) => c.id).toList(), <String>[
+        'VLAN-01',
+        'OSPF-01',
+      ]);
+      expect((await repo.getSections('VLAN-01')).length, 10);
+      expect((await repo.getSections('OSPF-01')).length, 16);
+      final ospfCost = await repo.getPointsBySection('OSPF-01-07');
+      expect(ospfCost.single.id, 'KP-OSPF-07');
+      final vlanPort = await repo.getPointsBySection('VLAN-01-03');
+      expect(vlanPort.length, 3);
+    });
   });
 
   group('getPointsByQuestion 真实内容门槛', () {
@@ -515,6 +663,31 @@ void main() {
       final repo = _repo(router, _FallbackRepo());
       final points = await repo.getPointsByQuestion('VLAN-0001');
       expect(points.single.id, 'KP-VLAN-04');
+      expect(points.single.content_md, isNotEmpty);
+    });
+
+    test('chunk 9：OSPF 题 → 重映射后的 OSPF KP', () async {
+      final router = _Router(
+        question: <String, dynamic>{
+          'id': 'OSPF-C031',
+          'knowledgePointId': 'KP-OSPF-06',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-OSPF-06': _backendPoint(
+            id: 'KP-OSPF-06',
+            module: 'OSPF',
+            code: '1.6',
+            topic: 'DR/BDR',
+            title: 'DR/BDR 选举',
+            contentMd: '## 概念\nDR/BDR 选举非抢占。',
+            orderNo: 6,
+          ),
+        },
+      );
+      final repo = _repo(router, _FallbackRepo());
+      final points = await repo.getPointsByQuestion('OSPF-C031');
+      expect(points.single.id, 'KP-OSPF-06');
+      expect(points.single.module, 'OSPF');
       expect(points.single.content_md, isNotEmpty);
     });
 
@@ -640,6 +813,86 @@ void main() {
       final args = detail.arguments! as Map<String, Object?>;
       expect(args['kpId'], 'KP-VLAN-04');
       expect(args['sectionId'], 'VLAN-01-03');
+      expect(args['returnTo'], 'quiz');
+    });
+
+    // ---- chunk 9：OSPF 题的 chip（复用 chunk 8 接线，仅数据变化） ----
+
+    Widget ospfPage(_Router router) {
+      return QuizPage(
+        args: <String, Object?>{
+          'mode': 'practice',
+          'setId': 'OSPF',
+          'setTitle': 'OSPF',
+          'drawCount': 100,
+          'target': 20,
+        },
+        practiceService: _FakePracticeService(<Question>[_ospfQuestion()]),
+        recordService: records,
+        sessionService: sessions,
+        favoriteService: MockFavoriteService(),
+        knowledgeRepository: _repo(router, _FallbackRepo()),
+      );
+    }
+
+    _Router ospfChipRouter() {
+      return _Router(
+        question: <String, dynamic>{
+          'id': 'OSPF-C031',
+          'knowledgePointId': 'KP-OSPF-06',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-OSPF-06': _backendPoint(
+            id: 'KP-OSPF-06',
+            module: 'OSPF',
+            code: '1.6',
+            topic: 'DR/BDR',
+            title: 'DR/BDR 选举',
+            contentMd: '## 概念\nDR/BDR 选举非抢占。',
+            orderNo: 6,
+          ),
+        },
+      );
+    }
+
+    testWidgets('chunk 9：OSPF 题判分后显示「知识点：DR/BDR 选举」', (tester) async {
+      await _launch(tester, ospfPage(ospfChipRouter()));
+      expect(find.textContaining('知识点：'), findsNothing);
+
+      await tester.tap(find.text('R1'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：DR/BDR 选举'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('知识点：DR/BDR 选举'), findsOneWidget);
+    });
+
+    testWidgets('chunk 9：点按 OSPF chip 进详情，sectionId=OSPF-01-06', (tester) async {
+      final routes = <RouteSettings>[];
+      await tester.pumpWidget(
+        _host(ospfPage(ospfChipRouter()), onRoute: routes.add),
+      );
+      await tester.tap(find.text('launch'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('R1'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：DR/BDR 选举'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('知识点：DR/BDR 选举'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('知识详情页'), findsOneWidget);
+      final detail = routes.last;
+      expect(detail.name, AppRoutes.knowledgePoint);
+      final args = detail.arguments! as Map<String, Object?>;
+      expect(args['kpId'], 'KP-OSPF-06');
+      expect(args['sectionId'], 'OSPF-01-06');
       expect(args['returnTo'], 'quiz');
     });
   });
