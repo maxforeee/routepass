@@ -1,6 +1,8 @@
 /// 学习统计页（规格文档第 4 章 StatsService；首页 H-B11 的目标页）。
 ///
-/// Mock 下统计全 0、按模块全 0、每日列表为空，显示 0 与“暂无数据”，不编造数字。
+/// F26：登录且在线时显示真实后端数据（GET /stats/overview + /stats/daily）；
+/// 未登录 / 离线回落 Mock（全 0 / 空列表），显示 0 与“暂无数据”，不编造数字。
+/// 后端 byModule 不提供模块题目总数，模块卡只展示“已答 N 题”与正确率。
 library;
 
 import 'package:flutter/material.dart';
@@ -75,7 +77,7 @@ class _StatsPageState extends State<StatsPage> {
                           label: '总正确率',
                           value: ov == null || ov.answeredTotal == 0
                               ? '暂无数据'
-                              : '${(ov.correctRate * 100).round()}%',
+                              : '${(ov.correctRate * 100).toStringAsFixed(1)}%',
                         ),
                         _StatRow(
                           label: '连续学习',
@@ -102,7 +104,9 @@ class _StatsPageState extends State<StatsPage> {
                   )
                 else
                   ..._byModule.map((m) {
-                    final progress = m.total == 0 ? 0.0 : m.answered / m.total;
+                    // 后端不提供模块题目总数（total 恒 0）：进度条展示正确率，
+                    // 计数只写“已答 N 题”，绝不拿 answered 冒充 answered/total。
+                    final progress = m.correctRate;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: Padding(
@@ -119,7 +123,7 @@ class _StatsPageState extends State<StatsPage> {
                                   ),
                                 ),
                                 Text(
-                                  '${m.answered}/${m.total} 题',
+                                  '已答 ${m.answered} 题',
                                   style: theme.textTheme.bodyMedium,
                                 ),
                               ],
@@ -130,7 +134,7 @@ class _StatsPageState extends State<StatsPage> {
                             Text(
                               m.answered == 0
                                   ? '暂无数据'
-                                  : '正确率 ${(m.correctRate * 100).round()}%',
+                                  : '正确率 ${(m.correctRate * 100).toStringAsFixed(1)}%',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),

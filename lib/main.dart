@@ -17,6 +17,7 @@ import 'services/bank/favorite_service.dart';
 import 'services/bank/local_cache_service.dart';
 import 'services/bank/practice_service.dart';
 import 'services/bank/question_bank_source.dart';
+import 'services/bank/stats_service.dart';
 import 'services/bank/sync_http_service.dart';
 import 'services/bank/wrong_service.dart';
 import 'services/mock/mock_cli_service.dart';
@@ -102,7 +103,13 @@ Future<void> main() async {
       client: authClient,
       tokenProvider: cachedToken,
     ),
-    statsService: MockStatsService(),
+    // F26：学习统计接真实契约（GET /stats/overview + /stats/daily）；
+    // 未登录 / 离线 / 接口未就绪时回落 Mock（全 0 / 空列表，不编数字）。
+    statsService: HttpStatsService(
+      fallback: MockStatsService(),
+      client: authClient,
+      tokenProvider: cachedToken,
+    ),
     knowledgeRepository: MockKnowledgeRepository(),
     searchService: MockSearchService(),
     subnetCalcService: LocalSubnetCalcService(),
