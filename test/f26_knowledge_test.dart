@@ -175,6 +175,68 @@ List<Map<String, dynamic>> _ospfBank() {
   ];
 }
 
+/// chunk 10 真实的 14 个 ACL KP（code 1.1..1.14，每 topic 一节）
+/// + 其余 3 个占位 KP（contentMd null，不进浏览结构）。
+List<Map<String, dynamic>> _aclBank() {
+  const specs = <(String, String, String)>[
+    ('1.1', 'ACL 分类', 'ACL 分类与编号范围'),
+    ('1.2', '通配符掩码', '反掩码 0/1 含义与合法性'),
+    ('1.3', '子网匹配', '用反掩码精确匹配任意前缀子网'),
+    ('1.4', '奇偶匹配', '非连续通配符匹配奇偶地址'),
+    ('1.5', '端口匹配', '高级 ACL 协议与端口匹配'),
+    ('1.6', '规则编号', '步长 step 与自动编号'),
+    ('1.7', '匹配顺序', 'config 与 auto（深度优先）'),
+    ('1.8', 'ACL 管理', '创建、命名与删除规则及 ACL'),
+    ('1.9', 'packet-filter', '接口方向应用、缺省动作与应用位置'),
+    ('1.10', '时间段', 'Time-range 绝对与周期时间段'),
+    ('1.11', '精细过滤', 'established、ICMP 过滤'),
+    ('1.12', '二层 ACL', '源 MAC 匹配与掩码'),
+    ('1.13', 'VTY 限制', 'Telnet/SSH 登录控制'),
+    ('1.14', '排障', 'ACL 不生效/误中断排查'),
+  ];
+  return <Map<String, dynamic>>[
+    for (var i = 0; i < specs.length; i++)
+      _backendPoint(
+        id: 'KP-ACL-${(i + 1).toString().padLeft(2, '0')}',
+        module: 'ACL',
+        code: specs[i].$1,
+        topic: specs[i].$2,
+        title: specs[i].$3,
+        orderNo: i + 1,
+      ),
+    _backendPoint(
+      id: 'KP-NAT-01',
+      module: 'NAT',
+      code: '1.4',
+      topic: 'NAT 基础',
+      title: 'NAT 综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 4,
+    ),
+    _backendPoint(
+      id: 'KP-SUBNET-01',
+      module: '子网',
+      code: '1.5',
+      topic: '子网划分基础',
+      title: '子网划分综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 5,
+    ),
+    _backendPoint(
+      id: 'KP-BASIC-01',
+      module: '基础知识',
+      code: '1.6',
+      topic: '基础知识',
+      title: '基础知识综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 6,
+    ),
+  ];
+}
+
 http.Response _json(Object body, [int status = 200]) {
   return http.Response.bytes(
     utf8.encode(jsonEncode(body)),
@@ -332,6 +394,28 @@ Question _ospfQuestion() {
     answer: const <String>['A'],
     explanation: '解析内容',
     knowledge_point_id: 'KP-OSPF-06',
+    difficulty: 1,
+    set_no: 1,
+    row_version: 1,
+  );
+}
+
+/// chunk 10：ACL 模块题（奇数主机匹配场景，真实题干 id ACL-C056）。
+Question _aclQuestion() {
+  return Question(
+    id: 'ACL-C056',
+    module: 'ACL',
+    type: 'single',
+    stem: '管理员想要在高级ACL中匹配源IP地址为 192.168.0.X 网段中所有奇数主机的报文，以下哪条规则配置是正确的？',
+    options: const <QuestionOption>[
+      QuestionOption(key: 'A', text: 'rule permit source 192.168.0.1 0.0.0.254'),
+      QuestionOption(key: 'B', text: 'rule permit source 192.168.0.0 0.0.0.254'),
+      QuestionOption(key: 'C', text: 'rule permit source 192.168.0.1 0.0.0.255'),
+      QuestionOption(key: 'D', text: 'rule permit source 192.168.0.0 0.0.0.255'),
+    ],
+    answer: const <String>['A'],
+    explanation: '解析内容',
+    knowledge_point_id: 'KP-ACL-04',
     difficulty: 1,
     set_no: 1,
     row_version: 1,
@@ -646,6 +730,63 @@ void main() {
       final vlanPort = await repo.getPointsBySection('VLAN-01-03');
       expect(vlanPort.length, 3);
     });
+
+    test('chunk 10：14 个 ACL KP 进浏览结构，章 ACL-01、14 节', () async {
+      final router = _Router(points: _aclBank());
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      // 其余 3 个占位 KP（contentMd null）不进浏览结构
+      expect(chapters.length, 1);
+      expect(chapters.single.id, 'ACL-01');
+      expect(chapters.single.module, 'ACL');
+      expect(chapters.single.title, 'ACL 访问控制');
+
+      final sections = await repo.getSections('ACL-01');
+      expect(sections.length, 14);
+      expect(sections.first.id, 'ACL-01-01');
+      expect(sections.first.title, 'ACL 分类');
+      expect(sections[4].id, 'ACL-01-05');
+      expect(sections[4].title, '端口匹配');
+      expect(sections.last.id, 'ACL-01-14');
+      expect(sections.last.title, '排障');
+
+      final portPoints = await repo.getPointsBySection('ACL-01-05');
+      expect(portPoints.single.id, 'KP-ACL-05');
+      expect(portPoints.single.title, '高级 ACL 协议与端口匹配');
+      expect(portPoints.single.content_md, isNotEmpty);
+      // 复用的 KP-ACL-01 现在是正式 KP，出现在第一节
+      final classify = await repo.getPointsBySection('ACL-01-01');
+      expect(classify.single.id, 'KP-ACL-01');
+      expect(classify.single.title, 'ACL 分类与编号范围');
+    });
+
+    test('chunk 10：VLAN + OSPF + ACL 三章共存，互不串节', () async {
+      final router = _Router(
+        points: <Map<String, dynamic>>[
+          ..._vlanBank().take(12),
+          ..._ospfBank().take(16),
+          ..._aclBank(),
+        ],
+      );
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      expect(chapters.map((c) => c.id).toList(), <String>[
+        'VLAN-01',
+        'OSPF-01',
+        'ACL-01',
+      ]);
+      expect((await repo.getSections('VLAN-01')).length, 10);
+      expect((await repo.getSections('OSPF-01')).length, 16);
+      expect((await repo.getSections('ACL-01')).length, 14);
+      final aclOdd = await repo.getPointsBySection('ACL-01-04');
+      expect(aclOdd.single.id, 'KP-ACL-04');
+      final ospfCost = await repo.getPointsBySection('OSPF-01-07');
+      expect(ospfCost.single.id, 'KP-OSPF-07');
+      final vlanPort = await repo.getPointsBySection('VLAN-01-03');
+      expect(vlanPort.length, 3);
+    });
   });
 
   group('getPointsByQuestion 真实内容门槛', () {
@@ -685,6 +826,31 @@ void main() {
       final points = await repo.getPointsByQuestion('OSPF-C031');
       expect(points.single.id, 'KP-OSPF-06');
       expect(points.single.module, 'OSPF');
+      expect(points.single.content_md, isNotEmpty);
+    });
+
+    test('chunk 10：ACL 题 → 重映射后的 ACL KP', () async {
+      final router = _Router(
+        question: <String, dynamic>{
+          'id': 'ACL-C056',
+          'knowledgePointId': 'KP-ACL-04',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-ACL-04': _backendPoint(
+            id: 'KP-ACL-04',
+            module: 'ACL',
+            code: '1.4',
+            topic: '奇偶匹配',
+            title: '非连续通配符匹配奇偶地址',
+            contentMd: '## 原理\n0.0.0.254 严格检查最低位。',
+            orderNo: 4,
+          ),
+        },
+      );
+      final repo = _repo(router, _FallbackRepo());
+      final points = await repo.getPointsByQuestion('ACL-C056');
+      expect(points.single.id, 'KP-ACL-04');
+      expect(points.single.module, 'ACL');
       expect(points.single.content_md, isNotEmpty);
     });
 
@@ -898,6 +1064,94 @@ void main() {
       final args = detail.arguments! as Map<String, Object?>;
       expect(args['kpId'], 'KP-OSPF-06');
       expect(args['sectionId'], 'OSPF-01-06');
+      expect(args['returnTo'], 'quiz');
+    });
+
+    // ---- chunk 10：ACL 题的 chip（复用 chunk 8 接线，仅数据变化） ----
+
+    Widget aclPage(_Router router) {
+      return QuizPage(
+        args: <String, Object?>{
+          'mode': 'practice',
+          'setId': 'ACL',
+          'setTitle': 'ACL',
+          'drawCount': 100,
+          'target': 20,
+        },
+        practiceService: _FakePracticeService(<Question>[_aclQuestion()]),
+        recordService: records,
+        sessionService: sessions,
+        favoriteService: MockFavoriteService(),
+        knowledgeRepository: _repo(router, _FallbackRepo()),
+      );
+    }
+
+    _Router aclChipRouter() {
+      return _Router(
+        question: <String, dynamic>{
+          'id': 'ACL-C056',
+          'knowledgePointId': 'KP-ACL-04',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-ACL-04': _backendPoint(
+            id: 'KP-ACL-04',
+            module: 'ACL',
+            code: '1.4',
+            topic: '奇偶匹配',
+            title: '非连续通配符匹配奇偶地址',
+            contentMd: '## 原理\n0.0.0.254 严格检查最低位。',
+            orderNo: 4,
+          ),
+        },
+      );
+    }
+
+    testWidgets('chunk 10：ACL 题判分后显示「知识点：非连续通配符匹配奇偶地址」', (
+      tester,
+    ) async {
+      await _launch(tester, aclPage(aclChipRouter()));
+      expect(find.textContaining('知识点：'), findsNothing);
+
+      await tester.tap(find.text('rule permit source 192.168.0.1 0.0.0.254'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：非连续通配符匹配奇偶地址'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('知识点：非连续通配符匹配奇偶地址'), findsOneWidget);
+    });
+
+    testWidgets('chunk 10：点按 ACL chip 进详情，sectionId=ACL-01-04', (
+      tester,
+    ) async {
+      final routes = <RouteSettings>[];
+      await tester.pumpWidget(
+        _host(aclPage(aclChipRouter()), onRoute: routes.add),
+      );
+      await tester.tap(find.text('launch'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('rule permit source 192.168.0.1 0.0.0.254'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：非连续通配符匹配奇偶地址'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      // 与 chunk 9 同一约定：先 ensureVisible 滚到 chip 完全可见，
+      // 再 pumpAndSettle 等入场动画落定，避免 tap 穿透到背后的卡片。
+      await tester.ensureVisible(find.text('知识点：非连续通配符匹配奇偶地址'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('知识点：非连续通配符匹配奇偶地址'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('知识详情页'), findsOneWidget);
+      final detail = routes.last;
+      expect(detail.name, AppRoutes.knowledgePoint);
+      final args = detail.arguments! as Map<String, Object?>;
+      expect(args['kpId'], 'KP-ACL-04');
+      expect(args['sectionId'], 'ACL-01-04');
       expect(args['returnTo'], 'quiz');
     });
   });
