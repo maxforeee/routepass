@@ -3,8 +3,9 @@
 /// 从题库页的套卷卡进入，展示套卷规模、模块进度与答题说明；
 /// “开始答题”再进答题页。四套卷（100/200/50/10）共用本模板，
 /// 标题 / 单选多选 / 时长由路由参数 drawCount 推导；知识点考察的
-/// 题量与进度来自真实数据（F16）：优先预留的套卷统计接口，其次
-/// 题库清单 practiceByModule 的重叠模块，取不到就显示“待接口”。
+/// 题量与进度来自真实数据（F16/F26）：优先预留的套卷统计接口，其次
+/// 模块接口（GET /bank/modules）的真实模块与题量，再次题库清单
+/// practiceByModule 的重叠模块，取不到就显示“待接口”。
 /// 答题说明卡只在考试（mode=exam）前置页显示（F16）。
 library;
 
@@ -212,7 +213,9 @@ class _SetDetailPageState extends State<SetDetailPage> {
     return _isExam ? '开始答题' : '开始练习';
   }
 
-  /// 展示模块顺序（优先题库模块接口，Mock 返回 5 个同序模块）。
+  /// 展示模块顺序（优先题库模块接口：真实后端返回真实模块名，含
+  /// H3CNE / 基础知识 / 子网 等本地五模块之外的名字，原样展示；
+  /// Mock 兜底返回 5 个同序模块）。
   List<String> get _displayModules {
     if (_modules.isNotEmpty) {
       return _modules.map((m) => m.module).toList();
@@ -227,12 +230,15 @@ class _SetDetailPageState extends State<SetDetailPage> {
     return null;
   }
 
-  /// 每模块题量（F16）：优先预留套卷统计接口，其次清单 practiceByModule
-  /// 里与展示模块重叠的真实题量；都取不到返回 null（UI 显示“题量待接口”），
+  /// 每模块题量（F16/F26）：优先预留套卷统计接口，其次模块接口
+  /// （GET /bank/modules）的真实题量，再次清单 practiceByModule 里与展示
+  /// 模块重叠的真实题量；都取不到返回 null（UI 显示“题量待接口”），
   /// 不再按 drawCount 均分虚构。
   int? _moduleCount(String module) {
     final setStat = _statOf(_setStats, module);
     if (setStat != null && setStat.total > 0) return setStat.total;
+    final moduleStat = _statOf(_modules, module);
+    if (moduleStat != null && moduleStat.total > 0) return moduleStat.total;
     final manifest = _manifest;
     if (manifest != null) {
       for (final set in manifest.practiceSets) {
@@ -242,15 +248,16 @@ class _SetDetailPageState extends State<SetDetailPage> {
     return null;
   }
 
-  /// 模块进度（0–1，F16）：只有 total>0 才计算 answered/total；
-  /// Mock 无作答记录（0/0）返回 null（UI 显示“进度待接口”），不虚构 0%。
+  /// 模块进度（0–1，F16/F26）：只有 total>0 才计算 answered/total；
+  /// 模块接口只给题量（answered 恒 0 = 未知），不能把 0% 当真实进度，
+  /// 无真实已答数返回 null（UI 显示“进度待接口”），不虚构 0%。
   double? _moduleProgress(String module) {
     final setStat = _statOf(_setStats, module);
     if (setStat != null && setStat.total > 0) {
       return (setStat.answered / setStat.total).clamp(0.0, 1.0);
     }
     final stat = _statOf(_modules, module);
-    if (stat == null || stat.total <= 0) return null;
+    if (stat == null || stat.total <= 0 || stat.answered <= 0) return null;
     return (stat.answered / stat.total).clamp(0.0, 1.0);
   }
 

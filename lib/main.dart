@@ -17,6 +17,7 @@ import 'services/bank/favorite_service.dart';
 import 'services/bank/local_cache_service.dart';
 import 'services/bank/practice_service.dart';
 import 'services/bank/question_bank_source.dart';
+import 'services/bank/question_repo_http.dart';
 import 'services/bank/stats_service.dart';
 import 'services/bank/sync_http_service.dart';
 import 'services/bank/wrong_service.dart';
@@ -65,7 +66,14 @@ Future<void> main() async {
   );
   ServiceLocator.init(
     questionRepository: CachedQuestionRepository(
-      delegate: MockQuestionRepository(),
+      // F26：模块列表接真实契约（GET /bank/modules，真实模块名 + 题量）；
+      // 未登录 / 离线 / 接口未就绪时回落 Mock（5 模块全 0，不编数字）。
+      // 抽题 / 单题 / 套卷统计路径不变，仍委托 Mock。
+      delegate: HttpQuestionRepository(
+        delegate: MockQuestionRepository(),
+        client: authClient,
+        tokenProvider: cachedToken,
+      ),
       cache: localCache,
       // 前置页 done/remaining 读 S11 `GET /practice/progress`（裸数组），
       // 考试卷 / 未匹配模块回落 `/bank/sets/{id}/overview`（当前 404）。
