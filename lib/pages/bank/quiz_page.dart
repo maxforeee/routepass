@@ -21,6 +21,7 @@ import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/answer_record.dart';
 import '../../models/answer_session_state.dart';
+import '../../models/knowledge_point.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
 import '../../router/app_router.dart';
@@ -30,6 +31,7 @@ import '../../services/bank/exam_service.dart';
 import '../../services/bank/favorite_service.dart';
 import '../../services/bank/practice_service.dart';
 import '../../services/bank/wrong_service.dart';
+import '../../services/knowledge/knowledge_repo.dart';
 import '../../widgets/answer_records_card.dart';
 import 'answer_widgets.dart';
 import 'exam_score_page.dart';
@@ -44,6 +46,7 @@ class QuizPage extends StatefulWidget {
     this.sessionService,
     this.favoriteService,
     this.wrongService,
+    this.knowledgeRepository,
   });
 
   final Map<String, Object?> args;
@@ -55,6 +58,9 @@ class QuizPage extends StatefulWidget {
   final AnswerSessionService? sessionService;
   final FavoriteService? favoriteService;
   final WrongService? wrongService;
+
+  /// F26 chunk 8：判分后知识点 chips 的反查仓储；测试可注入。
+  final KnowledgeRepository? knowledgeRepository;
 
   @override
   State<QuizPage> createState() => _QuizPageState();
@@ -85,6 +91,12 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   /// F25：练习收藏态（按题目 id），进页拉一次，切换时本地即时更新。
   final Set<String> _favoriteIds = <String>{};
   List<AnswerRecord> _records = <AnswerRecord>[];
+
+  /// F26 chunk 8：判分后反查到的知识点（按题目 id）。只有正式内容的 KP
+  /// 才会在列表里（仓储保证）；空 / 缺失都不显示 chip。
+  final Map<String, List<KnowledgePoint>> _questionPoints =
+      <String, List<KnowledgePoint>>{};
+  final Set<String> _kpRequested = <String>{};
 
   int _currentIndex = 0;
   int _target = 20;
@@ -484,6 +496,61 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
     } catch (_) {
       _records = <AnswerRecord>[];
     }
+  }
+
+  /// F26 chunk 8：判分后反查本题知识点（每题只查一次）。仓储失败 / 未登录
+  /// 回落 Mock（返回空），chip 不显示；ServiceLocator 懒解析——考试链测试
+  /// 只注入服务、不注册 Locator，解析失败静默跳过。
+  void _ensureQuestionPoints(Question q) {
+    if (_kpRequested.contains(q.id)) return;
+    _kpRequested.add(q.id);
+    KnowledgeRepository? repo;
+    try {
+      repo = widget.knowledgeRepository ?? ServiceLocator.knowledgeRepository;
+    } catch (_) {
+      repo = null;
+    }
+    if (repo == null) return;
+    unawaited(() async {
+      try {
+        final points = await repo.getPointsByQuestion(q.id);
+        if (!mounted || points.isEmpty) return;
+        setState(() => _questionPoints[q.id] = points);
+      } catch (_) {}
+    }());
+  }
+
+  /// F26 chunk 8：判分后的知识点 chip——仅当题目关联到有正式内容的 KP
+  /// 时出现；点按进知识详情页（与知识库页同一命名路由，returnTo=quiz）。
+  Widget _buildKnowledgeChip(KnowledgePoint point) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ActionChip(
+          avatar: const Icon(Icons.menu_book, size: 18),
+          label: Text('知识点：${point.title}'),
+          onPressed: () => _openKnowledgePoint(point),
+        ),
+      ),
+    );
+  }
+
+  void _openKnowledgePoint(KnowledgePoint point) {
+    final parts = point.code.split('.');
+    final chapter = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? 1) : 1;
+    final section = parts.length > 1 ? (int.tryParse(parts[1]) ?? 1) : 1;
+    final chapterId = '${point.module}-${chapter.toString().padLeft(2, '0')}';
+    Navigator.of(context).pushNamed(
+      AppRoutes.knowledgePoint,
+      arguments: <String, Object?>{
+        'kpId': point.id,
+        'sectionId': '$chapterId-${section.toString().padLeft(2, '0')}',
+        'chapterTitle': point.module,
+        'sectionTitle': point.topic,
+        'returnTo': 'quiz',
+      },
+    );
   }
 
   List<String> get _chosen {
@@ -1167,6 +1234,8 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
     final progress = _denominator == 0
         ? 0.0
         : (_answeredCount / _denominator).clamp(0.0, 1.0);
+    // F26 chunk 8：判分可见即反查知识点（异步、每题一次），不阻塞渲染。
+    if (_showAnalysis) _ensureQuestionPoints(q);
 
     return Column(
       children: [
@@ -1296,6 +1365,9 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
                   maxHeightFactor: AppSizes.recordsCardMaxHeightFactorQuiz,
                 ),
                 AnalysisCard(question: q, result: result, chosen: chosen),
+                if ((_questionPoints[q.id] ?? const <KnowledgePoint>[])
+                    .isNotEmpty)
+                  _buildKnowledgeChip(_questionPoints[q.id]!.first),
               ],
             ],
           ),

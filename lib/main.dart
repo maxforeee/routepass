@@ -21,6 +21,7 @@ import 'services/bank/question_repo_http.dart';
 import 'services/bank/stats_service.dart';
 import 'services/bank/sync_http_service.dart';
 import 'services/bank/wrong_service.dart';
+import 'services/knowledge/knowledge_repo_http.dart';
 import 'services/knowledge/search_service_http.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
@@ -123,7 +124,14 @@ Future<void> main() async {
       client: authClient,
       tokenProvider: cachedToken,
     ),
-    knowledgeRepository: MockKnowledgeRepository(),
+    // F26 chunk 8：知识库接真实契约（GET /knowledge/points 分页 + 详情 +
+    // 题目反查）；章/节由 code 前缀聚合，只有正式内容的 KP 进浏览结构。
+    // 未登录 / 离线 / 接口未就绪时回落 Mock 样例，不抛给 UI。
+    knowledgeRepository: HttpKnowledgeRepository(
+      fallback: MockKnowledgeRepository(),
+      client: authClient,
+      tokenProvider: cachedToken,
+    ),
     // F26：搜索接真实契约（GET /knowledge/search + /bank/questions/search）；
     // 未登录 / 离线 / 接口未就绪时按区回落 Mock，不拿样例冒充真实命中。
     searchService: HttpSearchService(
