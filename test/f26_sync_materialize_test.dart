@@ -440,12 +440,10 @@ PracticeRecordSummary _summary() {
     status: 'completed',
     answeredCount: 20,
     correctCount: 18,
-    startedAt: DateTime.parse(
-      '2026-11-14T09:00:00+08:00',
-    ).millisecondsSinceEpoch,
-    completedAt: DateTime.parse(
-      '2026-11-14T09:30:00+08:00',
-    ).millisecondsSinceEpoch,
+    startedAt: DateTime.parse('2026-11-14T09:00:00+08:00')
+        .millisecondsSinceEpoch,
+    completedAt: DateTime.parse('2026-11-14T09:30:00+08:00')
+        .millisecondsSinceEpoch,
   );
 }
 

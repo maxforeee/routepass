@@ -490,11 +490,7 @@ class HttpSyncService implements SyncService {
       }
     }
 
-    return _Materialized(
-      wrong: wrong,
-      favorites: favorites,
-      records: records,
-    );
+    return _Materialized(wrong: wrong, favorites: favorites, records: records);
   }
 
   /// 逐页拉全列表接口（与 HttpWrongService / HttpFavoriteService 同一分页
@@ -530,16 +526,12 @@ class HttpSyncService implements SyncService {
     final parts = <String>[];
     final wrong = materialized.wrong;
     if (wrong != null) {
-      parts.add(
-        wrong.failed ? '错题本未更新（拉取失败）' : '错题本已更新 ${wrong.count} 条',
-      );
+      parts.add(wrong.failed ? '错题本未更新（拉取失败）' : '错题本已更新 ${wrong.count} 条');
     }
     final favorites = materialized.favorites;
     if (favorites != null) {
       parts.add(
-        favorites.failed
-            ? '收藏未更新（拉取失败）'
-            : '收藏已更新 ${favorites.count} 条',
+        favorites.failed ? '收藏未更新（拉取失败）' : '收藏已更新 ${favorites.count} 条',
       );
     }
     final records = materialized.records;
