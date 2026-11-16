@@ -285,6 +285,61 @@ List<Map<String, dynamic>> _subnetBank() {
   ];
 }
 
+/// chunk 12 真实的 10 个 NAT KP（code 1.1..1.10，每 topic 一节）。
+/// 占位符已全部复用完毕，本批起不再有 contentMd null 的 KP。
+List<Map<String, dynamic>> _natBank() {
+  const specs = <(String, String, String)>[
+    ('1.1', 'NAT 基础', '作用、术语、部署位置与转换阶段'),
+    ('1.2', '静态 NAT', '静态 NAT 一对一映射'),
+    ('1.3', '地址池', 'NAT 地址池与 no-pat'),
+    ('1.4', 'NAPT', 'NAPT 端口复用'),
+    ('1.5', 'Easy IP', 'Easy IP'),
+    ('1.6', 'NAT Server', 'NAT Server 内部服务器发布'),
+    ('1.7', 'nat outbound', 'nat outbound 与 ACL'),
+    ('1.8', 'NAT ALG', 'NAT ALG 多通道协议'),
+    ('1.9', '私网规划', 'RFC 1918 私网与地址池规划'),
+    ('1.10', '排障', 'NAT 排障命令与典型故障'),
+  ];
+  return <Map<String, dynamic>>[
+    for (var i = 0; i < specs.length; i++)
+      _backendPoint(
+        id: 'KP-NAT-${(i + 1).toString().padLeft(2, '0')}',
+        module: 'NAT',
+        code: specs[i].$1,
+        topic: specs[i].$2,
+        title: specs[i].$3,
+        orderNo: i + 1,
+      ),
+  ];
+}
+
+/// chunk 12 真实的 10 个基础知识 KP（code 1.1..1.10，每 topic 一节）。
+List<Map<String, dynamic>> _basicBank() {
+  const specs = <(String, String, String)>[
+    ('1.1', '协议端口', '常见协议默认端口号'),
+    ('1.2', 'IP 协议号', '常见 IP 协议号'),
+    ('1.3', '地址分类', 'IPv4 地址分类与特殊地址'),
+    ('1.4', 'OSI 模型', 'OSI 七层模型与设备层级'),
+    ('1.5', '地址长度', 'MAC/IPv4/IPv6 地址长度'),
+    ('1.6', '传输介质', '双绞线与光纤传输特性'),
+    ('1.7', '以太网帧', '以太网帧长度 64～1518'),
+    ('1.8', 'TCP 连接', 'TCP 三次握手与四次挥手'),
+    ('1.9', '设备命令', 'Comware 视图与常用命令'),
+    ('1.10', '基础常识', '子网容量与 Ping/ARP 常识'),
+  ];
+  return <Map<String, dynamic>>[
+    for (var i = 0; i < specs.length; i++)
+      _backendPoint(
+        id: 'KP-BASIC-${(i + 1).toString().padLeft(2, '0')}',
+        module: '基础知识',
+        code: specs[i].$1,
+        topic: specs[i].$2,
+        title: specs[i].$3,
+        orderNo: i + 1,
+      ),
+  ];
+}
+
 http.Response _json(Object body, [int status = 200]) {
   return http.Response.bytes(
     utf8.encode(jsonEncode(body)),
@@ -498,6 +553,50 @@ Question _subnetQuestion() {
     answer: const <String>['A'],
     explanation: '解析内容',
     knowledge_point_id: 'KP-SUBNET-07',
+    difficulty: 1,
+    set_no: 1,
+    row_version: 1,
+  );
+}
+
+/// chunk 12：NAT 模块题（NAT Server 端口映射场景，真实题干 id NAT-A005）。
+Question _natQuestion() {
+  return Question(
+    id: 'NAT-A005',
+    module: 'NAT',
+    type: 'single',
+    stem: '接口配置 nat server protocol tcp global 202.100.5.1 8080 inside 192.168.20.8 80。外网用户应在浏览器中访问哪个地址？',
+    options: const <QuestionOption>[
+      QuestionOption(key: 'A', text: 'http://202.100.5.1:8080'),
+      QuestionOption(key: 'B', text: 'http://202.100.5.1:80'),
+      QuestionOption(key: 'C', text: 'http://192.168.20.8:80'),
+      QuestionOption(key: 'D', text: 'http://192.168.20.8:8080'),
+    ],
+    answer: const <String>['A'],
+    explanation: '解析内容',
+    knowledge_point_id: 'KP-NAT-06',
+    difficulty: 1,
+    set_no: 1,
+    row_version: 1,
+  );
+}
+
+/// chunk 12：基础知识模块题（IP 协议号场景，真实题干 id BASIC-C017）。
+Question _basicQuestion() {
+  return Question(
+    id: 'BASIC-C017',
+    module: '基础知识',
+    type: 'single',
+    stem: 'OSPF协议封装在IP报文中，其IP协议号是？',
+    options: const <QuestionOption>[
+      QuestionOption(key: 'A', text: '89'),
+      QuestionOption(key: 'B', text: '6'),
+      QuestionOption(key: 'C', text: '1'),
+      QuestionOption(key: 'D', text: '88'),
+    ],
+    answer: const <String>['A'],
+    explanation: '解析内容',
+    knowledge_point_id: 'KP-BASIC-02',
     difficulty: 1,
     set_no: 1,
     row_version: 1,
@@ -930,6 +1029,104 @@ void main() {
       final vlanPort = await repo.getPointsBySection('VLAN-01-03');
       expect(vlanPort.length, 3);
     });
+
+    test('chunk 12：10 个 NAT KP 进浏览结构，章 NAT-01、10 节', () async {
+      final router = _Router(points: _natBank());
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      // 占位符已全部复用为正式 KP，不再有 contentMd null 的 KP
+      expect(chapters.length, 1);
+      expect(chapters.single.id, 'NAT-01');
+      expect(chapters.single.module, 'NAT');
+      expect(chapters.single.title, 'NAT 地址转换');
+
+      final sections = await repo.getSections('NAT-01');
+      expect(sections.length, 10);
+      expect(sections.first.id, 'NAT-01-01');
+      expect(sections.first.title, 'NAT 基础');
+      expect(sections[5].id, 'NAT-01-06');
+      expect(sections[5].title, 'NAT Server');
+      expect(sections.last.id, 'NAT-01-10');
+      expect(sections.last.title, '排障');
+
+      final server = await repo.getPointsBySection('NAT-01-06');
+      expect(server.single.id, 'KP-NAT-06');
+      expect(server.single.title, 'NAT Server 内部服务器发布');
+      expect(server.single.content_md, isNotEmpty);
+      // 复用的 KP-NAT-01 现在是正式 KP，出现在第一节
+      final basic = await repo.getPointsBySection('NAT-01-01');
+      expect(basic.single.id, 'KP-NAT-01');
+      expect(basic.single.title, '作用、术语、部署位置与转换阶段');
+    });
+
+    test('chunk 12：10 个基础知识 KP 进浏览结构，章 基础知识-01、10 节', () async {
+      final router = _Router(points: _basicBank());
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      expect(chapters.length, 1);
+      // 章 id 由后端真实模块名「基础知识」聚合（BASIC 只是 KP id 前缀）
+      expect(chapters.single.id, '基础知识-01');
+      expect(chapters.single.module, '基础知识');
+      expect(chapters.single.title, '网络基础知识');
+
+      final sections = await repo.getSections('基础知识-01');
+      expect(sections.length, 10);
+      expect(sections.first.id, '基础知识-01-01');
+      expect(sections.first.title, '协议端口');
+      expect(sections[8].id, '基础知识-01-09');
+      expect(sections[8].title, '设备命令');
+      expect(sections.last.id, '基础知识-01-10');
+      expect(sections.last.title, '基础常识');
+
+      final commands = await repo.getPointsBySection('基础知识-01-09');
+      expect(commands.single.id, 'KP-BASIC-09');
+      expect(commands.single.title, 'Comware 视图与常用命令');
+      expect(commands.single.content_md, isNotEmpty);
+      // 复用的 KP-BASIC-01 现在是正式 KP，出现在第一节
+      final ports = await repo.getPointsBySection('基础知识-01-01');
+      expect(ports.single.id, 'KP-BASIC-01');
+      expect(ports.single.title, '常见协议默认端口号');
+    });
+
+    test('chunk 12：VLAN+OSPF+ACL+子网+NAT+基础知识 六章共存，互不串节', () async {
+      final router = _Router(
+        points: <Map<String, dynamic>>[
+          ..._vlanBank().take(12),
+          ..._ospfBank().take(16),
+          ..._aclBank().take(14),
+          ..._subnetBank().take(10),
+          ..._natBank(),
+          ..._basicBank(),
+        ],
+      );
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      expect(chapters.map((c) => c.id).toList(), <String>[
+        'VLAN-01',
+        'OSPF-01',
+        'ACL-01',
+        '子网-01',
+        'NAT-01',
+        '基础知识-01',
+      ]);
+      expect((await repo.getSections('VLAN-01')).length, 10);
+      expect((await repo.getSections('OSPF-01')).length, 16);
+      expect((await repo.getSections('ACL-01')).length, 14);
+      expect((await repo.getSections('子网-01')).length, 10);
+      expect((await repo.getSections('NAT-01')).length, 10);
+      expect((await repo.getSections('基础知识-01')).length, 10);
+      final natNapt = await repo.getPointsBySection('NAT-01-04');
+      expect(natNapt.single.id, 'KP-NAT-04');
+      final basicOsi = await repo.getPointsBySection('基础知识-01-04');
+      expect(basicOsi.single.id, 'KP-BASIC-04');
+      final subnetAggregate = await repo.getPointsBySection('子网-01-07');
+      expect(subnetAggregate.single.id, 'KP-SUBNET-07');
+      final vlanPort = await repo.getPointsBySection('VLAN-01-03');
+      expect(vlanPort.length, 3);
+    });
   });
 
   group('getPointsByQuestion 真实内容门槛', () {
@@ -1019,6 +1216,56 @@ void main() {
       final points = await repo.getPointsByQuestion('SUBNET-A007');
       expect(points.single.id, 'KP-SUBNET-07');
       expect(points.single.module, '子网');
+      expect(points.single.content_md, isNotEmpty);
+    });
+
+    test('chunk 12：NAT 题 → 重映射后的 NAT KP', () async {
+      final router = _Router(
+        question: <String, dynamic>{
+          'id': 'NAT-A005',
+          'knowledgePointId': 'KP-NAT-06',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-NAT-06': _backendPoint(
+            id: 'KP-NAT-06',
+            module: 'NAT',
+            code: '1.6',
+            topic: 'NAT Server',
+            title: 'NAT Server 内部服务器发布',
+            contentMd: '## 概念\n外网访问 global 地址+global 端口。',
+            orderNo: 6,
+          ),
+        },
+      );
+      final repo = _repo(router, _FallbackRepo());
+      final points = await repo.getPointsByQuestion('NAT-A005');
+      expect(points.single.id, 'KP-NAT-06');
+      expect(points.single.module, 'NAT');
+      expect(points.single.content_md, isNotEmpty);
+    });
+
+    test('chunk 12：基础知识题 → 重映射后的基础知识 KP', () async {
+      final router = _Router(
+        question: <String, dynamic>{
+          'id': 'BASIC-C017',
+          'knowledgePointId': 'KP-BASIC-02',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-BASIC-02': _backendPoint(
+            id: 'KP-BASIC-02',
+            module: '基础知识',
+            code: '1.2',
+            topic: 'IP 协议号',
+            title: '常见 IP 协议号',
+            contentMd: '## 概念\nOSPF 直接封装在 IP 中，协议号 89。',
+            orderNo: 2,
+          ),
+        },
+      );
+      final repo = _repo(router, _FallbackRepo());
+      final points = await repo.getPointsByQuestion('BASIC-C017');
+      expect(points.single.id, 'KP-BASIC-02');
+      expect(points.single.module, '基础知识');
       expect(points.single.content_md, isNotEmpty);
     });
 
@@ -1400,6 +1647,174 @@ void main() {
       final args = detail.arguments! as Map<String, Object?>;
       expect(args['kpId'], 'KP-SUBNET-07');
       expect(args['sectionId'], '子网-01-07');
+      expect(args['returnTo'], 'quiz');
+    });
+
+    // ---- chunk 12：NAT 题的 chip（复用 chunk 8 接线，仅数据变化） ----
+
+    Widget natPage(_Router router) {
+      return QuizPage(
+        args: <String, Object?>{
+          'mode': 'practice',
+          'setId': 'NAT',
+          'setTitle': 'NAT',
+          'drawCount': 100,
+          'target': 20,
+        },
+        practiceService: _FakePracticeService(<Question>[_natQuestion()]),
+        recordService: records,
+        sessionService: sessions,
+        favoriteService: MockFavoriteService(),
+        knowledgeRepository: _repo(router, _FallbackRepo()),
+      );
+    }
+
+    _Router natChipRouter() {
+      return _Router(
+        question: <String, dynamic>{
+          'id': 'NAT-A005',
+          'knowledgePointId': 'KP-NAT-06',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-NAT-06': _backendPoint(
+            id: 'KP-NAT-06',
+            module: 'NAT',
+            code: '1.6',
+            topic: 'NAT Server',
+            title: 'NAT Server 内部服务器发布',
+            contentMd: '## 概念\n外网访问 global 地址+global 端口。',
+            orderNo: 6,
+          ),
+        },
+      );
+    }
+
+    testWidgets('chunk 12：NAT 题判分后显示「知识点：NAT Server 内部服务器发布」', (tester) async {
+      await _launch(tester, natPage(natChipRouter()));
+      expect(find.textContaining('知识点：'), findsNothing);
+
+      await tester.tap(find.text('http://202.100.5.1:8080'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：NAT Server 内部服务器发布'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('知识点：NAT Server 内部服务器发布'), findsOneWidget);
+    });
+
+    testWidgets('chunk 12：点按 NAT chip 进详情，sectionId=NAT-01-06', (tester) async {
+      final routes = <RouteSettings>[];
+      await tester.pumpWidget(
+        _host(natPage(natChipRouter()), onRoute: routes.add),
+      );
+      await tester.tap(find.text('launch'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('http://202.100.5.1:8080'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：NAT Server 内部服务器发布'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      // 与 chunk 9/10/11 同一约定：先 ensureVisible 滚到 chip 完全可见，
+      // 再 pumpAndSettle 等入场动画落定，避免 tap 穿透到背后的卡片。
+      await tester.ensureVisible(find.text('知识点：NAT Server 内部服务器发布'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('知识点：NAT Server 内部服务器发布'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('知识详情页'), findsOneWidget);
+      final detail = routes.last;
+      expect(detail.name, AppRoutes.knowledgePoint);
+      final args = detail.arguments! as Map<String, Object?>;
+      expect(args['kpId'], 'KP-NAT-06');
+      expect(args['sectionId'], 'NAT-01-06');
+      expect(args['returnTo'], 'quiz');
+    });
+
+    // ---- chunk 12：基础知识题的 chip（复用 chunk 8 接线，仅数据变化） ----
+
+    Widget basicPage(_Router router) {
+      return QuizPage(
+        args: <String, Object?>{
+          'mode': 'practice',
+          'setId': '基础知识',
+          'setTitle': '基础知识',
+          'drawCount': 100,
+          'target': 20,
+        },
+        practiceService: _FakePracticeService(<Question>[_basicQuestion()]),
+        recordService: records,
+        sessionService: sessions,
+        favoriteService: MockFavoriteService(),
+        knowledgeRepository: _repo(router, _FallbackRepo()),
+      );
+    }
+
+    _Router basicChipRouter() {
+      return _Router(
+        question: <String, dynamic>{
+          'id': 'BASIC-C017',
+          'knowledgePointId': 'KP-BASIC-02',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-BASIC-02': _backendPoint(
+            id: 'KP-BASIC-02',
+            module: '基础知识',
+            code: '1.2',
+            topic: 'IP 协议号',
+            title: '常见 IP 协议号',
+            contentMd: '## 概念\nOSPF 直接封装在 IP 中，协议号 89。',
+            orderNo: 2,
+          ),
+        },
+      );
+    }
+
+    testWidgets('chunk 12：基础知识题判分后显示「知识点：常见 IP 协议号」', (tester) async {
+      await _launch(tester, basicPage(basicChipRouter()));
+      expect(find.textContaining('知识点：'), findsNothing);
+
+      await tester.tap(find.text('89'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：常见 IP 协议号'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('知识点：常见 IP 协议号'), findsOneWidget);
+    });
+
+    testWidgets('chunk 12：点按基础知识 chip 进详情，sectionId=基础知识-01-02', (tester) async {
+      final routes = <RouteSettings>[];
+      await tester.pumpWidget(
+        _host(basicPage(basicChipRouter()), onRoute: routes.add),
+      );
+      await tester.tap(find.text('launch'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('89'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：常见 IP 协议号'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      // 与 chunk 9/10/11 同一约定：先 ensureVisible 滚到 chip 完全可见，
+      // 再 pumpAndSettle 等入场动画落定，避免 tap 穿透到背后的卡片。
+      await tester.ensureVisible(find.text('知识点：常见 IP 协议号'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('知识点：常见 IP 协议号'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('知识详情页'), findsOneWidget);
+      final detail = routes.last;
+      expect(detail.name, AppRoutes.knowledgePoint);
+      final args = detail.arguments! as Map<String, Object?>;
+      expect(args['kpId'], 'KP-BASIC-02');
+      expect(args['sectionId'], '基础知识-01-02');
       expect(args['returnTo'], 'quiz');
     });
   });
