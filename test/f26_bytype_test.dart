@@ -136,7 +136,12 @@ void main() {
           client: MockClient((request) async {
             paths.add(request.url.path);
             return _json(
-              _overviewPayload(setId: 'VLAN', total: 130, single: 100, multiple: 30),
+              _overviewPayload(
+                setId: 'VLAN',
+                total: 130,
+                single: 100,
+                multiple: 30,
+              ),
             );
           }),
         ),
@@ -164,7 +169,9 @@ void main() {
         baseUrl: _base,
         fallback: HttpBankSetOverviewSource(
           baseUrl: _base,
-          client: MockClient((request) async => _json(<String, Object?>{}, 404)),
+          client: MockClient(
+            (request) async => _json(<String, Object?>{}, 404),
+          ),
         ),
         client: MockClient((request) async => _json(progressBody)),
       );
@@ -284,7 +291,12 @@ void main() {
       final cache = SqliteBankLocalCache(db);
 
       await cache.writeOverview(
-        const BankSetOverview(setId: 'VLAN', total: 130, done: 40, remaining: 90),
+        const BankSetOverview(
+          setId: 'VLAN',
+          total: 130,
+          done: 40,
+          remaining: 90,
+        ),
       );
       final value = await cache.readOverview('VLAN');
 
