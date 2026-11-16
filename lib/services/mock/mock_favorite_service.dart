@@ -55,4 +55,18 @@ class MockFavoriteService implements FavoriteService {
       _favorites.remove(questionId);
     }
   }
+
+  @override
+  Future<int> mergeFromServer(List<Favorite> items) async {
+    var changed = 0;
+    for (final item in items) {
+      if (item.question_id.isEmpty) continue;
+      final existing = _favorites[item.question_id];
+      // last-write-wins：服务端更旧则保留本地。
+      if (existing != null && item.created_at < existing.created_at) continue;
+      _favorites[item.question_id] = item;
+      changed++;
+    }
+    return changed;
+  }
 }

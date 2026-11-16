@@ -99,4 +99,29 @@ class MockWrongService implements WrongService {
   }) async {
     _items.removeWhere((item) => item.question_id == questionId);
   }
+
+  @override
+  Future<int> mergeFromServer(List<WrongItem> items) async {
+    var changed = 0;
+    for (final item in items) {
+      if (item.question_id.isEmpty) continue;
+      final index = _items.indexWhere(
+        (existing) => existing.question_id == item.question_id,
+      );
+      if (index < 0) {
+        _items.add(item);
+        changed++;
+        continue;
+      }
+      final existing = _items[index];
+      // 墓碑：移除之后没有再做错（服务端时间不晚于移除时刻）就不复活。
+      final tombstone = existing.removed_at;
+      if (tombstone != null && item.last_wrong_at <= tombstone) continue;
+      // last-write-wins：服务端更旧则保留本地。
+      if (item.last_wrong_at < existing.last_wrong_at) continue;
+      _items[index] = item;
+      changed++;
+    }
+    return changed;
+  }
 }

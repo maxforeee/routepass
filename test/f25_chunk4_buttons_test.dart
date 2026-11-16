@@ -96,6 +96,9 @@ class _FakeFavoriteService implements FavoriteService {
       ids.remove(questionId);
     }
   }
+
+  @override
+  Future<int> mergeFromServer(List<Favorite> items) async => 0;
 }
 
 class _FakeWrongService implements WrongService {
@@ -122,6 +125,9 @@ class _FakeWrongService implements WrongService {
     String questionId, {
     String reason = 'user_removed',
   }) async {}
+
+  @override
+  Future<int> mergeFromServer(List<WrongItem> items) async => 0;
 }
 
 class _FakePracticeService implements PracticeService {

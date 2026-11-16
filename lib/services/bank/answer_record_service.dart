@@ -40,9 +40,10 @@ abstract class AnswerRecordService {
   /// 标记已同步并回填服务端 id。
   void markSynced(String id, String serverId);
 
-  /// 与服务端记录调和（S11 `GET /practice/records`）。接口未就绪或无数据源
-  /// 时为 no-op；失败静默，本地记录照常展示。
-  Future<void> syncFromServer() async {}
+  /// 与服务端记录调和（S11 `GET /practice/records`）。返回是否成功取到
+  /// 服务端记录并完成调和（空列表也算成功）；无数据源 / 拉取失败返回
+  /// false，本地记录照常展示。F26 同步物化据此如实报告「答题记录」类别。
+  Future<bool> syncFromServer() async => false;
 }
 
 class KvAnswerRecordService implements AnswerRecordService {
@@ -193,16 +194,16 @@ class KvAnswerRecordService implements AnswerRecordService {
   }
 
   @override
-  Future<void> syncFromServer() async {
+  Future<bool> syncFromServer() async {
     final fetch = serverRecords;
-    if (fetch == null) return;
+    if (fetch == null) return false;
     final List<PracticeRecordSummary> items;
     try {
       items = await fetch();
     } catch (_) {
-      return;
+      return false;
     }
-    if (items.isEmpty) return;
+    if (items.isEmpty) return true;
 
     final records = _read();
     var changed = false;
@@ -256,8 +257,9 @@ class KvAnswerRecordService implements AnswerRecordService {
       }
       changed = true;
     }
-    if (!changed) return;
+    if (!changed) return true;
     records.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     _write(_trim(records));
+    return true;
   }
 }

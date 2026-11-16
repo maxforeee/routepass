@@ -29,6 +29,13 @@ abstract class FavoriteService {
   /// 切换收藏态：POST /favorites / DELETE /favorites/{qid}。
   /// Mock：本地内存切换。
   Future<void> toggleFavorite(String questionId, bool on);
+
+  /// F26 同步物化：把服务端条目按 question_id + created_at
+  /// last-write-wins 并入本地 store，返回实际新增 / 更新的条数。
+  /// 服务端独有 → 新增；本地更新 → 保留本地。收藏没有墓碑字段，
+  /// 本地移除后服务端仍有的条目会被重新加入（见 F26 chunk 4 备注）。
+  /// 默认 no-op（测试 fake 无需实现）。
+  Future<int> mergeFromServer(List<Favorite> items) async => 0;
 }
 
 /// 收藏接口的 HTTP 实现；请求失败 / 接口未就绪时兜底委托 [local]。
@@ -91,6 +98,10 @@ class HttpFavoriteService implements FavoriteService {
         : await _delete('/api/v1/favorites/${Uri.encodeComponent(questionId)}');
     if (!ok) await local.toggleFavorite(questionId, on);
   }
+
+  @override
+  Future<int> mergeFromServer(List<Favorite> items) =>
+      local.mergeFromServer(items);
 
   /// 逐页拉全收藏列表；任一页失败返回 null，由调用方整体回落本地。
   Future<List<Map<String, dynamic>>?> _fetchAll() async {

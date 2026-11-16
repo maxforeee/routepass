@@ -33,6 +33,12 @@ abstract class WrongService {
   /// 用户点“移除”。HTTP：DELETE /wrong-book/{qid}；Mock：本地移除。
   /// 只允许用户显式移除与题库更新失效两种触发（v3.1 第 8 章 wrong_remove 触发条件表）。
   Future<void> removeWrong(String questionId, {String reason = 'user_removed'});
+
+  /// F26 同步物化：把服务端条目按 question_id + last_wrong_at
+  /// last-write-wins 并入本地 store，返回实际新增 / 更新的条数。
+  /// 服务端独有 → 新增；本地更新 → 保留本地；本地墓碑（removed_at）
+  /// 不被更旧的服务端数据复活。默认 no-op（测试 fake 无需实现）。
+  Future<int> mergeFromServer(List<WrongItem> items) async => 0;
 }
 
 /// 错题本接口的 HTTP 实现；请求失败 / 接口未就绪时兜底委托 [local]。
@@ -114,6 +120,10 @@ class HttpWrongService implements WrongService {
     );
     if (!ok) await local.removeWrong(questionId, reason: reason);
   }
+
+  @override
+  Future<int> mergeFromServer(List<WrongItem> items) =>
+      local.mergeFromServer(items);
 
   /// 逐页拉全错题列表；任一页失败返回 null，由调用方整体回落本地。
   Future<List<Map<String, dynamic>>?> _fetchAll() async {

@@ -110,7 +110,7 @@ class _RecordingRecordService implements AnswerRecordService {
   void markSynced(String id, String serverId) {}
 
   @override
-  Future<void> syncFromServer() async {}
+  Future<bool> syncFromServer() async => false;
 }
 
 class _FakeExamService implements ExamService {

@@ -142,7 +142,7 @@ class _FakeRecordService implements AnswerRecordService {
   void markSynced(String id, String serverId) {}
 
   @override
-  Future<void> syncFromServer() async {}
+  Future<bool> syncFromServer() async => false;
 }
 
 const Map<String, ExamQuestionGrade> _grades = <String, ExamQuestionGrade>{

@@ -18,10 +18,15 @@ import 'package:http/http.dart' as http;
 import '../../core/config.dart';
 import '../../core/kv_store.dart';
 import '../../core/service_locator.dart';
+import '../../models/practice.dart' show epochMillisFromJson;
 import '../../models/sync.dart';
+import '../../models/wrong_favorite.dart';
+import 'answer_record_service.dart';
 import 'bank_sync_service.dart';
+import 'favorite_service.dart';
 import 'local_cache_service.dart';
 import 'question_bank_source.dart';
+import 'wrong_service.dart';
 
 /// 同步 HTTP 实现。
 class HttpSyncService implements SyncService {
@@ -31,6 +36,9 @@ class HttpSyncService implements SyncService {
     this.tokenProvider,
     KvStore? kvStore,
     this.localCache,
+    this.wrongService,
+    this.favoriteService,
+    this.answerRecordService,
   }) : _client = client ?? http.Client(),
        _baseUrl = baseUrl ?? AppConfig.baseUrl,
        _kv = kvStore ?? ServiceLocator.kvStore;
@@ -44,9 +52,18 @@ class HttpSyncService implements SyncService {
   final KvStore _kv;
   final BankLocalCache? localCache;
 
+  /// F26 同步物化的目标 store。未注入时 syncNow 再从 ServiceLocator 懒取
+  /// （生产在启动时注册；构造时注册尚未完成，不能提前读）；两处都取不到
+  /// 就该类别跳过物化，保留只写镜像的旧行为。
+  final WrongService? wrongService;
+  final FavoriteService? favoriteService;
+  final AnswerRecordService? answerRecordService;
+
   static const Duration _timeout = Duration(seconds: 8);
   static const int _pullLimit = 200;
   static const int _maxPullPages = 20;
+  static const int _listPageSize = 100;
+  static const int _maxListPages = 50;
 
   @override
   SyncStatus? get cachedStatus => _readCachedStatus();
@@ -183,10 +200,14 @@ class HttpSyncService implements SyncService {
     // 变更落盘后再推进游标（失败重来时服务端仍会返回同一批）。
     _writeCursor(pulled.cursor);
 
+    // F26 B9：镜像落盘后把服务端状态物化进本地 store（错题本 / 收藏 /
+    // 答题记录）。物化只写本地 store 与文案，不改变下面的只拉不推闸门。
+    final materializeNote = _materializeSuffix(await _materialize());
+
     // 安全闸门：本地没有任何记录而服务端有数据时，只拉取，绝不上传。
-    // 拉取结果按 `entity|entityId` 落在 kv `sync.mirror`；本地错题 / 收藏 /
-    // 答题记录各有自己的 store，而 baseline / 增量里没有能物化成它们的字段，
-    // 所以文案只说“拉取到镜像”，不谎称应用数据已恢复。
+    // 拉取结果按 `entity|entityId` 落在 kv `sync.mirror` 作为审计痕迹；
+    // store 可用时已经列表接口物化（见 _materialize），文案按类别如实报告；
+    // store 不可用时只说“拉取到镜像”，不谎称应用数据已恢复。
     if (localCount == 0 && serverCount > 0) {
       final status = SyncStatus(
         pendingCount: 0,
@@ -199,7 +220,9 @@ class HttpSyncService implements SyncService {
       _writeCachedStatus(status);
       return ManualSyncResult(
         ok: true,
-        message: '本地无数据，已从服务器拉取 $pulledCount 条到同步镜像（应用数据待接口）',
+        message: materializeNote.isEmpty
+            ? '本地无数据，已从服务器拉取 $pulledCount 条到同步镜像（应用数据待接口）'
+            : '本地无数据，已从服务器拉取 $pulledCount 条$materializeNote',
         pulledCount: pulledCount,
         uploadedCount: 0,
         state: 'synced',
@@ -221,7 +244,7 @@ class HttpSyncService implements SyncService {
         _writeCachedStatus(status);
         return ManualSyncResult(
           ok: false,
-          message: '上传失败，${ops.length} 条保留在本地',
+          message: '上传失败，${ops.length} 条保留在本地$materializeNote',
           pulledCount: pulledCount,
           state: 'pending',
         );
@@ -248,11 +271,13 @@ class HttpSyncService implements SyncService {
     );
     _writeCachedStatus(status);
 
-    final message = uploadedCount > 0
-        ? '同步完成：拉取 $pulledCount 条，上传 $uploadedCount 条'
-        : pulledCount > 0
-        ? '同步完成：拉取 $pulledCount 条'
-        : '已是最新';
+    final message =
+        (uploadedCount > 0
+            ? '同步完成：拉取 $pulledCount 条，上传 $uploadedCount 条'
+            : pulledCount > 0
+            ? '同步完成：拉取 $pulledCount 条'
+            : '已是最新') +
+        materializeNote;
     return ManualSyncResult(
       ok: true,
       message: message,
@@ -371,6 +396,157 @@ class HttpSyncService implements SyncService {
     final response = await _get('/api/v1/sync/baseline');
     if (response == null || response.statusCode != 200) return null;
     return SyncBaseline.fromJson(response.body);
+  }
+
+  /// F26 B9：把服务端状态物化进本地 store。镜像保留作审计痕迹；错题 /
+  /// 收藏改用带题目内容的列表接口（GET /wrong-book、GET /favorites）按
+  /// id + 时间戳 last-write-wins 并入本地 store；答题记录复用既有
+  /// [AnswerRecordService.syncFromServer]，不另写第二条合并路径。
+  ///
+  /// store 未注入也未注册 → 该类别跳过（不计入文案）；拉取失败 → 该类别
+  /// 如实报「未更新」，绝不把失败算成已应用。
+  Future<_Materialized> _materialize() async {
+    final wrongStore =
+        wrongService ?? _tryLocate(() => ServiceLocator.wrongService);
+    final favoriteStore =
+        favoriteService ?? _tryLocate(() => ServiceLocator.favoriteService);
+    final recordService =
+        answerRecordService ??
+        _tryLocate(() => ServiceLocator.answerRecordService);
+
+    _CategoryResult? wrong;
+    final wrongItems = wrongStore == null
+        ? null
+        : await _fetchPaged('/api/v1/wrong-book');
+    if (wrongStore != null) {
+      if (wrongItems == null) {
+        wrong = const _CategoryResult.failed();
+      } else {
+        final parsed = <WrongItem>[];
+        for (final item in wrongItems) {
+          final id = item['questionId'];
+          if (id is! String || id.isEmpty) continue;
+          parsed.add(
+            WrongItem(
+              question_id: id,
+              wrong_count: (item['wrongCount'] as num?)?.toInt() ?? 1,
+              last_wrong_at: epochMillisFromJson(item['lastWrongAt']) ?? 0,
+              mastered: item['mastered'] as bool? ?? false,
+            ),
+          );
+        }
+        try {
+          wrong = _CategoryResult.ok(await wrongStore.mergeFromServer(parsed));
+        } catch (_) {
+          wrong = const _CategoryResult.failed();
+        }
+      }
+    }
+
+    _CategoryResult? favorites;
+    final favoriteItems = favoriteStore == null
+        ? null
+        : await _fetchPaged('/api/v1/favorites');
+    if (favoriteStore != null) {
+      if (favoriteItems == null) {
+        favorites = const _CategoryResult.failed();
+      } else {
+        final parsed = <Favorite>[];
+        for (final item in favoriteItems) {
+          final id = item['questionId'];
+          if (id is! String || id.isEmpty) continue;
+          parsed.add(
+            Favorite(
+              question_id: id,
+              created_at: epochMillisFromJson(item['createdAt']) ?? 0,
+            ),
+          );
+        }
+        try {
+          favorites = _CategoryResult.ok(
+            await favoriteStore.mergeFromServer(parsed),
+          );
+        } catch (_) {
+          favorites = const _CategoryResult.failed();
+        }
+      }
+    }
+
+    _CategoryResult? records;
+    if (recordService != null) {
+      // fetchPracticeRecords 失败时静默返回空列表，无法区分「服务端没有
+      // 记录」与「拉取失败」；先用小页探测接口可达，再走既有合并。
+      final probe = await _get('/api/v1/practice/records?page=1&pageSize=1');
+      if (probe == null || probe.statusCode != 200) {
+        records = const _CategoryResult.failed();
+      } else {
+        try {
+          records = await recordService.syncFromServer()
+              ? const _CategoryResult.ok(0)
+              : const _CategoryResult.failed();
+        } catch (_) {
+          records = const _CategoryResult.failed();
+        }
+      }
+    }
+
+    return _Materialized(
+      wrong: wrong,
+      favorites: favorites,
+      records: records,
+    );
+  }
+
+  /// 逐页拉全列表接口（与 HttpWrongService / HttpFavoriteService 同一分页
+  /// 契约 `{items, page, pageSize, total}`）；任一页失败返回 null。
+  Future<List<Map<String, dynamic>>?> _fetchPaged(String path) async {
+    final items = <Map<String, dynamic>>[];
+    for (var page = 1; page <= _maxListPages; page++) {
+      final response = await _get('$path?page=$page&page_size=$_listPageSize');
+      if (response == null || response.statusCode != 200) return null;
+      final raw = response.body['items'];
+      if (raw is! List) return null;
+      for (final item in raw) {
+        if (item is Map<String, dynamic>) items.add(item);
+      }
+      final total = (response.body['total'] as num?)?.toInt() ?? items.length;
+      if (raw.isEmpty || items.length >= total) break;
+    }
+    return items;
+  }
+
+  /// ServiceLocator 是 late final 字段，未注册（单测直接注入）时读取会抛
+  /// LateInitializationError，按「没有该 store」处理。
+  static T? _tryLocate<T>(T Function() read) {
+    try {
+      return read();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 物化结果的按类别文案；没有任何 store 时为空串（保留旧文案）。
+  static String _materializeSuffix(_Materialized materialized) {
+    final parts = <String>[];
+    final wrong = materialized.wrong;
+    if (wrong != null) {
+      parts.add(
+        wrong.failed ? '错题本未更新（拉取失败）' : '错题本已更新 ${wrong.count} 条',
+      );
+    }
+    final favorites = materialized.favorites;
+    if (favorites != null) {
+      parts.add(
+        favorites.failed
+            ? '收藏未更新（拉取失败）'
+            : '收藏已更新 ${favorites.count} 条',
+      );
+    }
+    final records = materialized.records;
+    if (records != null) {
+      parts.add(records.failed ? '答题记录未更新（拉取失败）' : '答题记录已更新');
+    }
+    return parts.isEmpty ? '' : '；${parts.join('，')}';
   }
 
   /// 游标分页拉完所有变更；任一页失败返回 null（调用方保留本地状态）。
@@ -634,4 +810,23 @@ class _PushOutcome {
 
   final PushResult result;
   final List<String> handledOpIds;
+}
+
+/// 单个物化类别的结果：ok 带实际新增 / 更新条数；failed 表示拉取或合并
+/// 失败，文案必须报「未更新」，不能计入已应用。
+class _CategoryResult {
+  const _CategoryResult.ok(this.count) : failed = false;
+  const _CategoryResult.failed() : count = 0, failed = true;
+
+  final int count;
+  final bool failed;
+}
+
+/// 三个类别的物化结果；null 表示该类别没有可用 store（跳过，不提）。
+class _Materialized {
+  const _Materialized({this.wrong, this.favorites, this.records});
+
+  final _CategoryResult? wrong;
+  final _CategoryResult? favorites;
+  final _CategoryResult? records;
 }
