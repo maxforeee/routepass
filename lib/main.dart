@@ -77,9 +77,13 @@ Future<void> main() async {
       ),
       cache: localCache,
       // 前置页 done/remaining 读 S11 `GET /practice/progress`（裸数组），
-      // 考试卷 / 未匹配模块回落 `/bank/sets/{id}/overview`（当前 404）。
+      // 考试卷 / 未匹配模块回落 `/bank/sets/{id}/overview`（F26 chunk 6
+      // 已接真实端点：真实题量 / 已完成 / 正确率，失败回落待接口文案）。
       overviewSource: HttpPracticeProgressOverviewSource(
-        fallback: HttpBankSetOverviewSource(),
+        fallback: HttpBankSetOverviewSource(
+          client: authClient,
+          tokenProvider: cachedToken,
+        ),
         client: authClient,
         tokenProvider: cachedToken,
       ),

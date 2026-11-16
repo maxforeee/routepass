@@ -186,6 +186,7 @@ class BankSetOverview {
     required this.done,
     required this.remaining,
     this.byType,
+    this.accuracy,
   });
 
   final String setId;
@@ -197,8 +198,14 @@ class BankSetOverview {
   /// 前置页显示“题型待接口”。绝不按比例推算，也不写 0。
   final QuestionTypeStat? byType;
 
+  /// 正确率（0–1 的小数，F26）。后端按 attempts 真实计算（0–100 下发，
+  /// 映射时除 100）；尚无作答记录或数据源不提供该字段时为 null，
+  /// 前置页显示“正确率待接口”，绝不编 0%。
+  final double? accuracy;
+
   factory BankSetOverview.fromJson(Map<String, dynamic> json) {
     final typeJson = json['byType'];
+    final accuracyRaw = json['accuracy'];
     return BankSetOverview(
       setId: json['setId'] as String? ?? '',
       total: (json['total'] as num?)?.toInt() ?? 0,
@@ -210,6 +217,7 @@ class BankSetOverview {
               ...typeJson,
             })
           : null,
+      accuracy: accuracyRaw is num ? accuracyRaw.toDouble() / 100 : null,
     );
   }
 
@@ -220,6 +228,7 @@ class BankSetOverview {
       'done': done,
       'remaining': remaining,
       'byType': byType?.toJson(),
+      'accuracy': accuracy == null ? null : accuracy! * 100,
     };
   }
 

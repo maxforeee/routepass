@@ -7,10 +7,11 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 
-/// 客户端 SQLite 表结构（v1）。
+/// 客户端 SQLite 表结构（v2）。
 ///
 /// 与 v1.2 设计一致：服务端 PostgreSQL 为准，客户端 SQLite 只做本地缓存
 /// 与待同步队列；所有表都以 `set_id` 为本地分区键。
+/// v2（F26）：set_overview 增加可空 accuracy 列（null = 未知，不写假 0）。
 const List<String> localDbSchema = <String>[
   '''
   CREATE TABLE set_overview (
@@ -20,6 +21,7 @@ const List<String> localDbSchema = <String>[
     remaining INTEGER NOT NULL,
     single_count INTEGER NOT NULL,
     multiple_count INTEGER NOT NULL,
+    accuracy REAL,
     updated_at INTEGER NOT NULL
   )
   ''',
@@ -83,7 +85,7 @@ class SqfliteLocalDatabase implements LocalDatabase {
   SqfliteLocalDatabase({this.dbPath, DatabaseFactory? factory})
     : dbFactory = factory ?? databaseFactory;
 
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
   static const String defaultFileName = 'routepass.db';
 
   final String? dbPath;
@@ -101,6 +103,12 @@ class SqfliteLocalDatabase implements LocalDatabase {
         onCreate: (db, version) async {
           for (final statement in localDbSchema) {
             await db.execute(statement);
+          }
+        },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          // v1 → v2（F26）：老库补 accuracy 列，既有行保持 null（未知）。
+          if (oldVersion < 2) {
+            await db.execute('ALTER TABLE set_overview ADD COLUMN accuracy REAL');
           }
         },
       ),

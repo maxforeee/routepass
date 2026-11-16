@@ -5,7 +5,7 @@
 ///   分页拉取整套题，映射成客户端 `Question` 契约后由
 ///   [CachedPracticeService] 写入 SQLite 本地题库。
 /// - [HttpBankSetOverviewSource]：`GET /api/v1/bank/sets/{setId}/overview`
-///   （后端仍返回 404 时按「接口未就绪」返回 null，不编数字）。
+///   （F26 已接真实端点；失败 / 未登录按「接口未就绪」返回 null，不编数字）。
 library;
 
 import 'dart:convert';
@@ -218,14 +218,24 @@ List<String>? bankAnswerKeys(Object? raw) {
   return keys;
 }
 
-/// `/bank/sets/{setId}/overview` 的 HTTP 实现。
+/// `/bank/sets/{setId}/overview` 的 HTTP 实现（F26 chunk 6 接真实端点）。
+///
+/// Bearer 附加与 401 刷新一次重放由注入的 [AuthHttpClient] 统一承担；
+/// 任何失败（404 未知套卷 / 401 未登录 / 500 / 断网 / 非 JSON）一律返回
+/// null，前置页保留“完成情况待接口”，不抛给 UI，也不编数字。
 class HttpBankSetOverviewSource implements BankSetOverviewSource {
-  HttpBankSetOverviewSource({http.Client? client, String? baseUrl})
-    : _client = client ?? http.Client(),
-      _baseUrl = baseUrl ?? AppConfig.baseUrl;
+  HttpBankSetOverviewSource({
+    http.Client? client,
+    String? baseUrl,
+    this.tokenProvider,
+  }) : _client = client ?? http.Client(),
+       _baseUrl = baseUrl ?? AppConfig.baseUrl;
 
   final http.Client _client;
   final String _baseUrl;
+
+  /// 返回 access token 的回调；未登录返回 null（不带 Authorization 头）。
+  final String? Function()? tokenProvider;
 
   static const Duration _timeout = Duration(seconds: 10);
 
@@ -234,29 +244,24 @@ class HttpBankSetOverviewSource implements BankSetOverviewSource {
     final uri = Uri.parse(
       '$_baseUrl/api/v1/bank/sets/${Uri.encodeComponent(setId)}/overview',
     );
-    final http.Response response;
+    final token = tokenProvider?.call();
     try {
-      response = await _client.get(uri).timeout(_timeout);
-    } catch (e) {
-      throw BankQuestionSourceException('套卷概览请求失败：$e');
+      final response = await _client
+          .get(
+            uri,
+            headers: <String, String>{
+              if (token != null && token.isNotEmpty)
+                'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map<String, dynamic>) return null;
+      return BankSetOverview.fromJson(decoded);
+    } catch (_) {
+      return null;
     }
-    // 后端未实现该接口时为 404：按“接口待就绪”处理，不编数字。
-    if (response.statusCode == 404) return null;
-    if (response.statusCode != 200) {
-      throw BankQuestionSourceException(
-        '套卷概览请求失败（HTTP ${response.statusCode}）',
-      );
-    }
-    final dynamic decoded;
-    try {
-      decoded = jsonDecode(utf8.decode(response.bodyBytes));
-    } catch (e) {
-      throw BankQuestionSourceException('套卷概览解析失败：$e');
-    }
-    if (decoded is! Map<String, dynamic>) {
-      throw const BankQuestionSourceException('套卷概览格式错误');
-    }
-    return BankSetOverview.fromJson(decoded);
   }
 }
 

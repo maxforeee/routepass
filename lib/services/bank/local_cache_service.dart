@@ -226,7 +226,7 @@ class SqliteBankLocalCache implements BankLocalCache {
   @override
   Future<BankSetOverview?> readOverview(String setId) async {
     final rows = await _db.rawQuery(
-      'SELECT total, done, remaining, single_count, multiple_count '
+      'SELECT total, done, remaining, single_count, multiple_count, accuracy '
       'FROM set_overview WHERE set_id = ?',
       <Object?>[setId],
     );
@@ -246,6 +246,8 @@ class SqliteBankLocalCache implements BankLocalCache {
       byType: hasByType
           ? QuestionTypeStat(setId: setId, single: single, multiple: multiple)
           : null,
+      // accuracy 列可空：null = 未知（v1 老行 / 数据源无该字段），不编 0。
+      accuracy: (row['accuracy'] as num?)?.toDouble(),
     );
   }
 
@@ -253,8 +255,9 @@ class SqliteBankLocalCache implements BankLocalCache {
   Future<void> writeOverview(BankSetOverview overview) async {
     await _db.rawExecute(
       'INSERT OR REPLACE INTO set_overview '
-      '(set_id, total, done, remaining, single_count, multiple_count, updated_at) '
-      'VALUES (?, ?, ?, ?, ?, ?, ?)',
+      '(set_id, total, done, remaining, single_count, multiple_count, '
+      'accuracy, updated_at) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       <Object?>[
         overview.setId,
         overview.total,
@@ -263,6 +266,7 @@ class SqliteBankLocalCache implements BankLocalCache {
         // 题型分布未知时写 -1（列是 NOT NULL，且计数不会为负）。
         overview.byType?.single ?? -1,
         overview.byType?.multiple ?? -1,
+        overview.accuracy,
         DateTime.now().millisecondsSinceEpoch,
       ],
     );

@@ -556,6 +556,8 @@ class _TypePill extends StatelessWidget {
 /// 练习前置页按用户 2026-11-14 要求显示“已答题数：X”，考试前置页显示
 /// “已完成 X 题 · 剩余 Y 题”；取不到 overview 时显示“完成情况待接口”，
 /// 不写 0、不算假数。
+/// F26：overview 就绪时另起一行显示真实正确率；accuracy 为 null（尚无
+/// 作答记录 / 数据源无该字段）显示“正确率待接口”，绝不编 0%。
 class _DoneRow extends StatelessWidget {
   const _DoneRow({required this.isExam, required this.overview});
 
@@ -570,12 +572,22 @@ class _DoneRow extends StatelessWidget {
         : isExam
         ? '已完成 ${overview.done} 题 · 剩余 ${overview.remaining} 题'
         : '已答题数：${overview.done}';
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: AppFontSizes.detailStat,
-        color: AppColors.cardCaption(context),
-      ),
+    final style = TextStyle(
+      fontSize: AppFontSizes.detailStat,
+      color: AppColors.cardCaption(context),
+    );
+    if (overview == null) return Text(text, style: style);
+    final accuracy = overview.accuracy;
+    final accuracyText = accuracy == null
+        ? '正确率待接口'
+        : '正确率 ${(accuracy * 100).toStringAsFixed(1)}%';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(text, style: style),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(accuracyText, style: style),
+      ],
     );
   }
 }
