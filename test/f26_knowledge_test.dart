@@ -630,10 +630,7 @@ void main() {
 
     test('chunk 9：VLAN + OSPF 两章共存，互不串节', () async {
       final router = _Router(
-        points: <Map<String, dynamic>>[
-          ..._vlanBank().take(12),
-          ..._ospfBank(),
-        ],
+        points: <Map<String, dynamic>>[..._vlanBank().take(12), ..._ospfBank()],
       );
       final repo = _repo(router, _FallbackRepo());
 
@@ -869,7 +866,9 @@ void main() {
       expect(find.text('知识点：DR/BDR 选举'), findsOneWidget);
     });
 
-    testWidgets('chunk 9：点按 OSPF chip 进详情，sectionId=OSPF-01-06', (tester) async {
+    testWidgets('chunk 9：点按 OSPF chip 进详情，sectionId=OSPF-01-06', (
+      tester,
+    ) async {
       final routes = <RouteSettings>[];
       await tester.pumpWidget(
         _host(ospfPage(ospfChipRouter()), onRoute: routes.add),
