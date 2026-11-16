@@ -237,6 +237,54 @@ List<Map<String, dynamic>> _aclBank() {
   ];
 }
 
+/// chunk 11 真实的 10 个子网 KP（code 1.1..1.10，每 topic 一节）
+/// + 其余 2 个占位 KP（contentMd null，不进浏览结构）。
+List<Map<String, dynamic>> _subnetBank() {
+  const specs = <(String, String, String)>[
+    ('1.1', '掩码换算', '前缀长度与点分十进制互转'),
+    ('1.2', '网段计算', '网络地址/广播地址/可用范围'),
+    ('1.3', '容量规划', '主机数需求选前缀、等分子网'),
+    ('1.4', '同网段判断', '网关合法性与直连可达'),
+    ('1.5', '/30 链路', '点到点互连地址节约'),
+    ('1.6', 'VLSM', '变长掩码部门规划、重叠检测'),
+    ('1.7', '路由聚合', 'CIDR 精确汇聚连续网段'),
+    ('1.8', '特殊地址', '组播/环回/APIPA/受限广播'),
+    ('1.9', '地址合法性', '可分配主机地址判定'),
+    ('1.10', '划分意义', '子网划分与 IP 规划收益'),
+  ];
+  return <Map<String, dynamic>>[
+    for (var i = 0; i < specs.length; i++)
+      _backendPoint(
+        id: 'KP-SUBNET-${(i + 1).toString().padLeft(2, '0')}',
+        module: '子网',
+        code: specs[i].$1,
+        topic: specs[i].$2,
+        title: specs[i].$3,
+        orderNo: i + 1,
+      ),
+    _backendPoint(
+      id: 'KP-NAT-01',
+      module: 'NAT',
+      code: '1.4',
+      topic: 'NAT 基础',
+      title: 'NAT 综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 4,
+    ),
+    _backendPoint(
+      id: 'KP-BASIC-01',
+      module: '基础知识',
+      code: '1.6',
+      topic: '基础知识',
+      title: '基础知识综合',
+      contentMd: null,
+      commands: null,
+      orderNo: 6,
+    ),
+  ];
+}
+
 http.Response _json(Object body, [int status = 200]) {
   return http.Response.bytes(
     utf8.encode(jsonEncode(body)),
@@ -428,6 +476,28 @@ Question _aclQuestion() {
     answer: const <String>['A'],
     explanation: '解析内容',
     knowledge_point_id: 'KP-ACL-04',
+    difficulty: 1,
+    set_no: 1,
+    row_version: 1,
+  );
+}
+
+/// chunk 11：子网模块题（路由聚合场景，真实题干 id SUBNET-A007）。
+Question _subnetQuestion() {
+  return Question(
+    id: 'SUBNET-A007',
+    module: '子网',
+    type: 'single',
+    stem: '将172.16.16.0/24至172.16.23.0/24共8个连续网段精确汇聚为一条路由，结果是？',
+    options: const <QuestionOption>[
+      QuestionOption(key: 'A', text: '172.16.16.0/21'),
+      QuestionOption(key: 'B', text: '172.16.16.0/22'),
+      QuestionOption(key: 'C', text: '172.16.0.0/21'),
+      QuestionOption(key: 'D', text: '172.16.16.0/20'),
+    ],
+    answer: const <String>['A'],
+    explanation: '解析内容',
+    knowledge_point_id: 'KP-SUBNET-07',
     difficulty: 1,
     set_no: 1,
     row_version: 1,
@@ -799,6 +869,67 @@ void main() {
       final vlanPort = await repo.getPointsBySection('VLAN-01-03');
       expect(vlanPort.length, 3);
     });
+
+    test('chunk 11：10 个子网 KP 进浏览结构，章 子网-01、10 节', () async {
+      final router = _Router(points: _subnetBank());
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      // 其余 2 个占位 KP（contentMd null）不进浏览结构
+      expect(chapters.length, 1);
+      // 章 id 由后端真实模块名「子网」聚合（SUBNET 只是 app 侧代码）
+      expect(chapters.single.id, '子网-01');
+      expect(chapters.single.module, '子网');
+      expect(chapters.single.title, '子网划分');
+
+      final sections = await repo.getSections('子网-01');
+      expect(sections.length, 10);
+      expect(sections.first.id, '子网-01-01');
+      expect(sections.first.title, '掩码换算');
+      expect(sections[6].id, '子网-01-07');
+      expect(sections[6].title, '路由聚合');
+      expect(sections.last.id, '子网-01-10');
+      expect(sections.last.title, '划分意义');
+
+      final aggregate = await repo.getPointsBySection('子网-01-07');
+      expect(aggregate.single.id, 'KP-SUBNET-07');
+      expect(aggregate.single.title, 'CIDR 精确汇聚连续网段');
+      expect(aggregate.single.content_md, isNotEmpty);
+      // 复用的 KP-SUBNET-01 现在是正式 KP，出现在第一节
+      final mask = await repo.getPointsBySection('子网-01-01');
+      expect(mask.single.id, 'KP-SUBNET-01');
+      expect(mask.single.title, '前缀长度与点分十进制互转');
+    });
+
+    test('chunk 11：VLAN + OSPF + ACL + 子网 四章共存，互不串节', () async {
+      final router = _Router(
+        points: <Map<String, dynamic>>[
+          ..._vlanBank().take(12),
+          ..._ospfBank().take(16),
+          ..._aclBank().take(14),
+          ..._subnetBank(),
+        ],
+      );
+      final repo = _repo(router, _FallbackRepo());
+
+      final chapters = await repo.getChapters();
+      expect(chapters.map((c) => c.id).toList(), <String>[
+        'VLAN-01',
+        'OSPF-01',
+        'ACL-01',
+        '子网-01',
+      ]);
+      expect((await repo.getSections('VLAN-01')).length, 10);
+      expect((await repo.getSections('OSPF-01')).length, 16);
+      expect((await repo.getSections('ACL-01')).length, 14);
+      expect((await repo.getSections('子网-01')).length, 10);
+      final subnetVlsm = await repo.getPointsBySection('子网-01-06');
+      expect(subnetVlsm.single.id, 'KP-SUBNET-06');
+      final aclOdd = await repo.getPointsBySection('ACL-01-04');
+      expect(aclOdd.single.id, 'KP-ACL-04');
+      final vlanPort = await repo.getPointsBySection('VLAN-01-03');
+      expect(vlanPort.length, 3);
+    });
   });
 
   group('getPointsByQuestion 真实内容门槛', () {
@@ -863,6 +994,31 @@ void main() {
       final points = await repo.getPointsByQuestion('ACL-C056');
       expect(points.single.id, 'KP-ACL-04');
       expect(points.single.module, 'ACL');
+      expect(points.single.content_md, isNotEmpty);
+    });
+
+    test('chunk 11：子网题 → 重映射后的子网 KP', () async {
+      final router = _Router(
+        question: <String, dynamic>{
+          'id': 'SUBNET-A007',
+          'knowledgePointId': 'KP-SUBNET-07',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-SUBNET-07': _backendPoint(
+            id: 'KP-SUBNET-07',
+            module: '子网',
+            code: '1.7',
+            topic: '路由聚合',
+            title: 'CIDR 精确汇聚连续网段',
+            contentMd: '## 概念\n8 个对齐的 /24 精确聚合为 /21。',
+            orderNo: 7,
+          ),
+        },
+      );
+      final repo = _repo(router, _FallbackRepo());
+      final points = await repo.getPointsByQuestion('SUBNET-A007');
+      expect(points.single.id, 'KP-SUBNET-07');
+      expect(points.single.module, '子网');
       expect(points.single.content_md, isNotEmpty);
     });
 
@@ -1160,6 +1316,90 @@ void main() {
       final args = detail.arguments! as Map<String, Object?>;
       expect(args['kpId'], 'KP-ACL-04');
       expect(args['sectionId'], 'ACL-01-04');
+      expect(args['returnTo'], 'quiz');
+    });
+
+    // ---- chunk 11：子网题的 chip（复用 chunk 8 接线，仅数据变化） ----
+
+    Widget subnetPage(_Router router) {
+      return QuizPage(
+        args: <String, Object?>{
+          'mode': 'practice',
+          'setId': '子网',
+          'setTitle': '子网',
+          'drawCount': 100,
+          'target': 20,
+        },
+        practiceService: _FakePracticeService(<Question>[_subnetQuestion()]),
+        recordService: records,
+        sessionService: sessions,
+        favoriteService: MockFavoriteService(),
+        knowledgeRepository: _repo(router, _FallbackRepo()),
+      );
+    }
+
+    _Router subnetChipRouter() {
+      return _Router(
+        question: <String, dynamic>{
+          'id': 'SUBNET-A007',
+          'knowledgePointId': 'KP-SUBNET-07',
+        },
+        details: <String, Map<String, dynamic>>{
+          'KP-SUBNET-07': _backendPoint(
+            id: 'KP-SUBNET-07',
+            module: '子网',
+            code: '1.7',
+            topic: '路由聚合',
+            title: 'CIDR 精确汇聚连续网段',
+            contentMd: '## 概念\n8 个对齐的 /24 精确聚合为 /21。',
+            orderNo: 7,
+          ),
+        },
+      );
+    }
+
+    testWidgets('chunk 11：子网题判分后显示「知识点：CIDR 精确汇聚连续网段」', (tester) async {
+      await _launch(tester, subnetPage(subnetChipRouter()));
+      expect(find.textContaining('知识点：'), findsNothing);
+
+      await tester.tap(find.text('172.16.16.0/21'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：CIDR 精确汇聚连续网段'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('知识点：CIDR 精确汇聚连续网段'), findsOneWidget);
+    });
+
+    testWidgets('chunk 11：点按子网 chip 进详情，sectionId=子网-01-07', (tester) async {
+      final routes = <RouteSettings>[];
+      await tester.pumpWidget(
+        _host(subnetPage(subnetChipRouter()), onRoute: routes.add),
+      );
+      await tester.tap(find.text('launch'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('172.16.16.0/21'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('知识点：CIDR 精确汇聚连续网段'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      // 与 chunk 9/10 同一约定：先 ensureVisible 滚到 chip 完全可见，
+      // 再 pumpAndSettle 等入场动画落定，避免 tap 穿透到背后的卡片。
+      await tester.ensureVisible(find.text('知识点：CIDR 精确汇聚连续网段'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('知识点：CIDR 精确汇聚连续网段'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('知识详情页'), findsOneWidget);
+      final detail = routes.last;
+      expect(detail.name, AppRoutes.knowledgePoint);
+      final args = detail.arguments! as Map<String, Object?>;
+      expect(args['kpId'], 'KP-SUBNET-07');
+      expect(args['sectionId'], '子网-01-07');
       expect(args['returnTo'], 'quiz');
     });
   });
