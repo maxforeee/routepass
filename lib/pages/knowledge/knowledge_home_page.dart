@@ -27,8 +27,8 @@ class KnowledgeHomePage extends StatefulWidget {
 
 class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
   /// 掌握态的本地 kv 键（派生键，不在 §4.9.1 表内：§4.9.1 没有给知识点掌握态留键；
-  /// 与 `kb.expandedIds` 同为设备本地 UI 状态，只存本地，不走账号同步）。
-  static const String _keyMasteredIds = 'kb.masteredIds';
+  /// 只存本地，不走账号同步；F25 起归为学习进度，登出时清除）。
+  static const String _keyMasteredIds = KvStore.keyKbMasteredIds;
 
   /// 折叠态的本地 kv 键（与掌握态同为设备本地 UI 状态，只存本地）。
   static const String _keyCollapsedChapters = 'kb.collapsedChapters';

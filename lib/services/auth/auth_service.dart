@@ -22,6 +22,7 @@ import '../../core/kv_store.dart';
 import '../../core/service_locator.dart';
 import '../../models/auth.dart';
 import '../../models/user.dart';
+import '../bank/local_cache_service.dart';
 import '../base/auth_service.dart';
 
 /// 认证接口错误（仅内部使用；登录失败通过 [LoginResult.message] 回给 UI）。
@@ -43,6 +44,7 @@ class HttpAuthService extends AuthService {
     String? deviceId,
     String? deviceModelOverride,
     String? appVersion,
+    this._localCache,
   }) : _client = client ?? http.Client(),
        _kv = kvStore ?? ServiceLocator.kvStore,
        _baseUrl = baseUrl ?? AppConfig.baseUrl,
@@ -53,6 +55,9 @@ class HttpAuthService extends AuthService {
   final http.Client _client;
   final KvStore _kv;
   final String _baseUrl;
+
+  /// F25：登出时一并清空的 SQLite 缓存（main.dart 装配同一实例）。
+  final BankLocalCache? _localCache;
 
   /// 测试可注入固定 deviceId；生产为 null，首次启动生成并持久化。
   final String? _deviceIdOverride;
@@ -147,10 +152,10 @@ class HttpAuthService extends AuthService {
             )
             .timeout(_timeout);
       } catch (_) {
-        // 离线也照常清本地会话：登出不能被网络阻塞。
+        // 离线也照常清本地数据：登出不能被网络阻塞。
       }
     }
-    clearSession();
+    await clearAllAccountData();
   }
 
   @override
@@ -242,6 +247,19 @@ class HttpAuthService extends AuthService {
   void clearSession() {
     _session = null;
     _kv.remove(KvStore.keyAuthSession);
+  }
+
+  @override
+  Future<void> clearAllAccountData() async {
+    clearSession();
+    _kv.clearAccountData();
+    final cache = _localCache;
+    if (cache == null) return;
+    try {
+      await cache.clearAll();
+    } catch (_) {
+      // SQLite 清除失败不阻塞登出：会话与 kv 已清，本地登出必须完成。
+    }
   }
 
   void _expireSession() {

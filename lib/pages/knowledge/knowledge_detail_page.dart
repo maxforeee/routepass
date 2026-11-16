@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/app_snackbar.dart';
+import '../../core/kv_store.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/knowledge_point.dart';
@@ -27,8 +28,9 @@ class KnowledgeDetailPage extends StatefulWidget {
 }
 
 class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
-  /// 掌握态的本地 kv 键（派生键，与列表页同一键，见 T5a 任务书）。
-  static const String _keyMasteredIds = 'kb.masteredIds';
+  /// 掌握态的本地 kv 键（派生键，与列表页同一键，见 T5a 任务书；
+  /// F25 起归为学习进度，登出时清除）。
+  static const String _keyMasteredIds = KvStore.keyKbMasteredIds;
 
   KnowledgePoint? _point;
   List<KnowledgePoint> _siblings = <KnowledgePoint>[];

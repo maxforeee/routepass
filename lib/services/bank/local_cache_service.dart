@@ -90,6 +90,9 @@ abstract class BankLocalCache {
   Future<List<LocalSyncOp>> pendingSync({int limit = 50});
 
   Future<void> markSyncOpSynced(String opId);
+
+  /// F25：登出清空全部本地缓存（概览 / 题库 / 作答 / 会话 / 待同步队列）。
+  Future<void> clearAll();
 }
 
 /// 内存实现：测试 / 无 SQLite 平台的降级实现。
@@ -194,6 +197,16 @@ class InMemoryBankLocalCache implements BankLocalCache {
   @override
   Future<void> markSyncOpSynced(String opId) async {
     _queue.remove(opId);
+  }
+
+  @override
+  Future<void> clearAll() async {
+    _overviews.clear();
+    _questions.clear();
+    _answered.clear();
+    _attempts.clear();
+    _sessions.clear();
+    _queue.clear();
   }
 }
 
@@ -406,6 +419,19 @@ class SqliteBankLocalCache implements BankLocalCache {
       'UPDATE sync_queue SET synced = 1, synced_at = ? WHERE op_id = ?',
       <Object?>[DateTime.now().millisecondsSinceEpoch, opId],
     );
+  }
+
+  @override
+  Future<void> clearAll() async {
+    for (final table in const <String>[
+      'set_overview',
+      'cached_questions',
+      'attempts',
+      'sync_queue',
+      'set_meta',
+    ]) {
+      await _db.rawExecute('DELETE FROM $table');
+    }
   }
 
   Question? _decodeQuestion(String? payload) {

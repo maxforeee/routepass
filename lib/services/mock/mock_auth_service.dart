@@ -9,6 +9,8 @@ library;
 import 'dart:convert';
 
 import '../../core/config.dart';
+import '../../core/kv_store.dart';
+import '../../core/service_locator.dart';
 import '../../models/auth.dart';
 import '../../models/user.dart';
 import '../base/auth_service.dart';
@@ -62,7 +64,7 @@ class MockAuthService extends AuthService {
 
   @override
   Future<void> logout() async {
-    _currentUser = null;
+    await clearAllAccountData();
   }
 
   @override
@@ -104,5 +106,11 @@ class MockAuthService extends AuthService {
   @override
   void clearSession() {
     _currentUser = null;
+  }
+
+  @override
+  Future<void> clearAllAccountData() async {
+    clearSession();
+    ServiceLocator.kvStore.clearAccountData();
   }
 }

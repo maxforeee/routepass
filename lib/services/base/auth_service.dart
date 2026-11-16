@@ -56,4 +56,8 @@ abstract class AuthService {
 
   /// 清本地会话（不调服务端）。
   void clearSession();
+
+  /// F25：清除全部本地账号数据（会话 + 账号相关 kv + SQLite 缓存）。
+  /// 登出的唯一本地清理入口：服务端调用成败都必须执行，不被网络阻塞。
+  Future<void> clearAllAccountData();
 }

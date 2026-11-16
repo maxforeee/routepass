@@ -14,6 +14,11 @@ abstract class KvStore {
   /// 如 `["VLAN-01-03"]`）。用户点倒三角展开/收起时写入。
   static const String keyKbExpandedIds = 'kb.expandedIds';
 
+  /// `kb.masteredIds`：知识点掌握态（JSON 数组，知识库列表页 / 详情页共用）。
+  /// F25：属于用户学习进度而非纯 UI 状态，登出时清除，避免上一账号的
+  /// 掌握标记漏进新登录会话。
+  static const String keyKbMasteredIds = 'kb.masteredIds';
+
   /// `toolbox.recent`：工具箱 T-04 最近使用（JSON 数组，如
   /// `["subnet", "ping"]`，最多 5 个）。用户用完一个工具时写入。
   static const String keyToolboxRecent = 'toolbox.recent';
@@ -44,9 +49,12 @@ abstract class KvStore {
   /// `answer.target`：上次练习目标（F19，int 字符串，缺省 20）。
   static const String keyAnswerTarget = 'answer.target';
 
+  /// 进行态 key 前缀（F25：登出按前缀整批清除）。
+  static const String answerSessionPrefix = 'answer.session.';
+
   /// 进行态 key：`answer.session.<mode>.<setId>`（练习与考试分开）。
   static String answerSessionKey(String mode, String setId) =>
-      'answer.session.$mode.$setId';
+      '$answerSessionPrefix$mode.$setId';
 
   /// `auth.session`：登录会话（JSON 对象，含 accessToken / refreshToken /
   /// tokenType / accessExpiresAt / user）。登出或 refresh 失效时删除。
@@ -54,6 +62,8 @@ abstract class KvStore {
 
   /// `auth.deviceId`：设备唯一码（v1.2 设备绑定；首次启动生成后不再变化，
   /// 登录时作为 deviceId 上送，服务端按它做设备绑定）。
+  /// F25：登出保留——它是设备身份而非账号数据，服务端绑定登出后仍在，
+  /// 复用同一 UUID 避免每次重新登录都占用一个账号设备名额（上限 3 台）。
   static const String keyAuthDeviceId = 'auth.deviceId';
 
   /// `sync.cursor`：同步拉的 txid 游标（`GET /sync/pull` 的 `nextCursor`）。
@@ -80,6 +90,9 @@ abstract class KvStore {
 
   /// 删除键。
   void remove(String key);
+
+  /// 当前全部键（F25：登出按前缀整批清除进行态用）。
+  Set<String> get keys;
 }
 
 /// 基于 Map 的内存实现，用于测试与接后端前的过渡。
@@ -112,6 +125,9 @@ class InMemoryKvStore implements KvStore {
     _strings.remove(key);
     _stringLists.remove(key);
   }
+
+  @override
+  Set<String> get keys => {..._strings.keys, ..._stringLists.keys};
 }
 
 /// shared_preferences -backed 持久实现（F17）：重启不丢，每日一练的
@@ -147,5 +163,36 @@ class SharedPreferencesKvStore implements KvStore {
   @override
   void remove(String key) {
     unawaited(_prefs.remove(key));
+  }
+
+  @override
+  Set<String> get keys => _prefs.getKeys();
+}
+
+/// F25：登出时一次性清除的账号相关 kv 数据（唯一清理清单）。
+///
+/// 清除：会话（Token + 用户）、答题记录 / 目标 / 进行态、继续学习指针、
+/// 每日一练抽题与作答、知识点掌握态、同步游标 / 状态 / 镜像。
+/// 保留：`auth.deviceId`（设备身份而非账号数据：服务端设备绑定在登出后
+/// 仍保留，复用同一 UUID 避免重复占用账号设备名额）与 `kb.expandedIds` /
+/// `kb.collapsedChapters` / `kb.collapsedSections` / `toolbox.recent` /
+/// `toolbox.portscanConsent` / `ui.lastTab`（设备本地 UI 状态，不跟随账号）。
+extension KvStoreAccountData on KvStore {
+  void clearAccountData() {
+    remove(KvStore.keyAuthSession);
+    remove(KvStore.keyAnswerRecords);
+    remove(KvStore.keyAnswerTarget);
+    remove(KvStore.keyHomeContinue);
+    remove(KvStore.keyDailyAnswer);
+    remove(KvStore.keyDailyDrawn);
+    remove(KvStore.keyKbMasteredIds);
+    remove(KvStore.keySyncCursor);
+    remove(KvStore.keySyncStatus);
+    remove(KvStore.keySyncMirror);
+    for (final key in keys.where(
+      (k) => k.startsWith(KvStore.answerSessionPrefix),
+    )) {
+      remove(key);
+    }
   }
 }

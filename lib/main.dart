@@ -43,7 +43,8 @@ Future<void> main() async {
   final localCache = SqliteBankLocalCache(SqfliteLocalDatabase());
   // F19：登录接真实后端；accessToken 只活 15 分钟，AuthHttpClient 负责
   // 附加 Bearer、401 时刷新一次并重放。
-  final authService = HttpAuthService();
+  // F25：登出时同一份 SQLite 缓存随账号数据一并清空。
+  final authService = HttpAuthService(localCache: localCache);
   authService.onSessionExpired = () {
     appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
       AppRoutes.login,
