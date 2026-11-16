@@ -408,10 +408,22 @@ Question _aclQuestion() {
     type: 'single',
     stem: '管理员想要在高级ACL中匹配源IP地址为 192.168.0.X 网段中所有奇数主机的报文，以下哪条规则配置是正确的？',
     options: const <QuestionOption>[
-      QuestionOption(key: 'A', text: 'rule permit source 192.168.0.1 0.0.0.254'),
-      QuestionOption(key: 'B', text: 'rule permit source 192.168.0.0 0.0.0.254'),
-      QuestionOption(key: 'C', text: 'rule permit source 192.168.0.1 0.0.0.255'),
-      QuestionOption(key: 'D', text: 'rule permit source 192.168.0.0 0.0.0.255'),
+      QuestionOption(
+        key: 'A',
+        text: 'rule permit source 192.168.0.1 0.0.0.254',
+      ),
+      QuestionOption(
+        key: 'B',
+        text: 'rule permit source 192.168.0.0 0.0.0.254',
+      ),
+      QuestionOption(
+        key: 'C',
+        text: 'rule permit source 192.168.0.1 0.0.0.255',
+      ),
+      QuestionOption(
+        key: 'D',
+        text: 'rule permit source 192.168.0.0 0.0.0.255',
+      ),
     ],
     answer: const <String>['A'],
     explanation: '解析内容',
@@ -1106,9 +1118,7 @@ void main() {
       );
     }
 
-    testWidgets('chunk 10：ACL 题判分后显示「知识点：非连续通配符匹配奇偶地址」', (
-      tester,
-    ) async {
+    testWidgets('chunk 10：ACL 题判分后显示「知识点：非连续通配符匹配奇偶地址」', (tester) async {
       await _launch(tester, aclPage(aclChipRouter()));
       expect(find.textContaining('知识点：'), findsNothing);
 
@@ -1122,9 +1132,7 @@ void main() {
       expect(find.text('知识点：非连续通配符匹配奇偶地址'), findsOneWidget);
     });
 
-    testWidgets('chunk 10：点按 ACL chip 进详情，sectionId=ACL-01-04', (
-      tester,
-    ) async {
+    testWidgets('chunk 10：点按 ACL chip 进详情，sectionId=ACL-01-04', (tester) async {
       final routes = <RouteSettings>[];
       await tester.pumpWidget(
         _host(aclPage(aclChipRouter()), onRoute: routes.add),
