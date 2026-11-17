@@ -842,8 +842,10 @@ void main() {
     testWidgets('预加载完成：试卷页打开即有卷面，不重复请求', (tester) async {
       final service = _FakePaperService(paper: _paper());
       RecordPaperPreload.start(sessionId: 'sess-1', service: service);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
+      // testWidgets 跑在 FakeAsync 里：Future.delayed 的定时器不 pump 就
+      // 永不触发，await 它会 0% CPU 死等（整套套件挂起的根因）。idle() 冲刷
+      // 微任务并触发零时长定时器，预加载链（纯微任务）就此落槽。
+      await tester.idle();
 
       await tester.pumpWidget(
         _host(

@@ -28,6 +28,10 @@ class RecordPaperPreload {
     });
   }
 
+  /// 已就绪结果（取走即清除）；供试卷页 initState 首帧同步应用，
+  /// 打开即有卷面、无骨架闪烁。未就绪返回 null。
+  static PracticeRecordPaper? take(String sessionId) => _slot.take(sessionId);
+
   static Future<PracticeRecordPaper?> consume({
     required String sessionId,
     required PracticeService service,

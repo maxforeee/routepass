@@ -55,7 +55,16 @@ class _AnswerRecordPaperPageState extends State<AnswerRecordPaperPage> {
   void initState() {
     super.initState();
     _practiceService = widget.practiceService ?? ServiceLocator.practiceService;
-    _load();
+    // F27 fix round 2：已就绪预加载首帧同步应用（同 SetDetailPage._bootstrap）。
+    // 此前命中也要经 _load 的 await 微任务才落数据，首帧仍闪一帧骨架，
+    // 与「打开即有卷面」不符；在途 / 无预加载仍走 _load（骨架 → 淡入 / 重试）。
+    final ready = RecordPaperPreload.take(_sessionId);
+    if (ready != null) {
+      _paper = ready;
+      _loading = false;
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {

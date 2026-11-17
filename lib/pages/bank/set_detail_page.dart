@@ -416,24 +416,11 @@ class _SetDetailPageState extends State<SetDetailPage> {
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.contentInset,
                           ),
-                          // F27：骨架按就绪态的两行文案占位（同字号同间距），
+                          // F27：骨架按就绪态的两行文案占位（同行盒同间距），
                           // 内容到达不产生纵向位移。
                           child: SkeletonToContent(
                             loaded: !_loading,
-                            skeleton: const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                LoadingSkeleton(
-                                  height: AppFontSizes.detailStat,
-                                  width: 180,
-                                ),
-                                SizedBox(height: AppSpacing.xxs),
-                                LoadingSkeleton(
-                                  height: AppFontSizes.detailStat,
-                                  width: 120,
-                                ),
-                              ],
-                            ),
+                            skeleton: _DoneRow.skeleton(context),
                             child: _DoneRow(
                               isExam: _isExam,
                               overview: _overview,
@@ -478,22 +465,13 @@ class _SetDetailPageState extends State<SetDetailPage> {
                               horizontal: AppSpacing.contentInset,
                             ),
                             // F27：骨架与模块行同构（标题行 + 间距 + 进度条），
-                            // 高度逐段一致，数据到达不产生纵向位移。
+                            // 高度逐段一致，数据到达不产生纵向位移。sizer 用
+                            // 真实模块名，保证行盒字体度量与就绪态一致。
                             child: SkeletonToContent(
                               loaded: !_loading,
-                              skeleton: const Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  LoadingSkeleton(
-                                    height: AppFontSizes.detailBody,
-                                    width: 140,
-                                  ),
-                                  SizedBox(height: AppSpacing.xs),
-                                  LoadingSkeleton(
-                                    height:
-                                        AppSizes.setDetailProgressBarHeight,
-                                  ),
-                                ],
+                              skeleton: _ModuleRow.skeleton(
+                                context,
+                                name: moduleLabel(module),
                               ),
                               child: _ModuleRow(
                                 name: moduleLabel(module),
@@ -679,6 +657,30 @@ class _TypePill extends StatelessWidget {
   }
 }
 
+/// F27 fix round 2：骨架文本行——与真实文本占同一个行盒。
+///
+/// 真实文本行高 = fontSize × 主题行高系数（bodyMedium / bodySmall 的
+/// height），并非 fontSize 本身；旧骨架拿 fontSize 当块高，比真实行盒矮，
+/// 数据到达就把下方内容整体下推（布局位移）。这里用与真实文本**完全相同
+/// 样式**的隐形 Text 撑出真实行盒，shimmer 块居中放在行盒内：占位高度在
+/// 任何字体 / 行高设置下都与真实文本逐像素一致，块厚度仍按字号的视觉规格。
+/// [sizer] 必须使用真实内容同款 TextStyle（见 _DoneRow / _ModuleRow）。
+Widget _skeletonLine({
+  required Widget sizer,
+  required double blockHeight,
+  required double blockWidth,
+}) {
+  return Stack(
+    alignment: Alignment.centerLeft,
+    children: [
+      ExcludeSemantics(
+        child: Opacity(opacity: 0, child: sizer),
+      ),
+      LoadingSkeleton(height: blockHeight, width: blockWidth),
+    ],
+  );
+}
+
 /// 已完成 / 剩余题数（F19）。
 /// 练习前置页按用户 2026-11-14 要求显示“已答题数：X”，考试前置页显示
 /// “已完成 X 题 · 剩余 Y 题”；取不到 overview 时显示“完成情况待接口”，
@@ -691,6 +693,30 @@ class _DoneRow extends StatelessWidget {
   final bool isExam;
   final BankSetOverview? overview;
 
+  /// F27：骨架与真实文本共用同一样式 → 同一行盒高度。
+  static TextStyle _textStyle(BuildContext context) => TextStyle(
+    fontSize: AppFontSizes.detailStat,
+    color: AppColors.cardCaption(context),
+  );
+
+  /// F27 fix round 2：两行骨架，行盒与真实文本一致（[_skeletonLine]）。
+  static Widget skeleton(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _skeletonLine(
+        sizer: Text(' ', style: _textStyle(context)),
+        blockHeight: AppFontSizes.detailStat,
+        blockWidth: 180,
+      ),
+      const SizedBox(height: AppSpacing.xxs),
+      _skeletonLine(
+        sizer: Text(' ', style: _textStyle(context)),
+        blockHeight: AppFontSizes.detailStat,
+        blockWidth: 120,
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final overview = this.overview;
@@ -699,10 +725,7 @@ class _DoneRow extends StatelessWidget {
         : isExam
         ? '已完成 ${overview.done} 题 · 剩余 ${overview.remaining} 题'
         : '已答题数：${overview.done}';
-    final style = TextStyle(
-      fontSize: AppFontSizes.detailStat,
-      color: AppColors.cardCaption(context),
-    );
+    final style = _textStyle(context);
     if (overview == null) return Text(text, style: style);
     final accuracy = overview.accuracy;
     final accuracyText = accuracy == null
@@ -784,9 +807,60 @@ class _ModuleRow extends StatelessWidget {
   final int? count;
   final double? progress;
 
+  /// F27：骨架与真实文本共用同一样式 → 同一行盒高度。
+  static TextStyle _nameStyle(BuildContext context) =>
+      Theme.of(context).textTheme.bodyMedium!.copyWith(
+        fontSize: AppFontSizes.detailBody,
+        fontWeight: FontWeight.bold,
+        color: AppColors.title(context),
+      );
+
+  static TextStyle _countStyle(BuildContext context) =>
+      Theme.of(context).textTheme.bodySmall!.copyWith(
+        fontSize: AppFontSizes.detailStat,
+        color: AppColors.cardCaption(context),
+      );
+
+  /// F27 fix round 3：骨架行高不再逐元素手工对齐（标题行盒 / 间距 /
+  /// 进度条各自拼），而是直接拿真实 [_ModuleRow] 本身做隐形占位 sizer——
+  /// 占位高度与就绪态逐像素一致，shimmer 块只作覆盖层（Positioned 不参与
+  /// Stack 尺寸），数据到达不产生纵向位移。
+  ///
+  /// [name] 必须传就绪态将要显示的真实模块名：行盒高度由文本实际落到的
+  /// 字体决定，中文模块名与占位空格会落到不同字体/行盒（差约 6px/行），
+  /// 用真实名字 + 中文题量占位才能和就绪态走同一套字形度量。
+  static Widget skeleton(BuildContext context, {required String name}) => Stack(
+    children: [
+      ExcludeSemantics(
+        child: Opacity(
+          opacity: 0,
+          child: _ModuleRow(name: name, count: 0, progress: 0),
+        ),
+      ),
+      const Positioned.fill(
+        child: IgnorePointer(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LoadingSkeleton(height: AppFontSizes.detailBody, width: 140),
+                SizedBox(height: AppSpacing.xs),
+                LoadingSkeleton(
+                  height: AppSizes.setDetailProgressBarHeight,
+                  width: double.infinity,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final countLabel = count == null ? '题量待接口' : '$count 题';
     final progressLabel = progress == null
         ? '进度待接口'
@@ -797,21 +871,11 @@ class _ModuleRow extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(
-                name,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: AppFontSizes.detailBody,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.title(context),
-                ),
-              ),
+              child: Text(name, style: _nameStyle(context)),
             ),
             Text(
               '$countLabel · $progressLabel',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: AppFontSizes.detailStat,
-                color: AppColors.cardCaption(context),
-              ),
+              style: _countStyle(context),
             ),
           ],
         ),
