@@ -41,7 +41,8 @@ class PreloadSlot<T extends Object> {
 
   /// 目标页统一消费入口：就绪 → 立即完成；在途 → 同一个 Future（取走
   /// 标记，消费后再次进入会重新拉取，保证数据新鲜）；都没有 → [fallback]。
-  Future<T> consume(String key, Future<T> Function() fallback) {
+  /// fallback 可返回 null（接口未就绪 / 离线），原样透传给调用方兜底。
+  Future<T?> consume(String key, Future<T?> Function() fallback) {
     final ready = _ready.remove(key);
     if (ready != null) return Future<T>.value(ready);
     final pending = _inFlight.remove(key);

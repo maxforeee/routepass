@@ -64,7 +64,6 @@ class BankModuleListPageState extends State<BankModuleListPage> {
 
   late final BankManifestService _manifestService;
   BankManifest? _manifest;
-  bool _manifestLoading = true;
   String? _manifestError;
 
   late final SearchService _searchService;
@@ -95,7 +94,6 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   /// 拉取题库清单（练习 / 考试 tab 的数据源）。失败时保留错误信息供重试。
   Future<void> _loadManifest() async {
     setState(() {
-      _manifestLoading = true;
       _manifestError = null;
     });
     try {
@@ -103,13 +101,11 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       if (!mounted) return;
       setState(() {
         _manifest = manifest;
-        _manifestLoading = false;
       });
       _predictNextSet(manifest);
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _manifestLoading = false;
         _manifestError = '题库清单加载失败';
       });
     }

@@ -53,16 +53,14 @@ import 'test_helpers.dart';
 class _FakeRepo extends QuestionRepository {
   _FakeRepo({
     this.modules = const <ModuleStat>[],
-    this.setStats = const <ModuleStat>[],
     this.overview,
-    this.questions = const <Question>[],
     this.error,
   });
 
   final List<ModuleStat> modules;
-  final List<ModuleStat> setStats;
+  final List<ModuleStat> setStats = const <ModuleStat>[];
   final BankSetOverview? overview;
-  final List<Question> questions;
+  final List<Question> questions = const <Question>[];
   final Object? error;
 
   Completer<void>? gate;
@@ -167,6 +165,9 @@ class _FakePaperService extends PracticeService {
     required Set<String> excludedIds,
     String? sessionId,
   }) async => null;
+
+  @override
+  Future<ContinueSession?> getContinueSession() async => null;
 }
 
 class _FakeKnowledgeRepo extends KnowledgeRepository {
