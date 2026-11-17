@@ -294,6 +294,45 @@ class _PracticeSpy implements PracticeService {
     mode: mode,
     total: questions.length,
   );
+
+  // 轮回流程不会用到以下接口：与 PracticeService 默认实现一致的无害桩，
+  // 不抛错不断言，避免测试误报。
+  @override
+  Future<PracticeSessionInfo?> startPracticeSession({String? module}) async =>
+      null;
+
+  @override
+  Future<PracticeSessionInfo?> fetchPracticeSession(String sessionId) async =>
+      null;
+
+  @override
+  Future<PracticeSessionInfo?> endPracticeSession(String sessionId) async =>
+      null;
+
+  @override
+  Future<List<PracticeRecordSummary>> fetchPracticeRecords({
+    int page = 1,
+    int pageSize = 20,
+  }) async => const <PracticeRecordSummary>[];
+
+  @override
+  Future<PracticeRecordDetail?> getRecordDetail(String sessionId) async => null;
+
+  @override
+  Future<bool> deleteRecord(String sessionId) async => false;
+
+  @override
+  Future<PracticeRecordPaper?> getRecordPaper(String sessionId) async => null;
+
+  @override
+  Future<List<PracticeModuleProgress>> fetchPracticeProgress() async =>
+      const <PracticeModuleProgress>[];
+
+  @override
+  Future<ContinueSession?> resumeSession({required String setId}) async => null;
+
+  @override
+  Future<ContinueSession?> getContinueSession() async => null;
 }
 
 Widget _host(Widget page) {
