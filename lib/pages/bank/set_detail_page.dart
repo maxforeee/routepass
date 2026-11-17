@@ -400,13 +400,40 @@ class _SetDetailPageState extends State<SetDetailPage> {
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.contentInset,
                           ),
-                          // F27：加载中显示与 pill 行同高的骨架，就绪后淡入。
+                          // F27 fix round 5：骨架与真实行同一 Wrap（同 spacing /
+                          // runSpacing），占位是两枚隐形真实 [_TypePill]（两位数
+                          // 题量），换行行为与就绪态一致；shimmer 只作 pill 形
+                          // 覆盖层，数据到达不产生纵向位移。
                           child: SkeletonToContent(
                             loaded: !_loading,
-                            skeleton: const LoadingSkeleton(
-                              height: AppSizes.typeTagHeight,
-                              width: 160,
-                              borderRadius: 999,
+                            skeleton: Wrap(
+                              spacing: AppSpacing.xs,
+                              runSpacing: AppSpacing.xxs,
+                              children: [
+                                for (final label in const [
+                                  '单选 00 题',
+                                  '多选 00 题',
+                                ])
+                                  Stack(
+                                    children: [
+                                      ExcludeSemantics(
+                                        child: Opacity(
+                                          opacity: 0,
+                                          child: _TypePill(
+                                            label: label,
+                                            accent: false,
+                                          ),
+                                        ),
+                                      ),
+                                      const Positioned.fill(
+                                        child: LoadingSkeleton(
+                                          height: AppSizes.typeTagHeight,
+                                          borderRadius: 999,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
                             ),
                             child: _TypeTagsRow(overview: _overview),
                           ),
@@ -673,9 +700,7 @@ Widget _skeletonLine({
   return Stack(
     alignment: Alignment.centerLeft,
     children: [
-      ExcludeSemantics(
-        child: Opacity(opacity: 0, child: sizer),
-      ),
+      ExcludeSemantics(child: Opacity(opacity: 0, child: sizer)),
       LoadingSkeleton(height: blockHeight, width: blockWidth),
     ],
   );
@@ -815,8 +840,10 @@ class _ModuleRow extends StatelessWidget {
         color: AppColors.title(context),
       );
 
-  static TextStyle _countStyle(BuildContext context) =>
-      Theme.of(context).textTheme.bodySmall!.copyWith(
+  static TextStyle _countStyle(BuildContext context) => Theme.of(context)
+      .textTheme
+      .bodySmall!
+      .copyWith(
         fontSize: AppFontSizes.detailStat,
         color: AppColors.cardCaption(context),
       );
@@ -870,13 +897,8 @@ class _ModuleRow extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text(name, style: _nameStyle(context)),
-            ),
-            Text(
-              '$countLabel · $progressLabel',
-              style: _countStyle(context),
-            ),
+            Expanded(child: Text(name, style: _nameStyle(context))),
+            Text('$countLabel · $progressLabel', style: _countStyle(context)),
           ],
         ),
         const SizedBox(height: AppSpacing.xs),

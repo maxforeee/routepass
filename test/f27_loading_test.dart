@@ -51,11 +51,7 @@ import 'test_helpers.dart';
 // ---------------------------------------------------------------------------
 
 class _FakeRepo extends QuestionRepository {
-  _FakeRepo({
-    this.modules = const <ModuleStat>[],
-    this.overview,
-    this.error,
-  });
+  _FakeRepo({this.modules = const <ModuleStat>[], this.overview, this.error});
 
   final List<ModuleStat> modules;
   final List<ModuleStat> setStats = const <ModuleStat>[];
@@ -186,7 +182,8 @@ class _FakeKnowledgeRepo extends KnowledgeRepository {
   Future<List<Chapter>> getChapters() async => const <Chapter>[];
 
   @override
-  Future<List<Section>> getSections(String chapterId) async => const <Section>[];
+  Future<List<Section>> getSections(String chapterId) async =>
+      const <Section>[];
 
   @override
   Future<List<KnowledgePoint>> getPointsBySection(String sectionId) async =>
@@ -330,14 +327,9 @@ Map<String, Object?> _setArgs({
   String mode = 'practice',
   String setId = 'VLAN',
   int drawCount = 100,
-}) => <String, Object?>{
-  'mode': mode,
-  'setId': setId,
-  'drawCount': drawCount,
-};
+}) => <String, Object?>{'mode': mode, 'setId': setId, 'drawCount': drawCount};
 
-Widget _host(Widget child) =>
-    MaterialApp(theme: AppTheme.light, home: child);
+Widget _host(Widget child) => MaterialApp(theme: AppTheme.light, home: child);
 
 /// 题库页 → 前置页的命名路由宿主（预加载导航测试用）。
 Widget _bankHost({
@@ -354,7 +346,8 @@ Widget _bankHost({
   onGenerateRoute: (settings) => MaterialPageRoute<void>(
     settings: settings,
     builder: (_) => SetDetailPage(
-      args: (settings.arguments as Map<String, Object?>?) ??
+      args:
+          (settings.arguments as Map<String, Object?>?) ??
           const <String, Object?>{},
     ),
   ),
@@ -819,10 +812,7 @@ void main() {
       await tester.pumpWidget(
         _host(
           AnswerRecordPaperPage(
-            args: <String, Object?>{
-              'record': _record(),
-              'sessionId': 'sess-1',
-            },
+            args: <String, Object?>{'record': _record(), 'sessionId': 'sess-1'},
             practiceService: service,
           ),
         ),
@@ -850,10 +840,7 @@ void main() {
       await tester.pumpWidget(
         _host(
           AnswerRecordPaperPage(
-            args: <String, Object?>{
-              'record': _record(),
-              'sessionId': 'sess-1',
-            },
+            args: <String, Object?>{'record': _record(), 'sessionId': 'sess-1'},
             practiceService: service,
           ),
         ),
@@ -872,10 +859,7 @@ void main() {
       await tester.pumpWidget(
         _host(
           AnswerRecordPaperPage(
-            args: <String, Object?>{
-              'record': _record(),
-              'sessionId': 'sess-1',
-            },
+            args: <String, Object?>{'record': _record(), 'sessionId': 'sess-1'},
             practiceService: service,
           ),
         ),
