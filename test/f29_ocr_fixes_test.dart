@@ -106,13 +106,11 @@ class _RecordingRepo extends QuestionRepository {
   _RecordingRepo({
     this.starts,
     this.gate,
-    this.modules = const <ModuleStat>[],
-    this.overview,
   });
 
   final List<String>? starts;
   final Completer<void>? gate;
-  final List<ModuleStat> modules;
+  final List<ModuleStat> modules = const <ModuleStat>[];
   final BankSetOverview? overview;
 
   int modulesCalls = 0;
@@ -652,14 +650,16 @@ void main() {
       await tester.pumpAndSettle();
 
       // 首次加载成功：预测发起了第一张练习套卷卡（VLAN）的前置页预加载。
-      expect(manifest.calls, 1);
+      // manifest 共 2 次：页面清单 1 次 + 预加载四请求自带的 manifest 1 次。
+      expect(manifest.calls, 2);
       expect(repo.modulesCalls, 1);
       expect(SetDetailPreload.take('VLAN'), isNotNull);
 
-      // 切到考试 tab：清单重拉，但不再预测（否则会对考试卷再发一轮）。
+      // 切到考试 tab：清单重拉（+1），但不再预测（否则会对考试卷再发一轮，
+      // manifest 与 modules 都会再多一次）。
       await tester.tap(find.text('考试'));
       await tester.pumpAndSettle();
-      expect(manifest.calls, 2);
+      expect(manifest.calls, 3);
       expect(repo.modulesCalls, 1);
       expect(SetDetailPreload.pending('h3cne-2026-01'), isNull);
       expect(SetDetailPreload.take('h3cne-2026-01'), isNull);
@@ -667,7 +667,7 @@ void main() {
       // 切回练习 tab：同样不再预测。
       await tester.tap(find.text('练习'));
       await tester.pumpAndSettle();
-      expect(manifest.calls, 3);
+      expect(manifest.calls, 4);
       expect(repo.modulesCalls, 1);
       expect(SetDetailPreload.take('VLAN'), isNull);
       expect(tester.takeException(), isNull);
