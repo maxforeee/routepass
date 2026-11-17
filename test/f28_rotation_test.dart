@@ -342,9 +342,9 @@ Widget _host(Widget page) {
       builder: (context) => Scaffold(
         body: Center(
           child: ElevatedButton(
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute<void>(builder: (_) => page)),
+            onPressed: () =>
+                Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => page)),
             child: const Text('launch'),
           ),
         ),
@@ -426,10 +426,7 @@ void main() {
       expect(draw.sessionId, isNull);
       expect(draw.questions, isEmpty);
       expect(draw.drawnShort, isTrue);
-      expect(
-        draw.nextUnlockAt,
-        DateTime.parse('2026-11-18T09:00:00+08:00'),
-      );
+      expect(draw.nextUnlockAt, DateTime.parse('2026-11-18T09:00:00+08:00'));
       expect(draw.message, '当前题库的题都在 7 天轮回中，稍后陆续解锁');
     });
 
@@ -438,9 +435,7 @@ void main() {
         return _json(<String, Object?>{
           'session_id': 'ps_20261117_0002',
           'bank_id': 'bank_test',
-          'questions': <Map<String, Object?>>[
-            _drawQuestionJson('VLAN-0001'),
-          ],
+          'questions': <Map<String, Object?>>[_drawQuestionJson('VLAN-0001')],
           'total_count': 1,
           'drawn_short': true,
           'next_unlock_at': '2026-11-18T09:00:00+08:00',
@@ -457,7 +452,9 @@ void main() {
     });
 
     test('失败回落 Mock：诚实空态（轮回待接口），不编题不编解锁时间', () async {
-      final client = MockClient((request) async => _json(<String, Object?>{}, 404));
+      final client = MockClient(
+        (request) async => _json(<String, Object?>{}, 404),
+      );
       final service = HttpRotationService(
         client: client,
         baseUrl: _base,
@@ -482,31 +479,34 @@ void main() {
   });
 
   group('HttpRotationService.answer / submit（真实契约解析）', () {
-    test('单题判分：is_correct / answer 下标转 key / explanation，camelCase 上传', () async {
-      Map<String, dynamic>? sentBody;
-      final client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/sessions/ps_20261117_0001/answers');
-        sentBody = jsonDecode(request.body) as Map<String, dynamic>;
-        return _json(<String, Object?>{
-          'is_correct': false,
-          'answer': <int>[1],
-          'explanation': '正确答案是 B',
+    test(
+      '单题判分：is_correct / answer 下标转 key / explanation，camelCase 上传',
+      () async {
+        Map<String, dynamic>? sentBody;
+        final client = MockClient((request) async {
+          expect(request.url.path, '/api/v1/sessions/ps_20261117_0001/answers');
+          sentBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return _json(<String, Object?>{
+            'is_correct': false,
+            'answer': <int>[1],
+            'explanation': '正确答案是 B',
+          });
         });
-      });
-      final service = HttpRotationService(client: client, baseUrl: _base);
-      final result = await service.answer(
-        sessionId: 'ps_20261117_0001',
-        questionId: 'VLAN-0001',
-        chosen: const <int>[0],
-        opId: 'op-1',
-      );
-      expect(sentBody!['questionId'], 'VLAN-0001');
-      expect(sentBody!['answer'], <int>[0]);
-      expect(sentBody!['opId'], 'op-1');
-      expect(result.isCorrect, isFalse);
-      expect(result.answer, <String>['B']);
-      expect(result.explanation, '正确答案是 B');
-    });
+        final service = HttpRotationService(client: client, baseUrl: _base);
+        final result = await service.answer(
+          sessionId: 'ps_20261117_0001',
+          questionId: 'VLAN-0001',
+          chosen: const <int>[0],
+          opId: 'op-1',
+        );
+        expect(sentBody!['questionId'], 'VLAN-0001');
+        expect(sentBody!['answer'], <int>[0]);
+        expect(sentBody!['opId'], 'op-1');
+        expect(result.isCorrect, isFalse);
+        expect(result.answer, <String>['B']);
+        expect(result.explanation, '正确答案是 B');
+      },
+    );
 
     test('结算：correct_count / wrong_count / score / detail 下标转 key', () async {
       Map<String, dynamic>? sentBody;
@@ -616,20 +616,20 @@ void main() {
         kvStore: kv,
       );
       await sync.pullIncremental();
-      expect(
-        kv.getStringList(KvStore.keySyncRecentAnswered),
-        <String>['VLAN-0001', 'OSPF-0002'],
-      );
-      expect(
-        HttpSyncService.recentAnsweredIds(kv),
-        <String>{'VLAN-0001', 'OSPF-0002'},
-      );
+      expect(kv.getStringList(KvStore.keySyncRecentAnswered), <String>[
+        'VLAN-0001',
+        'OSPF-0002',
+      ]);
+      expect(HttpSyncService.recentAnsweredIds(kv), <String>{
+        'VLAN-0001',
+        'OSPF-0002',
+      });
       // getSyncStatus 的小页 pull 同样刷新集合。
       await sync.getSyncStatus();
-      expect(
-        HttpSyncService.recentAnsweredIds(kv),
-        <String>{'VLAN-0001', 'OSPF-0002'},
-      );
+      expect(HttpSyncService.recentAnsweredIds(kv), <String>{
+        'VLAN-0001',
+        'OSPF-0002',
+      });
       kv.clearAccountData();
       expect(kv.getStringList(KvStore.keySyncRecentAnswered), isNull);
       expect(HttpSyncService.recentAnsweredIds(kv), isEmpty);
@@ -637,36 +637,39 @@ void main() {
   });
 
   group('回归：既有练习流程不碰轮回端点', () {
-    test('HttpPracticeService.drawNextQuestion 仍走 GET /practice/next', () async {
-      final paths = <String>[];
-      final client = MockClient((request) async {
-        paths.add(request.url.path);
-        if (request.url.path == '/api/v1/practice/next') {
-          return _json(<String, Object?>{
-            'sessionId': 'S-1',
-            'question': <String, Object?>{
-              ..._drawQuestionJson('VLAN-0001'),
-              'answer': <int>[0],
-              'explanation': '解析',
-            },
-          });
-        }
-        return _json(<String, Object?>{}, 404);
-      });
-      final service = HttpPracticeService(
-        client: client,
-        baseUrl: _base,
-        tokenProvider: () => 'tok',
-      );
-      final next = await service.drawNextQuestion(
-        setId: 'VLAN',
-        excludedIds: const <String>{},
-      );
-      expect(next, isNotNull);
-      expect(next!.question.id, 'VLAN-0001');
-      expect(paths, <String>['/api/v1/practice/next']);
-      expect(paths.any((p) => p.contains('/draw')), isFalse);
-    });
+    test(
+      'HttpPracticeService.drawNextQuestion 仍走 GET /practice/next',
+      () async {
+        final paths = <String>[];
+        final client = MockClient((request) async {
+          paths.add(request.url.path);
+          if (request.url.path == '/api/v1/practice/next') {
+            return _json(<String, Object?>{
+              'sessionId': 'S-1',
+              'question': <String, Object?>{
+                ..._drawQuestionJson('VLAN-0001'),
+                'answer': <int>[0],
+                'explanation': '解析',
+              },
+            });
+          }
+          return _json(<String, Object?>{}, 404);
+        });
+        final service = HttpPracticeService(
+          client: client,
+          baseUrl: _base,
+          tokenProvider: () => 'tok',
+        );
+        final next = await service.drawNextQuestion(
+          setId: 'VLAN',
+          excludedIds: const <String>{},
+        );
+        expect(next, isNotNull);
+        expect(next!.question.id, 'VLAN-0001');
+        expect(paths, <String>['/api/v1/practice/next']);
+        expect(paths.any((p) => p.contains('/draw')), isFalse);
+      },
+    );
   });
 
   group('轮回 widget 链（注入 fake，不注册 ServiceLocator）', () {
@@ -810,10 +813,7 @@ void main() {
         emptyDraw: true,
       );
       await _launch(tester, rotationPage(rotation));
-      expect(
-        find.text('当前题库的题都在 7 天轮回中，稍后陆续解锁'),
-        findsOneWidget,
-      );
+      expect(find.text('当前题库的题都在 7 天轮回中，稍后陆续解锁'), findsOneWidget);
       expect(find.textContaining('下次解锁：'), findsOneWidget);
       expect(find.byType(OptionTile), findsNothing);
       expect(find.text('返回'), findsOneWidget);
