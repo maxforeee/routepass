@@ -7,6 +7,8 @@
 /// 丢弃，页面回落到自身的加载路径（骨架 + 淡入），绝不阻塞导航。
 library;
 
+import 'dart:async';
+
 import '../../models/bank_manifest.dart';
 import '../../models/stats.dart';
 import '../preload_slot.dart';
@@ -49,7 +51,7 @@ class SetDetailPreload {
   static SetDetailPreloadData? take(String setId) => _slot.take(setId);
 
   /// 在途的预加载 Future；页面可 await 它而不是重新发请求。
-  static Future<SetDetailPreloadData>? pending(String setId) =>
+  static Future<SetDetailPreloadData?>? pending(String setId) =>
       _slot.pending(setId);
 
   /// 测试辅助：清空全部预加载状态。
@@ -60,27 +62,47 @@ class SetDetailPreload {
     QuestionRepository repository,
     BankManifestService manifestService,
   ) async {
-    var modules = const <ModuleStat>[];
-    try {
-      modules = await repository.getModules();
-    } catch (_) {}
-    BankManifest? manifest;
-    try {
-      manifest = await manifestService.fetchManifest();
-    } catch (_) {}
-    var setStats = const <ModuleStat>[];
-    try {
-      setStats = await repository.getSetModuleStats(setId: setId);
-    } catch (_) {}
-    BankSetOverview? overview;
-    try {
-      overview = await repository.getSetOverview(setId: setId);
-    } catch (_) {}
+    // 四份数据相互独立：并行发起（各自兜底），总时延 ≈ 最慢一项，
+    // 而不是四项串行之和——预加载的价值就在导航完成前就绪。
+    Future<List<ModuleStat>> modules() async {
+      try {
+        return await repository.getModules();
+      } catch (_) {
+        return const <ModuleStat>[];
+      }
+    }
+
+    Future<BankManifest?> manifest() async {
+      try {
+        return await manifestService.fetchManifest();
+      } catch (_) {
+        return null;
+      }
+    }
+
+    Future<List<ModuleStat>> setStats() async {
+      try {
+        return await repository.getSetModuleStats(setId: setId);
+      } catch (_) {
+        return const <ModuleStat>[];
+      }
+    }
+
+    Future<BankSetOverview?> overview() async {
+      try {
+        return await repository.getSetOverview(setId: setId);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final (modulesResult, manifestResult, setStatsResult, overviewResult) =
+        await (modules(), manifest(), setStats(), overview()).wait;
     return SetDetailPreloadData(
-      modules: modules,
-      manifest: manifest,
-      setStats: setStats,
-      overview: overview,
+      modules: modulesResult,
+      manifest: manifestResult,
+      setStats: setStatsResult,
+      overview: overviewResult,
     );
   }
 }

@@ -172,13 +172,13 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
     final record = _record;
     if (record == null) return;
     // F27：导航前先后台预取试卷数据（不等待、不阻塞导航）；失败由试卷页
-    // 自身的骨架 → 重试态兜底。
-    try {
-      RecordPaperPreload.start(
-        sessionId: record.serverId ?? '',
-        service: _practiceService,
-      );
-    } catch (_) {}
+    // 自身的骨架 → 重试态兜底。F29：start 契约不抛错（空 sessionId 自行
+    // no-op，同步抛错已在 PreloadSlot 内兜底），_practiceService 已在
+    // initState 解析，无需再包 try/catch。
+    RecordPaperPreload.start(
+      sessionId: record.serverId ?? '',
+      service: _practiceService,
+    );
     Navigator.of(context).pushNamed(
       AppRoutes.bankRecordPaper,
       arguments: <String, Object?>{

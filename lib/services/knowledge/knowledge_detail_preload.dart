@@ -1,9 +1,10 @@
 /// F27 预测性预加载：知识点详情。
 ///
 /// 知识库页展开面板点「查看详情」时先后台发起 getPointDetail，再导航；
-/// 详情页 initState 消费同一份 Future。知识库页加载完成后也会预取第一个
-/// 知识点（最可能的下一步），详情页「下一知识点」切换前预取目标点。
-/// 取不到（null / 抛错）静默丢弃，详情页走自身加载路径（骨架 → 不存在态）。
+/// 详情页 initState 消费同一份 Future。用户首次展开知识点面板时预取该点
+/// （最可能的下一步），详情页「下一知识点」切换前预取目标点。
+/// 取不到（null / 抛错）静默丢弃、不落槽：详情页消费时回落自身拉取，
+/// 不会把预加载的 null 当成「知识点不存在」。
 library;
 
 import '../../models/knowledge_point.dart';
@@ -21,12 +22,9 @@ class KnowledgeDetailPreload {
     required KnowledgeRepository repository,
   }) {
     if (kpId.isEmpty) return;
-    _slot.start(kpId, () async {
-      final point = await repository.getPointDetail(kpId);
-      // null = 知识点不存在 / 接口未就绪：不落槽，详情页自行拉取。
-      if (point == null) throw Exception('point unavailable');
-      return point;
-    });
+    // null = 知识点不存在 / 接口未就绪：槽位不落缓存（也不存失败 Future），
+    // 详情页消费时回落重新拉取，失败语义是一个值而不是一次抛错。
+    _slot.start(kpId, () => repository.getPointDetail(kpId));
   }
 
   static Future<KnowledgePoint?> consume({

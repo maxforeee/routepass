@@ -140,69 +140,69 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
       child: result == null
           ? const SizedBox.shrink()
           : ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      children: [
-        if (result.knowledgePoints.isNotEmpty) ...[
-          Text('知识点', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ...result.knowledgePoints.map(
-            (p) => InkWell(
-              onTap: () => Navigator.of(context).pushNamed(
-                AppRoutes.knowledgePoint,
-                arguments: <String, Object?>{
-                  'kpId': p.id,
-                  'returnTo': 'knowledge',
-                },
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(p.title, style: theme.textTheme.titleSmall),
-                    const SizedBox(height: 2),
-                    Text(
-                      p.summary,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              children: [
+                if (result.knowledgePoints.isNotEmpty) ...[
+                  Text('知识点', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  ...result.knowledgePoints.map(
+                    (p) => InkWell(
+                      onTap: () => Navigator.of(context).pushNamed(
+                        AppRoutes.knowledgePoint,
+                        arguments: <String, Object?>{
+                          'kpId': p.id,
+                          'returnTo': 'knowledge',
+                        },
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(p.title, style: theme.textTheme.titleSmall),
+                            const SizedBox(height: 2),
+                            Text(
+                              p.summary,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                  const Divider(height: 24),
+                ],
+                if (result.questions.isNotEmpty) ...[
+                  Text('题目', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  ...result.questions.map(
+                    (q) => InkWell(
+                      onTap: () => Navigator.of(context).pushNamed(
+                        AppRoutes.bankQuiz,
+                        arguments: <String, Object?>{
+                          'mode': 'single',
+                          'questionId': q.id,
+                          'returnTo': 'knowledge',
+                        },
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          q.stem,
+                          style: theme.textTheme.bodyMedium,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ),
-          const Divider(height: 24),
-        ],
-        if (result.questions.isNotEmpty) ...[
-          Text('题目', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ...result.questions.map(
-            (q) => InkWell(
-              onTap: () => Navigator.of(context).pushNamed(
-                AppRoutes.bankQuiz,
-                arguments: <String, Object?>{
-                  'mode': 'single',
-                  'questionId': q.id,
-                  'returnTo': 'knowledge',
-                },
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  q.stem,
-                  style: theme.textTheme.bodyMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    ),
     );
   }
 

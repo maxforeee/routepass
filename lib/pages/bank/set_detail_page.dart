@@ -134,6 +134,10 @@ class _SetDetailPageState extends State<SetDetailPage> {
         pending
             .then((data) {
               if (!mounted) return;
+              if (data == null) {
+                _load();
+                return;
+              }
               setState(() {
                 _applyPreload(data);
                 _loading = false;

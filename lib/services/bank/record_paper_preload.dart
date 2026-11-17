@@ -20,12 +20,9 @@ class RecordPaperPreload {
     required PracticeService service,
   }) {
     if (sessionId.isEmpty) return;
-    _slot.start(sessionId, () async {
-      final paper = await service.getRecordPaper(sessionId);
-      // null = 接口未就绪 / 离线：不落槽，试卷页自行拉取并显示重试态。
-      if (paper == null) throw Exception('paper unavailable');
-      return paper;
-    });
+    // null = 接口未就绪 / 离线：槽位不落缓存（也不存失败 Future），
+    // 试卷页消费时回落自行拉取并显示重试态。
+    _slot.start(sessionId, () => service.getRecordPaper(sessionId));
   }
 
   /// 已就绪结果（取走即清除）；供试卷页 initState 首帧同步应用，

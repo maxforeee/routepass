@@ -14,7 +14,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routepass/core/modules.dart';
-import 'package:routepass/core/service_locator.dart';
 import 'package:routepass/core/theme.dart';
 import 'package:routepass/models/answer_record.dart';
 import 'package:routepass/models/bank_manifest.dart';
@@ -171,10 +170,13 @@ class _FakeKnowledgeRepo extends KnowledgeRepository {
 
   final KnowledgePoint? point;
   int detailCalls = 0;
+  Completer<void>? gate;
 
   @override
   Future<KnowledgePoint?> getPointDetail(String id) async {
     detailCalls++;
+    final g = gate;
+    if (g != null) await g.future;
     return point;
   }
 
@@ -609,9 +611,19 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'VLAN');
-      await tester.pump(const Duration(milliseconds: 350));
+      // F29：防抖 300ms，pump 留足余量（原 350ms 贴边，计时抖动敏感）。
+      await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.byType(LoadingSkeleton), findsWidgets);
+      // F29：断言搜索专用骨架——4 张结果卡 × 2 行 = 8 个且都在 Card 内；
+      // 泛 findsWidgets 会被残留的套卷列表骨架（5 个裸骨架）蒙混过关。
+      expect(find.byType(LoadingSkeleton), findsNWidgets(8));
+      expect(
+        find.descendant(
+          of: find.byType(Card),
+          matching: find.byType(LoadingSkeleton),
+        ),
+        findsNWidgets(8),
+      );
       expect(find.byType(CircularProgressIndicator), findsNothing);
 
       gate.complete();
@@ -701,8 +713,12 @@ void main() {
           ),
         ),
       );
+      await tester.pump();
+      // F29：直接断言预热状态——考试 setId 从未进入在途标记。
+      expect(AnswerEntryPreload.debugIsWarming('h3cne-2026-01'), isFalse);
       await tester.pumpAndSettle();
       expect(source.calls, 0);
+      expect(AnswerEntryPreload.debugIsWarming('h3cne-2026-01'), isFalse);
       expect(tester.takeException(), isNull);
     });
 
@@ -729,6 +745,8 @@ void main() {
 
       // 预热请求仍在途，前置页内容已完整渲染。
       expect(find.text('100 题 · 进度待接口'), findsNWidgets(5));
+      // F29：在途标记直接可观测（与考试不预热断言互为正反对照）。
+      expect(AnswerEntryPreload.debugIsWarming('VLAN'), isTrue);
       gate.complete();
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -888,19 +906,16 @@ void main() {
     });
 
     testWidgets('知识详情页：加载中显示骨架，内容到达后淡入', (tester) async {
-      final repo = ServiceLocator.knowledgeRepository;
-      final chapters = await repo.getChapters();
-      final sections = await repo.getSections(chapters.first.id);
-      final points = await repo.getPointsBySection(sections.first.id);
-      final kpId = points.first.id;
+      // F29：注入 fake KnowledgeRepository，不再依赖全局 ServiceLocator 单例。
+      final repo = _FakeKnowledgeRepo(_kp('kp-1'));
+      final gate = Completer<void>();
+      repo.gate = gate;
 
       await tester.pumpWidget(
         _host(
           KnowledgeDetailPage(
-            args: <String, Object?>{
-              'kpId': kpId,
-              'sectionId': sections.first.id,
-            },
+            args: <String, Object?>{'kpId': 'kp-1'},
+            repository: repo,
           ),
         ),
       );
@@ -909,9 +924,11 @@ void main() {
       expect(find.byType(LoadingSkeleton), findsWidgets);
       expect(find.byType(CircularProgressIndicator), findsNothing);
 
+      gate.complete();
       await tester.pumpAndSettle();
-      expect(find.text(points.first.title), findsWidgets);
+      expect(find.text('知识点 kp-1'), findsWidgets);
       expect(find.byType(LoadingSkeleton), findsNothing);
+      expect(repo.detailCalls, 1);
       expect(tester.takeException(), isNull);
     });
   });

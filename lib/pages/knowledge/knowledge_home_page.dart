@@ -45,6 +45,10 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
   final Set<String> _collapsedSections = <String>{};
   final Set<String> _collapsedChapters = <String>{};
   final Set<String> _mastered = <String>{};
+
+  /// F29：详情预加载只在用户首次展开知识点面板后发起一次（展开 = 可能
+  /// 看详情），不再每次进页都无条件拉取第一个知识点。
+  bool _firstPointPreloaded = false;
   String _query = '';
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey _firstMatchKey = GlobalKey();
@@ -114,23 +118,12 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
         ..addAll(collapsedSections);
       _loading = false;
     });
-    _preloadFirstPoint();
   }
 
-  /// F27 预测性预加载：知识库页最可能的下一步是打开第一个知识点的详情，
-  /// 后台预取该点内容。只预取这一个目标；失败静默，详情页骨架兜底。
-  void _preloadFirstPoint() {
-    for (final chapter in _chapters) {
-      for (final section in _sections[chapter.id] ?? const <Section>[]) {
-        final points = _points[section.id] ?? const <KnowledgePoint>[];
-        if (points.isEmpty) continue;
-        _startDetailPreload(points.first.id);
-        return;
-      }
-    }
-  }
-
-  /// F27：详情预加载统一入口，容错——任何失败都不阻塞当前页与导航。
+  /// F27：详情预加载统一入口。F29：KnowledgeDetailPreload.start 本身
+  /// 不抛错（同步抛错已在 PreloadSlot 内兜底），这里的 try/catch 保留
+  /// 是为了 ServiceLocator 懒解析——late 字段未装配时读取会抛
+  /// LateInitializationError，与题库页 _startSetPreload 同一容错约定。
   void _startDetailPreload(String kpId) {
     try {
       KnowledgeDetailPreload.start(
@@ -216,6 +209,12 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
       }
     });
     _saveIdList(KvStore.keyKbExpandedIds, _expandedPoints);
+    // F29：首次展开面板才预取详情（最可能的下一步就是刚展开的这一点），
+    // 只预取这一个目标；失败静默，详情页骨架兜底。
+    if (!_firstPointPreloaded && _expandedPoints.contains(point.id)) {
+      _firstPointPreloaded = true;
+      _startDetailPreload(point.id);
+    }
   }
 
   void _toggleMastered(String pointId) {

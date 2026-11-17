@@ -11,6 +11,7 @@ import '../../models/knowledge_point.dart';
 import '../../models/question.dart';
 import '../../router/app_router.dart';
 import '../../services/knowledge/knowledge_detail_preload.dart';
+import '../../services/knowledge/knowledge_repo.dart';
 import '../../widgets/loading_skeleton.dart';
 
 /// 知识详情页（第 3 章 §22.8）。
@@ -21,9 +22,12 @@ import '../../widgets/loading_skeleton.dart';
 /// returnTo（String?：'knowledge' | 'home' | 'quiz'，决定返回文案）。
 /// D-08 图示：样例内容无图，本页不渲染。
 class KnowledgeDetailPage extends StatefulWidget {
-  const KnowledgeDetailPage({super.key, required this.args});
+  const KnowledgeDetailPage({super.key, required this.args, this.repository});
 
   final Map<String, Object?> args;
+
+  /// 测试可注入；生产环境不传，走 ServiceLocator 里的实现。
+  final KnowledgeRepository? repository;
 
   @override
   State<KnowledgeDetailPage> createState() => _KnowledgeDetailPageState();
@@ -41,6 +45,8 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
   bool _loading = true;
   bool _notFound = false;
   bool _mastered = false;
+
+  late final KnowledgeRepository _repository;
 
   String get _kpId => widget.args['kpId'] as String? ?? '';
   String? get _sectionId => widget.args['sectionId'] as String?;
@@ -61,6 +67,7 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
   @override
   void initState() {
     super.initState();
+    _repository = widget.repository ?? ServiceLocator.knowledgeRepository;
     _load();
   }
 
@@ -68,10 +75,10 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
     KnowledgePoint? point;
     try {
       // F27：知识库页已预取该点详情时就绪 / 在途直接消费，不重复请求；
-      // 无预加载时 consume 内部原样 getPointDetail，行为不变。
+      // 无预加载（含预取到 null 不落槽）时 consume 回落原样 getPointDetail。
       point = await KnowledgeDetailPreload.consume(
         kpId: _kpId,
-        repository: ServiceLocator.knowledgeRepository,
+        repository: _repository,
       );
     } catch (_) {
       point = null;
@@ -79,9 +86,7 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
     var siblings = <KnowledgePoint>[];
     if (point != null && _sectionId != null) {
       try {
-        siblings = await ServiceLocator.knowledgeRepository.getPointsBySection(
-          _sectionId!,
-        );
+        siblings = await _repository.getPointsBySection(_sectionId!);
       } catch (_) {}
     }
     var related = <Question>[];
@@ -130,14 +135,11 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
     _startDetailPreload(_siblings[index + 1].id);
   }
 
-  /// F27：详情预加载统一入口，容错——任何失败都不阻塞当前页与导航。
+  /// F27：详情预加载统一入口。F29：start 契约不抛错（同步抛错已在
+  /// PreloadSlot 内兜底），repository 已在 initState 解析，无需再包
+  /// try/catch。
   void _startDetailPreload(String kpId) {
-    try {
-      KnowledgeDetailPreload.start(
-        kpId: kpId,
-        repository: ServiceLocator.knowledgeRepository,
-      );
-    } catch (_) {}
+    KnowledgeDetailPreload.start(kpId: kpId, repository: _repository);
   }
 
   void _toggleMastered(bool value) {

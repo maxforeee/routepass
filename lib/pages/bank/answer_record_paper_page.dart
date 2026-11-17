@@ -147,7 +147,15 @@ class _AnswerRecordPaperPageState extends State<AnswerRecordPaperPage> {
                       color: AppColors.title(context),
                     ),
                   ),
-                  if (_subtitle.isNotEmpty) ...[
+                  // F29：加载中副标题槽位放同字号骨架，卷面到达时页头
+                  // 不再突然多出一行（布局稳定）；就绪后照常显示文案。
+                  if (_loading) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    const LoadingSkeleton(
+                      height: AppFontSizes.detailStat,
+                      width: 140,
+                    ),
+                  ] else if (_subtitle.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       _subtitle,

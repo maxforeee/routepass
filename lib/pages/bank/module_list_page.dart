@@ -66,6 +66,11 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   BankManifest? _manifest;
   String? _manifestError;
 
+  /// F29：预测性预加载只在首次加载成功时发起一次；下拉刷新 / 切 tab
+  /// 不再重复预测（避免陈旧预加载堆积，也避免 await 期间切 tab 后
+  /// 按错误的当前 tab 预测）。
+  bool _predictedFirstSet = false;
+
   late final SearchService _searchService;
   Timer? _debounce;
   List<Question> _results = const <Question>[];
@@ -102,7 +107,10 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       setState(() {
         _manifest = manifest;
       });
-      _predictNextSet(manifest);
+      if (!_predictedFirstSet) {
+        _predictedFirstSet = true;
+        _predictNextSet(manifest);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -111,8 +119,9 @@ class BankModuleListPageState extends State<BankModuleListPage> {
     }
   }
 
-  /// F27 预测性预加载：只预取当前 tab 第一张套卷卡（最可能的点按目标）
-  /// 的前置页数据。后台进行，不阻塞本页渲染；预测错了由前置页骨架兜底。
+  /// F27 预测性预加载：只预取首次加载时当前 tab 第一张套卷卡（最可能的
+  /// 点按目标）的前置页数据。后台进行，不阻塞本页渲染；预测错了由前置页
+  /// 骨架兜底。F29：只在首次加载成功时调用一次（见 _predictedFirstSet）。
   void _predictNextSet(BankManifest manifest) {
     final entries = _tab == _BankTab.exam
         ? _examEntries(manifest)
