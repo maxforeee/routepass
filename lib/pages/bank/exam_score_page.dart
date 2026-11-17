@@ -34,7 +34,11 @@ class ExamScorePage extends StatefulWidget {
     this.loadGrading,
     this.wrongService,
     required this.onReview,
+    this.title = '考试结果',
   });
+
+  /// F28：轮回结算复用本页，标题传「7天轮回结果」；考试默认文案不变。
+  final String title;
 
   final int total;
   final int answered;
@@ -260,7 +264,7 @@ class _ExamScorePageState extends State<ExamScorePage> {
           children: [
             Expanded(
               child: Text(
-                '考试结果',
+                widget.title,
                 style: TextStyle(
                   fontSize: AppFontSizes.detailSectionTitle,
                   fontWeight: FontWeight.w700,

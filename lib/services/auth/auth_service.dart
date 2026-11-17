@@ -369,7 +369,7 @@ class HttpAuthService extends AuthService {
     if (override != null && override.isNotEmpty) return override;
     final stored = _kv.getString(KvStore.keyAuthDeviceId);
     if (stored != null && stored.isNotEmpty) return stored;
-    final generated = _generateUuid();
+    final generated = generateUuidV4();
     _kv.setString(KvStore.keyAuthDeviceId, generated);
     return generated;
   }
@@ -382,7 +382,8 @@ class HttpAuthService extends AuthService {
   }
 
   /// UUID v4（36 字符 < 服务端 deviceId 40 字符上限）。
-  static String _generateUuid() {
+  /// F28：公开复用——轮回作答 / 结算的 opId 用同款生成器，不引新依赖。
+  static String generateUuidV4() {
     final random = Random.secure();
     final bytes = List<int>.generate(16, (_) => random.nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;

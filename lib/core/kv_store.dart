@@ -76,6 +76,11 @@ abstract class KvStore {
   /// （拉取结果；按 clientAt last-write-wins，不作为上传来源）。
   static const String keySyncMirror = 'sync.mirror';
 
+  /// `sync.recent_answered`：近 7 天已答题 id 集合（F28，`GET /sync/pull`
+  /// 的 `recent_answered` 扁平数组，string list）。离线 7 天视图：attempts
+  /// 只上传不拉取，客户端只需要仍在轮回窗口内的题 id 集合。
+  static const String keySyncRecentAnswered = 'sync.recent_answered';
+
   /// 读取字符串值，不存在时返回 null。
   String? getString(String key);
 
@@ -189,6 +194,7 @@ extension KvStoreAccountData on KvStore {
     remove(KvStore.keySyncCursor);
     remove(KvStore.keySyncStatus);
     remove(KvStore.keySyncMirror);
+    remove(KvStore.keySyncRecentAnswered);
     for (final key in keys.where(
       (k) => k.startsWith(KvStore.answerSessionPrefix),
     )) {

@@ -18,6 +18,7 @@ import 'services/bank/local_cache_service.dart';
 import 'services/bank/practice_service.dart';
 import 'services/bank/question_bank_source.dart';
 import 'services/bank/question_repo_http.dart';
+import 'services/bank/rotation_service.dart';
 import 'services/bank/stats_service.dart';
 import 'services/bank/sync_http_service.dart';
 import 'services/bank/wrong_service.dart';
@@ -32,6 +33,7 @@ import 'services/mock/mock_ping_service.dart';
 import 'services/mock/mock_port_scan_service.dart';
 import 'services/mock/mock_practice_service.dart';
 import 'services/mock/mock_question_repository.dart';
+import 'services/mock/mock_rotation_service.dart';
 import 'services/mock/mock_search_service.dart';
 import 'services/mock/mock_stats_service.dart';
 import 'services/mock/mock_wrong_service.dart';
@@ -98,6 +100,14 @@ Future<void> main() async {
       delegate: practiceHttp,
       cache: localCache,
       bankSource: HttpBankQuestionBankSource(),
+    ),
+    // F28：7 天轮回接真实契约（POST /practice/draw + /sessions/{id}/
+    // answers|submit）；未登录 / 离线 / 接口未就绪时回落 Mock（诚实空态，
+    // 不编题、不编解锁时间、不编分数）。与 S11 练习 / 考试流程互不调用。
+    rotationService: HttpRotationService(
+      fallback: MockRotationService(),
+      client: authClient,
+      tokenProvider: cachedToken,
     ),
     examService: HttpExamService(
       local: MockExamService(),

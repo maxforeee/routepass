@@ -21,15 +21,19 @@ import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/answer_record.dart';
 import '../../models/answer_session_state.dart';
+import '../../models/bank_manifest.dart';
 import '../../models/knowledge_point.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
 import '../../router/app_router.dart';
 import '../../services/bank/answer_record_service.dart';
 import '../../services/bank/answer_session_service.dart';
+import '../../services/bank/bank_manifest_service.dart';
 import '../../services/bank/exam_service.dart';
 import '../../services/bank/favorite_service.dart';
 import '../../services/bank/practice_service.dart';
+import '../../services/bank/question_bank_source.dart';
+import '../../services/bank/rotation_service.dart';
 import '../../services/bank/wrong_service.dart';
 import '../../services/knowledge/knowledge_repo.dart';
 import '../../widgets/answer_records_card.dart';
@@ -47,6 +51,8 @@ class QuizPage extends StatefulWidget {
     this.favoriteService,
     this.wrongService,
     this.knowledgeRepository,
+    this.rotationService,
+    this.manifestService,
   });
 
   final Map<String, Object?> args;
@@ -58,6 +64,10 @@ class QuizPage extends StatefulWidget {
   final AnswerSessionService? sessionService;
   final FavoriteService? favoriteService;
   final WrongService? wrongService;
+
+  /// F28：7 天轮回服务与题库清单（bankId 来源）；测试可注入。
+  final RotationService? rotationService;
+  final BankManifestService? manifestService;
 
   /// F26 chunk 8：判分后知识点 chips 的反查仓储；测试可注入。
   final KnowledgeRepository? knowledgeRepository;
@@ -72,6 +82,23 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   late final AnswerRecordService _recordService;
   late final AnswerSessionService _sessionService;
   late final FavoriteService _favorite;
+
+  /// F28：rotation 模式（7 天轮回）——整批服务端抽题、逐题服务端判分、
+  /// 整批结算；不走 /practice/next 与 /practice/submit，不写本地断点。
+  late final RotationService _rotation;
+  late final BankManifestService _manifestService;
+  late final bool _isRotation;
+
+  /// 空抽 / 清单不可用：诚实待接口态（服务端文案 + 解锁时间）。
+  bool _rotationWaiting = false;
+  String _rotationMessage = '';
+  DateTime? _rotationUnlockAt;
+
+  /// 已结算：退出直接走，不再弹确认（会话已在服务端结算 / 删除）。
+  bool _rotationFinished = false;
+
+  /// 判分在途的题目 id：连点选项只提交一次。
+  final Set<String> _rotationGrading = <String>{};
 
   late final bool _isExam;
   late final String _setId;
@@ -146,8 +173,13 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _isExam = widget.args['mode'] == 'exam';
+    _isRotation = widget.args['mode'] == 'rotation';
     if (_isExam) {
       _exam = widget.examService ?? ServiceLocator.examService;
+    } else if (_isRotation) {
+      _rotation = widget.rotationService ?? ServiceLocator.rotationService;
+      _manifestService =
+          widget.manifestService ?? ServiceLocator.bankManifestService;
     } else {
       _practice = widget.practiceService ?? ServiceLocator.practiceService;
       _favorite = widget.favoriteService ?? ServiceLocator.favoriteService;
@@ -269,6 +301,8 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
     try {
       if (_isExam) {
         await _initExam();
+      } else if (_isRotation) {
+        await _initRotation();
       } else {
         await _initPractice();
       }
@@ -377,6 +411,212 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
           : null;
     }
     return next;
+  }
+
+  /// F28：轮回初始化——bankId 取自题库清单（绝不硬编码），整批抽题。
+  /// 空抽 / 清单不可用：诚实待接口态（服务端文案 + 解锁时间），绝不编题、
+  /// 绝不编解锁时间、不留白屏。短抽：用抽到的题继续，服务端文案提示。
+  Future<void> _initRotation() async {
+    BankManifest? manifest;
+    try {
+      manifest = await _manifestService.fetchManifest();
+    } catch (_) {}
+    if (!mounted) return;
+    final bankId = manifest?.bankId ?? '';
+    if (bankId.isEmpty) {
+      setState(() {
+        _rotationWaiting = true;
+        _rotationMessage = '轮回待接口';
+      });
+      return;
+    }
+    final draw = await _rotation.draw(bankId: bankId, count: _total);
+    if (!mounted) return;
+    if (draw.isEmpty) {
+      setState(() {
+        _rotationWaiting = true;
+        _rotationMessage = draw.message ?? '当前无可抽题目';
+        _rotationUnlockAt = draw.nextUnlockAt;
+      });
+      return;
+    }
+    setState(() {
+      _sessionId = draw.sessionId!;
+      _questions = draw.questions;
+      _target = draw.questions.length;
+      _currentIndex = 0;
+      _questionStartedAt = DateTime.now();
+    });
+    if (draw.drawnShort && (draw.message ?? '').isNotEmpty) {
+      showAppSnackBar(context, draw.message!);
+    }
+  }
+
+  /// F28：轮回单题判分——没有本地答案键，对错 / 正确答案 / 解析全部
+  /// 来自 `POST /sessions/{id}/answers`。失败只提示重试，不涂红绿、
+  /// 不编判分；在途防连点。
+  Future<void> _submitRotation() async {
+    final q = _current;
+    if (q == null ||
+        _graded.containsKey(q.id) ||
+        _rotationGrading.contains(q.id)) {
+      return;
+    }
+    final chosen = List<String>.from(_chosen);
+    if (chosen.isEmpty) return;
+    setState(() => _rotationGrading.add(q.id));
+    try {
+      final result = await _rotation.answer(
+        sessionId: _sessionId,
+        questionId: q.id,
+        chosen: bankAnswerIndices(chosen),
+        opId: newRotationOpId(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _rotationGrading.remove(q.id);
+        _answers[q.id] = chosen;
+        _graded[q.id] = AnswerResult(
+          correct: result.isCorrect,
+          explanation: result.explanation.isEmpty
+              ? '解析待接口'
+              : result.explanation,
+          correctKeys: result.answer.isEmpty ? null : result.answer,
+        );
+        if (_answeredIds.add(q.id)) {
+          _answeredCount++;
+          if (result.isCorrect) _correctCount++;
+        }
+        if (_answeredCount >= _target) _targetReached = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _rotationGrading.remove(q.id));
+      showAppSnackBar(context, '提交失败，请重试');
+    }
+  }
+
+  /// F28：轮回结算——`POST /sessions/{id}/submit`，服务端得分 + 逐题
+  /// 明细复用全屏评分页（ExamScorePage）。0 题已答被服务端删除
+  /// （deleted: true）时没有成绩可展示，直接退出。
+  Future<void> _settleRotation() async {
+    if (_submitting || _sessionId.isEmpty) return;
+    setState(() => _submitting = true);
+    final RotationResult result;
+    try {
+      result = await _rotation.submit(
+        sessionId: _sessionId,
+        opId: newRotationOpId(),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      showAppSnackBar(context, '结算失败，请重试');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _submitting = false;
+      _rotationFinished = true;
+    });
+    if (result.deleted) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final grading = <String, ExamQuestionGrade>{
+      for (final item in result.detail)
+        item.questionId: ExamQuestionGrade(
+          questionId: item.questionId,
+          chosen: item.chosen,
+          answer: item.answer,
+          explanation: item.explanation,
+          correct: item.isCorrect,
+        ),
+    };
+    final exited = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        // 命名路由：外壳按名字隐藏底栏（匿名 push 会让底栏重新出现）。
+        settings: const RouteSettings(name: AppRoutes.bankExamResult),
+        builder: (_) => ExamScorePage(
+          title: '7天轮回结果',
+          total: _questions.length,
+          answered: _answeredCount,
+          elapsed: _currentElapsed,
+          score: result.score,
+          detail: '答对 ${result.correctCount} 题 · 答错 ${result.wrongCount} 题',
+          questions: _questions,
+          answers: _answers,
+          grading: grading,
+          wrongService: widget.wrongService,
+          onReview: (index) {
+            if (!mounted) return;
+            setState(() {
+              _reviewMode = true;
+              _currentIndex = index.clamp(0, _questions.length - 1);
+            });
+          },
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (exited == true) Navigator.of(context).pop();
+  }
+
+  /// 解锁时间展示：服务端 ISO 时间转本地时区，分钟精度。
+  static String _unlockText(DateTime time) {
+    final local = time.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
+
+  /// F28：空抽 / 待接口态——服务端文案 + 真实解锁时间（没有就不显示），
+  /// 绝不编题、绝不编时间、不留白屏。
+  Widget _buildRotationWaiting() {
+    final theme = Theme.of(context);
+    final unlock = _rotationUnlockAt;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '7天轮回',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontSize: AppFontSizes.detailSectionTitle,
+                fontWeight: FontWeight.w700,
+                color: AppColors.title(context),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _rotationMessage,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: AppFontSizes.detailBody,
+                color: AppColors.title(context),
+              ),
+            ),
+            if (unlock != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '下次解锁：${_unlockText(unlock)}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontSize: AppFontSizes.detailStat,
+                  color: AppColors.cardCaption(context),
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('返回'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _initExam() async {
@@ -564,7 +804,10 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   void _selectOption(String key) {
     final q = _current;
     if (q == null) return;
-    if (_graded.containsKey(q.id) || (_isExam && _reviewMode)) return;
+    if (_graded.containsKey(q.id) ||
+        ((_isExam || _isRotation) && _reviewMode)) {
+      return;
+    }
     final current = List<String>.from(_answers[q.id] ?? const <String>[]);
     setState(() {
       if (q.type == 'multiple') {
@@ -593,6 +836,12 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
             )
             .catchError((_) {}),
       );
+      return;
+    }
+    // F28：轮回没有本地答案键，判分只来自服务端；单选 / 判断点完即提交，
+    // 多选仍由「确认作答」触发。
+    if (_isRotation) {
+      if (q.type != 'multiple') unawaited(_submitRotation());
       return;
     }
     // F22：单选 / 判断点完选项立刻判分（红绿 + 解析），不再等「确认作答」。
@@ -1002,6 +1251,28 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
 
   Future<void> _handleBack() async {
     if (_loading) return;
+    if (_isRotation) {
+      if (_rotationWaiting || _rotationFinished || _answeredCount == 0) {
+        // 0 题已答：让服务端删除空会话（静默，不阻塞退出）。
+        if (!_rotationFinished &&
+            _answeredCount == 0 &&
+            _sessionId.isNotEmpty) {
+          unawaited(() async {
+            try {
+              await _rotation.submit(
+                sessionId: _sessionId,
+                opId: newRotationOpId(),
+              );
+            } catch (_) {}
+          }());
+        }
+        Navigator.of(context).pop();
+        return;
+      }
+      // >=1 题已答：退出即结算，展示服务端得分（轮回不写本地断点）。
+      await _settleRotation();
+      return;
+    }
     if (_isExam && _reviewMode) {
       Navigator.of(context).pop();
       return;
@@ -1136,7 +1407,9 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   String get _primaryLabel {
     if (_isExam) return _isLastQuestion ? '交卷' : '下一题';
     final q = _current;
-    if (q != null && _graded.containsKey(q.id)) return '下一题';
+    if (q != null && _graded.containsKey(q.id)) {
+      return _isRotation && _isLastQuestion ? '完成本轮' : '下一题';
+    }
     return '确认作答';
   }
 
@@ -1152,14 +1425,29 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   Future<void> _onPrimary() async {
     if (_isExam) {
       await _nextExam();
-    } else {
-      final q = _current;
-      if (q == null) return;
+      return;
+    }
+    final q = _current;
+    if (q == null) return;
+    if (_isRotation) {
       if (_graded.containsKey(q.id)) {
-        await _nextPractice();
+        if (_isLastQuestion) {
+          await _settleRotation();
+        } else {
+          setState(() {
+            _currentIndex++;
+            _questionStartedAt = DateTime.now();
+          });
+        }
       } else {
-        await _submitPractice();
+        await _submitRotation();
       }
+      return;
+    }
+    if (_graded.containsKey(q.id)) {
+      await _nextPractice();
+    } else {
+      await _submitPractice();
     }
   }
 
@@ -1187,6 +1475,8 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
               ? const Center(child: CircularProgressIndicator())
               : _error != null
               ? _buildError()
+              : _rotationWaiting
+              ? _buildRotationWaiting()
               : _buildContent(),
         ),
       ),
@@ -1262,8 +1552,8 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              // F25：收藏按钮只在练习页出现，考试页没有。
-              if (!_isExam)
+              // F25：收藏按钮只在练习页出现，考试页没有（F28：轮回也没有）。
+              if (!_isExam && !_isRotation)
                 IconButton(
                   icon: Icon(
                     _favoriteIds.contains(q.id)
@@ -1447,17 +1737,20 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
               ),
             ),
           ),
-          if (!_exhausted && !_isExam)
+          // F28：轮回是固定批次，没有「继续答题」（那会走 /practice/next）。
+          if (!_exhausted && !_isExam && !_isRotation)
             TextButton(
               onPressed: _continueAfterTarget,
               child: const Text('继续答题'),
             ),
           if (!_isExam)
             TextButton(
-              onPressed: () {
-                _finalizeCompletion();
-                Navigator.of(context).pop();
-              },
+              onPressed: _isRotation
+                  ? _settleRotation
+                  : () {
+                      _finalizeCompletion();
+                      Navigator.of(context).pop();
+                    },
               child: const Text('结束本轮'),
             ),
         ],

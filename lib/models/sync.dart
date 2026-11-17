@@ -175,6 +175,7 @@ class SyncPullPage {
     required this.hasMore,
     this.serverTime,
     required this.baselineRequired,
+    this.recentAnswered = const <String>[],
   });
 
   final List<SyncChange> changes;
@@ -184,8 +185,15 @@ class SyncPullPage {
   final String? serverTime;
   final bool baselineRequired;
 
+  /// F28：近 7 天已答题 id 的扁平数组（`recent_answered`，
+  /// counted_for_rotation=true 且仍在 7 天窗口内）。离线 7 天视图：
+  /// attempts 只上传不拉取，客户端只需要这个集合做本地抽题排除。
+  /// 旧后端不带该字段时为空列表（不是「窗口内没有题」的断言）。
+  final List<String> recentAnswered;
+
   factory SyncPullPage.fromJson(Map<String, dynamic> json) {
     final rawChanges = json['changes'];
+    final rawRecent = json['recent_answered'];
     return SyncPullPage(
       changes: rawChanges is List
           ? rawChanges
@@ -198,6 +206,9 @@ class SyncPullPage {
       hasMore: json['hasMore'] as bool? ?? false,
       serverTime: json['serverTime'] as String?,
       baselineRequired: json['baselineRequired'] as bool? ?? false,
+      recentAnswered: rawRecent is List
+          ? rawRecent.whereType<String>().toList()
+          : const <String>[],
     );
   }
 

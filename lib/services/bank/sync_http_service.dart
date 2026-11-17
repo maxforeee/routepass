@@ -107,6 +107,7 @@ class HttpSyncService implements SyncService {
     }
 
     final page = SyncPullPage.fromJson(response.body);
+    _writeRecentAnswered(page.recentAnswered);
     final status = SyncStatus(
       pendingCount: pending,
       lastSyncAt: DateTime.now().millisecondsSinceEpoch,
@@ -143,6 +144,7 @@ class HttpSyncService implements SyncService {
       return const PullResult(pulledCount: 0);
     }
     final page = SyncPullPage.fromJson(response.body);
+    _writeRecentAnswered(page.recentAnswered);
     final pending = (await _pendingOps()).length;
     final applied = await _applyServerChanges(page.changes);
     _writeCursor(page.nextCursor);
@@ -321,6 +323,19 @@ class HttpSyncService implements SyncService {
 
   void _writeCachedStatus(SyncStatus status) {
     _kv.setString(KvStore.keySyncStatus, jsonEncode(status.toJson()));
+  }
+
+  /// F28：近 7 天已答题 id 集合落 kv（与 sync.mirror 并列）；服务端每次
+  /// pull 都返回完整集合，直接覆盖。
+  void _writeRecentAnswered(List<String> ids) {
+    _kv.setStringList(KvStore.keySyncRecentAnswered, ids);
+  }
+
+  /// F28：读本地 7 天排除集（离线 / 本地抽题用）。从未同步返回空集——
+  /// 「没有数据」不等于「窗口内没有题」，调用方不得据此断言可抽尽。
+  static Set<String> recentAnsweredIds(KvStore kv) {
+    final ids = kv.getStringList(KvStore.keySyncRecentAnswered);
+    return (ids ?? const <String>[]).toSet();
   }
 
   Future<List<LocalSyncOp>> _pendingOps() async {
@@ -557,6 +572,8 @@ class HttpSyncService implements SyncService {
       if (response == null || response.statusCode != 200) return null;
       final parsed = SyncPullPage.fromJson(response.body);
       changes.addAll(parsed.changes);
+      // 每页都带完整的 7 天窗口集合（与游标无关），最后一页即最新。
+      _writeRecentAnswered(parsed.recentAnswered);
       watermark = parsed.watermark;
       serverTime = parsed.serverTime ?? serverTime;
       cursor = parsed.nextCursor;

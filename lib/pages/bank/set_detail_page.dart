@@ -269,6 +269,22 @@ class _SetDetailPageState extends State<SetDetailPage> {
     );
   }
 
+  /// F28：7 天轮回——全题库整批抽题（排除近 7 天已答），独立于 S11
+  /// 练习 / 考试流程。bankId 由答题页从题库清单取，抽题 / 判分 / 结算
+  /// 全在服务端；这里只负责入口导航。
+  void _startRotation() {
+    Navigator.of(context).pushNamed(
+      AppRoutes.bankAnswer,
+      arguments: <String, Object?>{
+        'mode': 'rotation',
+        'setId': '',
+        'setTitle': '7天轮回',
+        'drawCount': 20,
+        'target': 20,
+      },
+    );
+  }
+
   /// F25：记录行进详情页（摘要 + 删除）；返回后重读记录，
   /// 详情页删掉的记录（含断点）立即从列表与「继续练习」里消失。
   Future<void> _openRecord(AnswerRecord record) async {
@@ -525,6 +541,14 @@ class _SetDetailPageState extends State<SetDetailPage> {
                               onPlus: () => _changeTarget(5),
                             ),
                           ),
+                          // F28：7 天轮回入口（练习前置页，紧邻练习目标行）。
+                          const SizedBox(height: AppSpacing.md),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.contentInset,
+                            ),
+                            child: _RotationEntry(onTap: _startRotation),
+                          ),
                         ],
                         // F16：答题说明卡只在考试前置页显示。
                         if (_isExam) ...[
@@ -586,6 +610,72 @@ class _SetDetailPageState extends State<SetDetailPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// F28：7 天轮回入口行——服务端整批抽题，排除近 7 天已答。
+/// 点击进答题页 rotation 模式（抽题 / 判分 / 结算全在服务端）。
+class _RotationEntry extends StatelessWidget {
+  const _RotationEntry({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: AppColors.cardSurface(context),
+      borderRadius: BorderRadius.circular(AppRadii.card),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            border: Border.all(color: AppColors.cardBorder(context)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.autorenew,
+                size: AppSizes.icon,
+                color: AppColors.accent(context),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '7天轮回',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontSize: AppFontSizes.detailBody,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.title(context),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      '全题库抽 20 题 · 排除近 7 天已答',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: AppFontSizes.detailStat,
+                        color: AppColors.cardCaption(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: AppSizes.icon,
+                color: AppColors.cardCaption(context),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -14,6 +14,7 @@ import '../services/bank/exam_service.dart';
 import '../services/bank/favorite_service.dart';
 import '../services/bank/practice_service.dart';
 import '../services/bank/question_repo.dart';
+import '../services/bank/rotation_service.dart';
 import '../services/bank/stats_service.dart';
 import '../services/bank/wrong_service.dart';
 import '../services/base/auth_service.dart';
@@ -39,6 +40,10 @@ class ServiceLocator {
   static late final AnswerRecordService answerRecordService;
   static late final AnswerSessionService answerSessionService;
   static late final PracticeService practiceService;
+
+  /// F28：7 天轮回（独立于 S11 练习 / 考试流程）。可选装配：未注册时
+  /// 读取抛 LateInitializationError，轮回入口按「待接口」处理。
+  static late final RotationService rotationService;
   static late final ExamService examService;
   static late final DailyPracticeService dailyPracticeService;
   static late final WrongService wrongService;
@@ -71,6 +76,7 @@ class ServiceLocator {
     required AnswerRecordService answerRecordService,
     required AnswerSessionService answerSessionService,
     required PracticeService practiceService,
+    RotationService? rotationService,
     required ExamService examService,
     required DailyPracticeService dailyPracticeService,
     required WrongService wrongService,
@@ -94,6 +100,9 @@ class ServiceLocator {
     ServiceLocator.answerRecordService = answerRecordService;
     ServiceLocator.answerSessionService = answerSessionService;
     ServiceLocator.practiceService = practiceService;
+    if (rotationService != null) {
+      ServiceLocator.rotationService = rotationService;
+    }
     ServiceLocator.examService = examService;
     ServiceLocator.dailyPracticeService = dailyPracticeService;
     ServiceLocator.wrongService = wrongService;
