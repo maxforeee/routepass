@@ -6,6 +6,7 @@ import '../../core/service_locator.dart';
 import '../../models/search.dart';
 import '../../router/app_router.dart';
 import '../../widgets/animated_app_bar.dart';
+import '../../widgets/loading_skeleton.dart';
 
 /// 知识库搜索页（第 4 章 §4.5.2，路由 `/knowledge/search`）。
 ///
@@ -126,14 +127,19 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
     if (query.isEmpty) {
       return const Center(child: Text('输入关键词搜索知识点与题目'));
     }
-    if (_result == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final result = _result!;
-    if (result.knowledgePoints.isEmpty && result.questions.isEmpty) {
+    final result = _result;
+    if (result != null &&
+        result.knowledgePoints.isEmpty &&
+        result.questions.isEmpty) {
       return const Center(child: Text('没有找到相关内容'));
     }
-    return ListView(
+    // F27：搜索中显示与结果同构的骨架（不再用居中进度圈），结果到达淡入。
+    return SkeletonToContent(
+      loaded: result != null,
+      skeleton: _buildResultsSkeleton(),
+      child: result == null
+          ? const SizedBox.shrink()
+          : ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       children: [
         if (result.knowledgePoints.isNotEmpty) ...[
@@ -195,6 +201,49 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
             ),
           ),
         ],
+      ],
+    ),
+    );
+  }
+
+  /// F27：搜索结果骨架——知识点区（标题 + 两条标题/摘要行）与题目区
+  /// （标题 + 两条题干行），同一 padding，结果到达时不产生布局位移。
+  Widget _buildResultsSkeleton() {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      children: [
+        const LoadingSkeleton(height: 16, width: 60),
+        const SizedBox(height: 8),
+        for (var i = 0; i < 2; i++)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LoadingSkeleton(height: 14, width: 160),
+                SizedBox(height: 2),
+                LoadingSkeleton(height: 12),
+                SizedBox(height: 2),
+                LoadingSkeleton(height: 12, width: 220),
+              ],
+            ),
+          ),
+        const Divider(height: 24),
+        const LoadingSkeleton(height: 16, width: 40),
+        const SizedBox(height: 8),
+        for (var i = 0; i < 2; i++)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LoadingSkeleton(height: 14),
+                SizedBox(height: 2),
+                LoadingSkeleton(height: 14, width: 200),
+              ],
+            ),
+          ),
       ],
     );
   }

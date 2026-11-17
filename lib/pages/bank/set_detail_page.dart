@@ -18,11 +18,15 @@ import '../../models/answer_record.dart';
 import '../../models/bank_manifest.dart';
 import '../../models/stats.dart';
 import '../../router/app_router.dart';
+import '../../services/bank/answer_entry_preload.dart';
 import '../../services/bank/answer_record_service.dart';
 import '../../services/bank/answer_session_service.dart';
 import '../../services/bank/bank_manifest_service.dart';
+import '../../services/bank/practice_service.dart';
 import '../../services/bank/question_repo.dart';
+import '../../services/bank/set_detail_preload.dart';
 import '../../widgets/answer_records_card.dart';
+import '../../widgets/loading_skeleton.dart';
 import '../../widgets/reserved_slot.dart';
 
 class SetDetailPage extends StatefulWidget {
@@ -33,6 +37,7 @@ class SetDetailPage extends StatefulWidget {
     this.questionRepository,
     this.recordService,
     this.sessionService,
+    this.practiceService,
   });
 
   final Map<String, Object?> args;
@@ -47,6 +52,9 @@ class SetDetailPage extends StatefulWidget {
   final AnswerRecordService? recordService;
   final AnswerSessionService? sessionService;
 
+  /// F27 答题入口预热用；测试可注入，生产懒解析 ServiceLocator。
+  final PracticeService? practiceService;
+
   @override
   State<SetDetailPage> createState() => _SetDetailPageState();
 }
@@ -59,6 +67,10 @@ class _SetDetailPageState extends State<SetDetailPage> {
   List<AnswerRecord> _records = const <AnswerRecord>[];
   AnswerRecord? _breakpoint;
   int _practiceTarget = 20;
+
+  /// F27：首屏网络数据未就绪时，动态区块显示同尺寸骨架，就绪后淡入。
+  /// 预加载命中时 initState 即置 false，打开即真实内容，无骨架闪烁。
+  bool _loading = true;
 
   late final BankManifestService _manifestService;
   late final QuestionRepository _questionRepository;
@@ -100,7 +112,64 @@ class _SetDetailPageState extends State<SetDetailPage> {
     _sessionService =
         widget.sessionService ?? ServiceLocator.answerSessionService;
     _practiceTarget = _defaultPracticeTarget;
+    _bootstrap();
+  }
+
+  /// F27：优先消费题库页点按时的预加载——已就绪直接带着数据首帧渲染；
+  /// 在途则 await 同一份 Future（不重复发请求）；都没有才走自身 _load。
+  /// 记录同步 / 本地记录与预加载无关，始终照常执行。
+  void _bootstrap() {
+    final setId = _setId;
+    if (setId != null) {
+      final ready = SetDetailPreload.take(setId);
+      if (ready != null) {
+        _applyPreload(ready);
+        _loading = false;
+        _syncRecords(setId);
+        _preloadAnswerEntry();
+        return;
+      }
+      final pending = SetDetailPreload.pending(setId);
+      if (pending != null) {
+        pending
+            .then((data) {
+              if (!mounted) return;
+              setState(() {
+                _applyPreload(data);
+                _loading = false;
+              });
+            })
+            .catchError((Object _) {
+              if (mounted) _load();
+            });
+        _syncRecords(setId);
+        _preloadAnswerEntry();
+        return;
+      }
+    }
     _load();
+    _preloadAnswerEntry();
+  }
+
+  void _applyPreload(SetDetailPreloadData data) {
+    _modules = data.modules;
+    _manifest = data.manifest;
+    _setStats = data.setStats;
+    _overview = data.overview;
+  }
+
+  /// F27 预测性预加载：前置页最可能的下一步是「开始练习」，后台预热
+  /// 答题页（QuizPage）首题要用的本地题库——冷缓存抽题原本要等整套题库
+  /// 拉取，预热后首题命中本地即开。考试不预热：startExamPaper 会在服务端
+  /// 创建考卷，不能预创建。依赖懒解析 + 容错，失败静默，不阻塞页面。
+  void _preloadAnswerEntry() {
+    if (_isExam) return;
+    final setId = _setId;
+    if (setId == null || setId.isEmpty) return;
+    try {
+      final practice = widget.practiceService ?? ServiceLocator.practiceService;
+      AnswerEntryPreload.start(setId: setId, service: practice);
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -115,7 +184,10 @@ class _SetDetailPageState extends State<SetDetailPage> {
       setState(() => _manifest = manifest);
     } catch (_) {}
     final setId = _setId;
-    if (setId == null) return;
+    if (setId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     try {
       final stats = await _questionRepository.getSetModuleStats(setId: setId);
       if (!mounted) return;
@@ -126,6 +198,11 @@ class _SetDetailPageState extends State<SetDetailPage> {
       if (!mounted) return;
       setState(() => _overview = overview);
     } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+    await _syncRecords(setId);
+  }
+
+  Future<void> _syncRecords(String setId) async {
     // S11 `GET /practice/records`：在线时以服务端记录为准（完成会话 + 断点），
     // 失败静默；本地 kv 记录照常展示。
     try {
@@ -323,14 +400,45 @@ class _SetDetailPageState extends State<SetDetailPage> {
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.contentInset,
                           ),
-                          child: _TypeTagsRow(overview: _overview),
+                          // F27：加载中显示与 pill 行同高的骨架，就绪后淡入。
+                          child: SkeletonToContent(
+                            loaded: !_loading,
+                            skeleton: const LoadingSkeleton(
+                              height: AppSizes.typeTagHeight,
+                              width: 160,
+                              borderRadius: 999,
+                            ),
+                            child: _TypeTagsRow(overview: _overview),
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.contentInset,
                           ),
-                          child: _DoneRow(isExam: _isExam, overview: _overview),
+                          // F27：骨架按就绪态的两行文案占位（同字号同间距），
+                          // 内容到达不产生纵向位移。
+                          child: SkeletonToContent(
+                            loaded: !_loading,
+                            skeleton: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                LoadingSkeleton(
+                                  height: AppFontSizes.detailStat,
+                                  width: 180,
+                                ),
+                                SizedBox(height: AppSpacing.xxs),
+                                LoadingSkeleton(
+                                  height: AppFontSizes.detailStat,
+                                  width: 120,
+                                ),
+                              ],
+                            ),
+                            child: _DoneRow(
+                              isExam: _isExam,
+                              overview: _overview,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Padding(
@@ -369,10 +477,29 @@ class _SetDetailPageState extends State<SetDetailPage> {
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.contentInset,
                             ),
-                            child: _ModuleRow(
-                              name: moduleLabel(module),
-                              count: _moduleCount(module),
-                              progress: _moduleProgress(module),
+                            // F27：骨架与模块行同构（标题行 + 间距 + 进度条），
+                            // 高度逐段一致，数据到达不产生纵向位移。
+                            child: SkeletonToContent(
+                              loaded: !_loading,
+                              skeleton: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  LoadingSkeleton(
+                                    height: AppFontSizes.detailBody,
+                                    width: 140,
+                                  ),
+                                  SizedBox(height: AppSpacing.xs),
+                                  LoadingSkeleton(
+                                    height:
+                                        AppSizes.setDetailProgressBarHeight,
+                                  ),
+                                ],
+                              ),
+                              child: _ModuleRow(
+                                name: moduleLabel(module),
+                                count: _moduleCount(module),
+                                progress: _moduleProgress(module),
+                              ),
                             ),
                           ),
                           if (module != modules.last)

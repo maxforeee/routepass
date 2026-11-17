@@ -24,8 +24,11 @@ import '../../models/bank_manifest.dart';
 import '../../models/question.dart';
 import '../../router/app_router.dart';
 import '../../services/bank/bank_manifest_service.dart';
+import '../../services/bank/question_repo.dart';
+import '../../services/bank/set_detail_preload.dart';
 import '../../services/knowledge/search_service.dart';
 import '../../widgets/app_search_bar.dart';
+import '../../widgets/loading_skeleton.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/set_row_card.dart';
 import '../../widgets/set_row_tags.dart';
@@ -38,6 +41,7 @@ class BankModuleListPage extends StatefulWidget {
     super.key,
     this.manifestService,
     this.searchService,
+    this.questionRepository,
   });
 
   /// 测试可注入 Mock；生产环境不传，走 ServiceLocator 里的 HTTP 实现。
@@ -45,6 +49,9 @@ class BankModuleListPage extends StatefulWidget {
 
   /// 测试可注入替身；生产环境不传，走 ServiceLocator 里的搜索服务（F26）。
   final SearchService? searchService;
+
+  /// F27 预加载用；测试可注入，生产懒解析 ServiceLocator（见 _startSetPreload）。
+  final QuestionRepository? questionRepository;
 
   @override
   State<BankModuleListPage> createState() => BankModuleListPageState();
@@ -98,6 +105,7 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         _manifest = manifest;
         _manifestLoading = false;
       });
+      _predictNextSet(manifest);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -105,6 +113,30 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         _manifestError = '题库清单加载失败';
       });
     }
+  }
+
+  /// F27 预测性预加载：只预取当前 tab 第一张套卷卡（最可能的点按目标）
+  /// 的前置页数据。后台进行，不阻塞本页渲染；预测错了由前置页骨架兜底。
+  void _predictNextSet(BankManifest manifest) {
+    final entries = _tab == _BankTab.exam
+        ? _examEntries(manifest)
+        : _practiceEntries(manifest);
+    if (entries.isEmpty) return;
+    _startSetPreload(entries.first);
+  }
+
+  /// F27：点按套卷卡时先发起前置页数据预加载再导航。依赖懒解析 + 容错：
+  /// 任何失败（含 ServiceLocator 未装配）都只放弃预加载，绝不阻塞导航。
+  void _startSetPreload(_BankSetEntry entry) {
+    try {
+      final repository =
+          widget.questionRepository ?? ServiceLocator.questionRepository;
+      SetDetailPreload.start(
+        setId: entry.setId,
+        repository: repository,
+        manifestService: _manifestService,
+      );
+    } catch (_) {}
   }
 
   /// F26：输入防抖 300ms 后走 SearchService 真实搜索（与知识库搜索页同
@@ -146,7 +178,9 @@ class BankModuleListPageState extends State<BankModuleListPage> {
 
   /// F16：把当前 tab 的真实 mode 与套卷标识传给详情页——练习 tab 进
   /// practice 前置页（不显示答题说明卡），考试 tab 进 exam 前置页。
+  /// F27：导航前先发起该套卷的前置页数据预加载（不等待、不阻塞导航）。
   void _openSetDetail(_BankSetEntry entry) {
+    _startSetPreload(entry);
     Navigator.of(context).pushNamed(
       AppRoutes.bankSetDetail,
       arguments: <String, Object?>{
@@ -284,9 +318,6 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   }
 
   Widget _buildSets() {
-    if (_manifestLoading && _manifest == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
     final error = _manifestError;
     if (error != null) {
       return _buildScrollableState(
@@ -307,45 +338,71 @@ class BankModuleListPageState extends State<BankModuleListPage> {
       );
     }
     final manifest = _manifest;
-    if (manifest == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final entries = _tab == _BankTab.exam
-        ? _examEntries(manifest)
-        : _practiceEntries(manifest);
-    if (entries.isEmpty) {
+    final entries = manifest == null
+        ? const <_BankSetEntry>[]
+        : (_tab == _BankTab.exam
+              ? _examEntries(manifest)
+              : _practiceEntries(manifest));
+    if (manifest != null && entries.isEmpty) {
       return _buildScrollableState(
         Text('暂无套卷', style: Theme.of(context).textTheme.bodyMedium),
       );
     }
-    return RefreshIndicator(
-      onRefresh: _loadManifest,
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md + AppSpacing.contentInset,
-          AppSpacing.sm,
-          AppSpacing.md + AppSpacing.contentInset,
-          AppSizes.homeBottomPad,
+    // F27：首次加载显示与套卷卡同高同间距的骨架（不再用居中进度圈），
+    // 清单到达后骨架淡出、真实卡片淡入；刷新期间保留旧清单不闪骨架。
+    return SkeletonToContent(
+      loaded: manifest != null,
+      skeleton: _buildSetsSkeleton(),
+      child: RefreshIndicator(
+        onRefresh: _loadManifest,
+        child: ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md + AppSpacing.contentInset,
+            AppSpacing.sm,
+            AppSpacing.md + AppSpacing.contentInset,
+            AppSizes.homeBottomPad,
+          ),
+          itemCount: entries.length,
+          separatorBuilder: (context, index) =>
+              const SizedBox(height: AppSpacing.cardGap),
+          itemBuilder: (context, index) {
+            final entry = entries[index];
+            // F20 §8：首次渲染交错入场（前 6 项每项 +30ms，TranslationY +20dp → 0）；
+            // 切 tab / 下拉刷新只是原地重建，State 保留故不重复触发（§1）。
+            return StaggeredListAppear(
+              index: index,
+              slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
+              child: SetRowCard(
+                title: entry.title,
+                subtitle: entry.subtitle,
+                trailing: SetRowTags(labels: entry.tags),
+                onTap: () => _openSetDetail(entry),
+              ),
+            );
+          },
         ),
-        itemCount: entries.length,
-        separatorBuilder: (context, index) =>
-            const SizedBox(height: AppSpacing.cardGap),
-        itemBuilder: (context, index) {
-          final entry = entries[index];
-          // F20 §8：首次渲染交错入场（前 6 项每项 +30ms，TranslationY +20dp → 0）；
-          // 切 tab / 下拉刷新只是原地重建，State 保留故不重复触发（§1）。
-          return StaggeredListAppear(
-            index: index,
-            slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
-            child: SetRowCard(
-              title: entry.title,
-              subtitle: entry.subtitle,
-              trailing: SetRowTags(labels: entry.tags),
-              onTap: () => _openSetDetail(entry),
-            ),
-          );
-        },
+      ),
+    );
+  }
+
+  /// F27：套卷列表骨架——与真实列表同一 padding / 间距 / 卡高
+  /// （[AppSizes.setRowMinHeight]），内容到达时不产生布局位移。
+  Widget _buildSetsSkeleton() {
+    return ListView.separated(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md + AppSpacing.contentInset,
+        AppSpacing.sm,
+        AppSpacing.md + AppSpacing.contentInset,
+        AppSizes.homeBottomPad,
+      ),
+      itemCount: 5,
+      separatorBuilder: (context, index) =>
+          const SizedBox(height: AppSpacing.cardGap),
+      itemBuilder: (context, index) => const LoadingSkeleton(
+        height: AppSizes.setRowMinHeight,
+        borderRadius: AppRadii.card,
       ),
     );
   }
@@ -400,11 +457,8 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   }
 
   Widget _buildResults(ThemeData theme) {
-    if (_searching) {
-      return const Center(child: CircularProgressIndicator());
-    }
     final results = _results;
-    if (results.isEmpty) {
+    if (!_searching && results.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -420,45 +474,91 @@ class BankModuleListPageState extends State<BankModuleListPage> {
         ),
       );
     }
+    // F27：搜索中显示与结果卡同形的骨架（不再用居中进度圈），结果到达淡入。
+    return SkeletonToContent(
+      loaded: !_searching,
+      skeleton: _buildResultsSkeleton(theme),
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md + AppSpacing.contentInset,
+          AppSpacing.sm,
+          AppSpacing.md + AppSpacing.contentInset,
+          AppSizes.homeBottomPad,
+        ),
+        itemCount: results.length,
+        itemBuilder: (context, index) {
+          final q = results[index];
+          // F20 §8：搜索结果同样是列表项，首次上屏交错入场；输入过滤时已存在的
+          // 项保留 State，不重新播放。
+          return StaggeredListAppear(
+            index: index,
+            slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
+            child: Card(
+              margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.card),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+              child: ListTile(
+                title: Text(
+                  q.stem,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  '${moduleLabel(q.module)} · ${_typeLabel(q.type)}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).pushNamed(
+                  AppRoutes.bankQuiz,
+                  arguments: <String, Object?>{
+                    'mode': 'single',
+                    'questionId': q.id,
+                  },
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// F27：搜索结果骨架——与结果卡同一 margin / 圆角 / 描边，卡内按
+  /// 题干 + 副标题两行占位。
+  Widget _buildResultsSkeleton(ThemeData theme) {
     return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md + AppSpacing.contentInset,
         AppSpacing.sm,
         AppSpacing.md + AppSpacing.contentInset,
         AppSizes.homeBottomPad,
       ),
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final q = results[index];
-        // F20 §8：搜索结果同样是列表项，首次上屏交错入场；输入过滤时已存在的
-        // 项保留 State，不重新播放。
-        return StaggeredListAppear(
-          index: index,
-          slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
-          child: Card(
-            margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadii.card),
-              side: BorderSide(color: theme.colorScheme.outlineVariant),
-            ),
-            child: ListTile(
-              title: Text(q.stem, maxLines: 2, overflow: TextOverflow.ellipsis),
-              subtitle: Text(
-                '${moduleLabel(q.module)} · ${_typeLabel(q.type)}',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).pushNamed(
-                AppRoutes.bankQuiz,
-                arguments: <String, Object?>{
-                  'mode': 'single',
-                  'questionId': q.id,
-                },
-              ),
-            ),
+      itemCount: 4,
+      itemBuilder: (context, index) => Card(
+        margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
           ),
-        );
-      },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LoadingSkeleton(height: 16, width: 220),
+              SizedBox(height: AppSpacing.xs),
+              LoadingSkeleton(height: 12, width: 140),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

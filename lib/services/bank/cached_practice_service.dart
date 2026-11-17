@@ -29,6 +29,24 @@ class CachedPracticeService implements PracticeService {
   final BankLocalCache cache;
   final BankQuestionBankSource? bankSource;
 
+  /// F27 预测性预热：前置页在后台把 setId 的整套题库拉进本地缓存，
+  /// 首题抽题（drawNextQuestion 冷缓存路径）不再等网络。与抽题共用同一
+  /// 数据源与缓存键；已有缓存直接短路，失败静默（抽题时照常兜底）。
+  /// 纯读 + 写缓存，不创建会话、不判分、不改已答集合。
+  Future<void> warmQuestionBank({required String setId, String? module}) async {
+    final source = bankSource;
+    if (source == null || setId.isEmpty) return;
+    if (await cache.hasQuestions(setId)) return;
+    try {
+      final bank = await source.fetchQuestions(setId: setId, module: module);
+      if (bank.isNotEmpty) {
+        await cache.writeQuestions(setId: setId, questions: bank);
+      }
+    } catch (_) {
+      // 预热失败不阻断：抽题时走原有冷缓存 / /practice/next 兜底。
+    }
+  }
+
   @override
   Future<PracticeNext?> drawNextQuestion({
     required String setId,

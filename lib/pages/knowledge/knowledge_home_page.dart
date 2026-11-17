@@ -8,7 +8,9 @@ import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/knowledge_point.dart';
 import '../../router/app_router.dart';
+import '../../services/knowledge/knowledge_detail_preload.dart';
 import '../../widgets/app_search_bar.dart';
+import '../../widgets/loading_skeleton.dart';
 import '../../widgets/page_header.dart';
 
 /// 知识库页（R7：按 06_knowledge mockup 重排：页头 + 搜索 + 章卡片 + 节 + 知识点行）。
@@ -112,6 +114,30 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
         ..addAll(collapsedSections);
       _loading = false;
     });
+    _preloadFirstPoint();
+  }
+
+  /// F27 预测性预加载：知识库页最可能的下一步是打开第一个知识点的详情，
+  /// 后台预取该点内容。只预取这一个目标；失败静默，详情页骨架兜底。
+  void _preloadFirstPoint() {
+    for (final chapter in _chapters) {
+      for (final section in _sections[chapter.id] ?? const <Section>[]) {
+        final points = _points[section.id] ?? const <KnowledgePoint>[];
+        if (points.isEmpty) continue;
+        _startDetailPreload(points.first.id);
+        return;
+      }
+    }
+  }
+
+  /// F27：详情预加载统一入口，容错——任何失败都不阻塞当前页与导航。
+  void _startDetailPreload(String kpId) {
+    try {
+      KnowledgeDetailPreload.start(
+        kpId: kpId,
+        repository: ServiceLocator.knowledgeRepository,
+      );
+    } catch (_) {}
   }
 
   List<String> _readIdList(String key) {
@@ -229,11 +255,14 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
     return Scaffold(
       backgroundColor: AppColors.pageBackground(context),
       body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _chapters.isEmpty
-            ? const Center(child: Text('暂无知识点，请更新'))
-            : ListView(
+        // F27：加载中显示页头 + 章卡片同构骨架（不再用居中进度圈），
+        // 数据到达后真实内容淡入；空态保持原有诚实文案。
+        child: SkeletonToContent(
+          loaded: !_loading,
+          skeleton: _buildSkeletonBody(),
+          child: _chapters.isEmpty
+              ? const Center(child: Text('暂无知识点，请更新'))
+              : ListView(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.md,
                   AppSpacing.sm,
@@ -259,6 +288,82 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
                     ..._buildChapterList(),
                 ],
               ),
+        ),
+      ),
+    );
+  }
+
+  /// F27：知识库骨架——页头与搜索条是静态 chrome，原样保留；章卡片按
+  /// 真实卡同装饰（底色 / 圆角 / 描边）占位：章头同高 + 两个知识点行同高。
+  Widget _buildSkeletonBody() {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSizes.homeBottomPad,
+      ),
+      children: [
+        const PageHeader(
+          title: '知识库',
+          subtitle: 'H3CNE 考点 · 章 / 节 / 知识点',
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _buildSearch(),
+        const SizedBox(height: AppSpacing.md),
+        for (var i = 0; i < 2; i++) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.contentInset,
+            ),
+            child: _buildChapterSkeleton(),
+          ),
+          if (i < 1) const SizedBox(height: AppSpacing.chapterGap),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildChapterSkeleton() {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(AppRadii.chapterCard),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: AppSizes.chapterCardHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: LoadingSkeleton(
+                  height: AppFontSizes.entryTitle,
+                  width: 160,
+                ),
+              ),
+            ),
+          ),
+          for (var i = 0; i < 2; i++)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                AppSpacing.xs,
+              ),
+              child: LoadingSkeleton(
+                height: AppSizes.pointRowHeight,
+                borderRadius: AppRadii.pointRow,
+              ),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
       ),
     );
   }
@@ -579,16 +684,20 @@ class _KnowledgeHomePageState extends State<KnowledgeHomePage> {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () => Navigator.of(context).pushNamed(
-                  AppRoutes.knowledgePoint,
-                  arguments: <String, Object?>{
-                    'kpId': point.id,
-                    'sectionId': section.id,
-                    'chapterTitle': chapter.title,
-                    'sectionTitle': section.title,
-                    'returnTo': 'knowledge',
-                  },
-                ),
+                onPressed: () {
+                  // F27：导航前先后台预取该知识点详情（不等待、不阻塞导航）。
+                  _startDetailPreload(point.id);
+                  Navigator.of(context).pushNamed(
+                    AppRoutes.knowledgePoint,
+                    arguments: <String, Object?>{
+                      'kpId': point.id,
+                      'sectionId': section.id,
+                      'chapterTitle': chapter.title,
+                      'sectionTitle': section.title,
+                      'returnTo': 'knowledge',
+                    },
+                  );
+                },
                 child: const Text('查看详情'),
               ),
             ],

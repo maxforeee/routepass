@@ -11,7 +11,8 @@ import '../../core/service_locator.dart';
 import '../../core/theme.dart';
 import '../../models/answer_record.dart';
 import '../../models/practice.dart';
-import '../../services/bank/practice_service.dart';
+import '../../services/bank/record_paper_preload.dart';
+import '../../widgets/loading_skeleton.dart';
 import 'answer_widgets.dart';
 
 class AnswerRecordPaperPage extends StatefulWidget {
@@ -71,7 +72,12 @@ class _AnswerRecordPaperPageState extends State<AnswerRecordPaperPage> {
     });
     PracticeRecordPaper? paper;
     try {
-      paper = await _practiceService.getRecordPaper(sessionId);
+      // F27：记录详情页已预取试卷时就绪 / 在途直接消费，不重复请求；
+      // 无预加载（含重试）时 consume 内部原样 getRecordPaper，行为不变。
+      paper = await RecordPaperPreload.consume(
+        sessionId: sessionId,
+        service: _practiceService,
+      );
     } catch (_) {
       // 离线 / 未登录：显示重试态，不抛给 UI。
       paper = null;
@@ -153,9 +159,6 @@ class _AnswerRecordPaperPageState extends State<AnswerRecordPaperPage> {
   }
 
   Widget _buildBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
     if (_sessionId.isEmpty) {
       return _emptyState(
         icon: Icons.description_outlined,
@@ -172,15 +175,38 @@ class _AnswerRecordPaperPageState extends State<AnswerRecordPaperPage> {
       );
     }
     final items = _paper?.items ?? const <PracticePaperItem>[];
-    if (items.isEmpty) {
+    if (!_loading && items.isEmpty) {
       return _emptyState(
         icon: Icons.description_outlined,
         title: '这条记录没有已作答的题目',
         caption: '完成作答后即可查看试卷。',
       );
     }
+    // F27：加载中显示与题目卡同构的骨架（不再用居中进度圈），卷面到达淡入。
     // 与答题页回顾同一做法：整卷一次性构建（记录最多 20 题），滚动浏览。
+    return SkeletonToContent(
+      loaded: !_loading,
+      skeleton: _buildPaperSkeleton(),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        children: [
+          for (var i = 0; i < items.length; i++)
+            _PaperQuestionCard(index: i, item: items[i]),
+        ],
+      ),
+    );
+  }
+
+  /// F27：试卷骨架——与单题回顾卡同一 margin / 内边距 / 卡面装饰，
+  /// 按题头 / 题干 / 选项 / 解析的结构占位。
+  Widget _buildPaperSkeleton() {
     return ListView(
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
         0,
@@ -188,8 +214,42 @@ class _AnswerRecordPaperPageState extends State<AnswerRecordPaperPage> {
         AppSpacing.md,
       ),
       children: [
-        for (var i = 0; i < items.length; i++)
-          _PaperQuestionCard(index: i, item: items[i]),
+        for (var i = 0; i < 2; i++)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.cardSurface(context),
+              borderRadius: BorderRadius.circular(AppRadii.card),
+              border: Border.all(color: AppColors.cardBorder(context)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    LoadingSkeleton(height: AppFontSizes.detailBody, width: 60),
+                    SizedBox(width: AppSpacing.xs),
+                    LoadingSkeleton(height: AppFontSizes.detailStat, width: 32),
+                    Spacer(),
+                    LoadingSkeleton(height: AppFontSizes.detailStat, width: 48),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const LoadingSkeleton(height: 24),
+                const SizedBox(height: AppSpacing.xs),
+                const LoadingSkeleton(height: 24, width: 260),
+                const SizedBox(height: AppSpacing.md),
+                for (var j = 0; j < 4; j++)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: LoadingSkeleton(height: 44),
+                  ),
+                const LoadingSkeleton(height: 64),
+              ],
+            ),
+          ),
       ],
     );
   }

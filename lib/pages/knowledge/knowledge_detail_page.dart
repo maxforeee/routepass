@@ -10,6 +10,8 @@ import '../../core/theme.dart';
 import '../../models/knowledge_point.dart';
 import '../../models/question.dart';
 import '../../router/app_router.dart';
+import '../../services/knowledge/knowledge_detail_preload.dart';
+import '../../widgets/loading_skeleton.dart';
 
 /// 知识详情页（第 3 章 §22.8）。
 ///
@@ -65,7 +67,12 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
   Future<void> _load() async {
     KnowledgePoint? point;
     try {
-      point = await ServiceLocator.knowledgeRepository.getPointDetail(_kpId);
+      // F27：知识库页已预取该点详情时就绪 / 在途直接消费，不重复请求；
+      // 无预加载时 consume 内部原样 getPointDetail，行为不变。
+      point = await KnowledgeDetailPreload.consume(
+        kpId: _kpId,
+        repository: ServiceLocator.knowledgeRepository,
+      );
     } catch (_) {
       point = null;
     }
@@ -110,6 +117,27 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
       _loading = false;
       _notFound = point == null;
     });
+    _preloadNextSibling();
+  }
+
+  /// F27 预测性预加载：详情页最可能的下一步是「下一知识点」，后台预取
+  /// 同节下一个点的内容。只预取这一个目标；失败静默，切换时骨架兜底。
+  void _preloadNextSibling() {
+    final point = _point;
+    if (point == null || _sectionId == null) return;
+    final index = _siblings.indexWhere((p) => p.id == point.id);
+    if (index < 0 || index >= _siblings.length - 1) return;
+    _startDetailPreload(_siblings[index + 1].id);
+  }
+
+  /// F27：详情预加载统一入口，容错——任何失败都不阻塞当前页与导航。
+  void _startDetailPreload(String kpId) {
+    try {
+      KnowledgeDetailPreload.start(
+        kpId: kpId,
+        repository: ServiceLocator.knowledgeRepository,
+      );
+    } catch (_) {}
   }
 
   void _toggleMastered(bool value) {
@@ -139,7 +167,9 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
   }
 
   /// D-12 上一/下一：栈里只留一个详情页（pushReplacementNamed）。
+  /// F27：切换前先后台预取目标点详情（不等待、不阻塞导航）。
   void _openSibling(KnowledgePoint point) {
+    _startDetailPreload(point.id);
     Navigator.of(context).pushReplacementNamed(
       AppRoutes.knowledgePoint,
       arguments: <String, Object?>{
@@ -154,10 +184,7 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (_notFound || _point == null) {
+    if (_notFound || (!_loading && _point == null)) {
       return Scaffold(
         body: Center(
           child: Column(
@@ -174,10 +201,19 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
         ),
       );
     }
-    final point = _point!;
+    final point = _point;
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
+        // F27：加载中显示与内容同构的骨架（不再用居中进度圈），数据到达淡入。
+        child: SkeletonToContent(
+          loaded: !_loading && point != null,
+          skeleton: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: const _DetailSkeleton(),
+          ),
+          child: point == null
+              ? const SizedBox.shrink()
+              : SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,6 +261,7 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -520,6 +557,63 @@ class _KnowledgeDetailPageState extends State<KnowledgeDetailPage> {
               child: const Text('下一知识点'),
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// F27：知识详情骨架——按真实首屏结构占位：返回行 / 面包屑 / 标题 /
+/// 元信息 / 分隔线 / 正文行 / 命令卡 / 关联题目 / 底部练一练按钮。
+/// 正文为变长 Markdown，骨架按一屏典型高度占位，内容到达后淡入。
+class _DetailSkeleton extends StatelessWidget {
+  const _DetailSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(
+          height: 48,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: LoadingSkeleton(height: 20, width: 100),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const LoadingSkeleton(height: 12, width: 220),
+        const SizedBox(height: 12),
+        const LoadingSkeleton(height: 22, width: 200),
+        const SizedBox(height: 8),
+        const Row(
+          children: [
+            Expanded(child: LoadingSkeleton(height: 12)),
+            SizedBox(width: 8),
+            LoadingSkeleton(height: 24, width: 48),
+          ],
+        ),
+        const Divider(height: 24),
+        for (var i = 0; i < 6; i++)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: LoadingSkeleton(height: 24),
+          ),
+        const SizedBox(height: 16),
+        const LoadingSkeleton(height: 64),
+        const SizedBox(height: 16),
+        const LoadingSkeleton(height: 16, width: 80),
+        const SizedBox(height: 8),
+        for (var i = 0; i < 2; i++)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: LoadingSkeleton(height: 48),
+          ),
+        const SizedBox(height: 12),
+        const SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: LoadingSkeleton(height: 48),
         ),
       ],
     );

@@ -21,6 +21,8 @@ import '../../router/app_router.dart';
 import '../../services/bank/answer_record_service.dart';
 import '../../services/bank/answer_session_service.dart';
 import '../../services/bank/practice_service.dart';
+import '../../services/bank/record_paper_preload.dart';
+import '../../widgets/loading_skeleton.dart';
 
 class AnswerRecordDetailPage extends StatefulWidget {
   const AnswerRecordDetailPage({
@@ -47,6 +49,10 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
   PracticeRecordDetail? _detail;
   bool _deleting = false;
 
+  /// F27：服务端详情在途时，摘要数值与薄弱点显示同尺寸骨架，到达后淡入；
+  /// 无 serverId（纯本地记录）不进入加载态，直接显示本地摘要。
+  bool _detailLoading = false;
+
   late final PracticeService _practiceService;
   late final AnswerRecordService _recordService;
   late final AnswerSessionService _sessionService;
@@ -69,12 +75,20 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
   Future<void> _load() async {
     final serverId = _record?.serverId;
     if (serverId == null || serverId.isEmpty) return;
+    // 只在 initState 调用：首帧即加载态，直接赋值，不用 setState。
+    _detailLoading = true;
     try {
       final detail = await _practiceService.getRecordDetail(serverId);
-      if (!mounted || detail == null) return;
-      setState(() => _detail = detail);
+      if (!mounted) return;
+      // detail 为 null（接口未就绪）时保留本地摘要，骨架照常退场。
+      setState(() {
+        _detail = detail;
+        _detailLoading = false;
+      });
     } catch (_) {
       // 离线 / 未登录：保留本地摘要，不抛给 UI。
+      if (!mounted) return;
+      setState(() => _detailLoading = false);
     }
   }
 
@@ -157,6 +171,14 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
   void _openPaper() {
     final record = _record;
     if (record == null) return;
+    // F27：导航前先后台预取试卷数据（不等待、不阻塞导航）；失败由试卷页
+    // 自身的骨架 → 重试态兜底。
+    try {
+      RecordPaperPreload.start(
+        sessionId: record.serverId ?? '',
+        service: _practiceService,
+      );
+    } catch (_) {}
     Navigator.of(context).pushNamed(
       AppRoutes.bankRecordPaper,
       arguments: <String, Object?>{
@@ -246,6 +268,7 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
                                 examScore: record.mode == 'exam'
                                     ? record.score
                                     : null,
+                                loading: _detailLoading,
                               ),
                               const SizedBox(height: AppSpacing.lg),
                               Text(
@@ -257,7 +280,10 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.md),
-                              _WeakPoints(detail: _detail),
+                              _WeakPoints(
+                                detail: _detail,
+                                loading: _detailLoading,
+                              ),
                               const SizedBox(height: AppSpacing.lg),
                               _PaperEntry(onTap: _openPaper),
                             ],
@@ -300,6 +326,8 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
 }
 
 /// 摘要卡：与前置页记录卡同风格（卡面填充 + 边框圆角）。
+/// F27：服务端详情在途时数值列显示同高骨架，到达后淡入（标签列是静态
+/// 文案，照常显示）；行高不变，无布局位移。
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
     required this.answered,
@@ -307,6 +335,7 @@ class _SummaryCard extends StatelessWidget {
     required this.correct,
     required this.scorePercent,
     required this.examScore,
+    this.loading = false,
   });
 
   final int answered;
@@ -316,6 +345,7 @@ class _SummaryCard extends StatelessWidget {
   final int? correct;
   final int? scorePercent;
   final int? examScore;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -332,17 +362,19 @@ class _SummaryCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _SummaryRow(label: '答题数', value: answeredText),
+          _SummaryRow(label: '答题数', value: answeredText, loading: loading),
           const SizedBox(height: AppSpacing.xs),
           _SummaryRow(
             label: '答对',
             value: correct == null ? '--' : '$correct 题',
+            loading: loading,
           ),
           const SizedBox(height: AppSpacing.xs),
           _SummaryRow(
             label: '正确率',
             value: scorePercent == null ? '--' : '$scorePercent%',
             valueColor: AppColors.success(context),
+            loading: loading,
           ),
           if (examScore != null) ...[
             const SizedBox(height: AppSpacing.xs),
@@ -359,11 +391,13 @@ class _SummaryRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.valueColor,
+    this.loading = false,
   });
 
   final String label;
   final String value;
   final Color? valueColor;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -378,12 +412,19 @@ class _SummaryRow extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: AppFontSizes.detailBody,
-            fontWeight: FontWeight.w600,
-            color: valueColor ?? AppColors.title(context),
+        SkeletonToContent(
+          loaded: !loading,
+          skeleton: const LoadingSkeleton(
+            height: AppFontSizes.detailBody,
+            width: 56,
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: AppFontSizes.detailBody,
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? AppColors.title(context),
+            ),
           ),
         ),
       ],
@@ -393,10 +434,12 @@ class _SummaryRow extends StatelessWidget {
 
 /// 薄弱点：服务端详情里答错最多的模块。没有详情显示“待接口”，
 /// 全对显示明确的“没有薄弱点”，绝不虚构。
+/// F27：详情在途时显示两行同字号骨架，到达后淡入（含“待接口”诚实态）。
 class _WeakPoints extends StatelessWidget {
-  const _WeakPoints({required this.detail});
+  const _WeakPoints({required this.detail, this.loading = false});
 
   final PracticeRecordDetail? detail;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -405,41 +448,56 @@ class _WeakPoints extends StatelessWidget {
       color: AppColors.cardCaption(context),
     );
     final detail = this.detail;
+    final Widget content;
     if (detail == null) {
-      return Text('薄弱点待接口', style: captionStyle);
-    }
-    if (detail.weakPoints.isEmpty) {
-      return Text('本次练习没有薄弱点', style: captionStyle);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final point in detail.weakPoints) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  point.module.isEmpty ? '全部模块' : moduleLabel(point.module),
-                  style: TextStyle(
-                    fontSize: AppFontSizes.detailBody,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.title(context),
+      content = Text('薄弱点待接口', style: captionStyle);
+    } else if (detail.weakPoints.isEmpty) {
+      content = Text('本次练习没有薄弱点', style: captionStyle);
+    } else {
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final point in detail.weakPoints) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    point.module.isEmpty
+                        ? '全部模块'
+                        : moduleLabel(point.module),
+                    style: TextStyle(
+                      fontSize: AppFontSizes.detailBody,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.title(context),
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                '错 ${point.wrong}/${point.total} 题',
-                style: TextStyle(
-                  fontSize: AppFontSizes.detailStat,
-                  color: AppColors.warning(context),
+                Text(
+                  '错 ${point.wrong}/${point.total} 题',
+                  style: TextStyle(
+                    fontSize: AppFontSizes.detailStat,
+                    color: AppColors.warning(context),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          if (point != detail.weakPoints.last)
-            const SizedBox(height: AppSpacing.xs),
+              ],
+            ),
+            if (point != detail.weakPoints.last)
+              const SizedBox(height: AppSpacing.xs),
+          ],
         ],
-      ],
+      );
+    }
+    return SkeletonToContent(
+      loaded: !loading,
+      skeleton: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LoadingSkeleton(height: AppFontSizes.detailBody, width: 180),
+          SizedBox(height: AppSpacing.xs),
+          LoadingSkeleton(height: AppFontSizes.detailStat, width: 120),
+        ],
+      ),
+      child: content,
     );
   }
 }
