@@ -111,7 +111,7 @@ class _RecordingRepo extends QuestionRepository {
   final List<String>? starts;
   final Completer<void>? gate;
   final List<ModuleStat> modules = const <ModuleStat>[];
-  final BankSetOverview? overview;
+  final BankSetOverview? overview = null;
 
   int modulesCalls = 0;
 
