@@ -5,6 +5,8 @@
 /// 下限 200、上限可视高 × [maxHeightFactor]；超过上限时卡内滚动。
 library;
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
@@ -194,6 +196,9 @@ class _RecordRow extends StatelessWidget {
     final progress = record.targetCount <= 0
         ? 0.0
         : (record.answeredCount / record.targetCount).clamp(0.0, 1.0);
+    // F32：达标后继续答题，完成记录的已答数会超过目标（数据如实），
+    // 分母取两者较大值，不再显示 21/20 这种假比例。
+    final denominator = max(record.targetCount, record.answeredCount);
     final correct = record.correctCount;
     final right = record.isBreakpoint
         ? TextButton(
@@ -233,7 +238,7 @@ class _RecordRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '$_kindLabel · ${record.answeredCount}/${record.targetCount} 题',
+                    '$_kindLabel · ${record.answeredCount}/$denominator 题',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

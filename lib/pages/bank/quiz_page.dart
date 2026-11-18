@@ -1457,7 +1457,10 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
           ? '本次 · 已答 $_answeredCount/$_total 题'
           : '本次 · 得分 $_score';
     }
-    return '本次 · 已答 $_answeredCount/$_target 题 · 答对 $_correctCount 题';
+    // F32：达标后「继续答题」会让已答数超过目标（数据如实：answeredCount
+    // 可以 > targetCount），分母跟着已答数长大，不再显示 21/20 这种假比例。
+    final denominator = max(_target, _answeredCount);
+    return '本次 · 已答 $_answeredCount/$denominator 题 · 答对 $_correctCount 题';
   }
 
   @override
@@ -1656,7 +1659,14 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
                   currentSummary: _currentSummary,
                   maxHeightFactor: AppSizes.recordsCardMaxHeightFactorQuiz,
                 ),
-                AnalysisCard(question: q, result: result, chosen: chosen),
+                AnalysisCard(
+                  question: q,
+                  result: result,
+                  chosen: chosen,
+                  // F32：考试回顾卷面不含答案，「正确答案」行用服务端判分
+                  // 明细（_resultFor 已把 grade.answer 并进 correctKeys）。
+                  correctAnswerOverride: _isExam ? result.correctKeys : null,
+                ),
                 if ((_questionPoints[q.id] ?? const <KnowledgePoint>[])
                     .isNotEmpty)
                   _buildKnowledgeChip(_questionPoints[q.id]!.first),

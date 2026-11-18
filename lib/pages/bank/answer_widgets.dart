@@ -373,6 +373,7 @@ class AnalysisCard extends StatefulWidget {
     required this.result,
     required this.chosen,
     this.sampleData = true,
+    this.correctAnswerOverride,
   });
 
   final Question question;
@@ -381,6 +382,11 @@ class AnalysisCard extends StatefulWidget {
 
   /// Mock 数据显示「样例数据」标注；真实服务端数据（F25 试卷回顾）传 false。
   final bool sampleData;
+
+  /// F32：考试回顾的卷面不含答案（q.answer 为空），正确答案在服务端判分
+  /// 明细里；调用方把判分答案传进来，「正确答案」行优先显示它。不传 / 为空
+  /// 保持原行为（题目自带答案 → 样例占位），Mock 样例路径不受影响。
+  final List<String>? correctAnswerOverride;
 
   @override
   State<AnalysisCard> createState() => _AnalysisCardState();
@@ -393,7 +399,10 @@ class _AnalysisCardState extends State<AnalysisCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final q = widget.question;
-    final correctText = q.answer.isEmpty ? '样例数据，无答案' : q.answer.join('、');
+    final override = widget.correctAnswerOverride;
+    final correctText = override != null && override.isNotEmpty
+        ? override.join('、')
+        : (q.answer.isEmpty ? '样例数据，无答案' : q.answer.join('、'));
     return Card(
       margin: const EdgeInsets.only(top: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
