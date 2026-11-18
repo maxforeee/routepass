@@ -63,7 +63,7 @@ Map<String, Object?> _bankQuestion({String? explanation}) => <String, Object?>{
   'stem': 'OSPF 邻居建立失败时，首先应检查下列哪一项？',
   'options': <String>['Hello 参数是否一致', '路由表大小', '设备型号', '电源状态'],
   'answer': <int>[0],
-  if (explanation != null) 'explanation': explanation,
+  'explanation': ?explanation,
 };
 
 Map<String, Object?> _bankPage(Map<String, Object?> question) =>
@@ -183,9 +183,8 @@ void main() {
         _bankQuestion(explanation: ''),
       ]) {
         final client = MockClient((request) async => _json(_bankPage(payload)));
-        final q = await _service(client).questionForDate(
-          DateTime(2026, 11, 18),
-        );
+        final q = await _service(client)
+            .questionForDate(DateTime(2026, 11, 18));
         expect(q.explanation == null || q.explanation!.isEmpty, isTrue);
       }
     });
