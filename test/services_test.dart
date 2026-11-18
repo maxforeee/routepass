@@ -360,6 +360,10 @@ http.Client _fakeBankClient(
 }) {
   return MockClient((request) async {
     log?.add(request.url);
+    // F34 B10：模拟随机端点未部署（404），抽题回退两步拒绝采样。
+    if (request.url.path != '/api/v1/bank/questions') {
+      return http.Response('not found', 404);
+    }
     final page = int.parse(request.url.queryParameters['page'] ?? '1');
     return http.Response(
       jsonEncode(<String, dynamic>{
