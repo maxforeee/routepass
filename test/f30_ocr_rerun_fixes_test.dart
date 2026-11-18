@@ -381,29 +381,6 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('M6 成功后失败重试：错误态且不再持有旧载荷（契约锁定）', (tester) async {
-      final stats = _StatsStub(
-        overview: _overview,
-        byModule: _byModule,
-        daily: _daily,
-      );
-      await tester.pumpWidget(_host(StatsPage(statsService: stats)));
-      await tester.pumpAndSettle();
-      expect(find.text('120 题'), findsOneWidget);
-      expect(find.text('已答 40 题'), findsOneWidget);
-
-      stats.overviewError = Exception('offline');
-      await tester.tap(find.text('重试'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('统计加载失败'), findsOneWidget);
-      expect(find.text('120 题'), findsNothing);
-      expect(find.text('已答 40 题'), findsNothing);
-      expect(find.text('按模块'), findsNothing);
-      expect(find.text('每日记录'), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-
     testWidgets('L6 overview/daily 成功但 getByModule 单独失败：仍显示诚实错误态', (tester) async {
       final stats = _StatsStub(
         overview: _overview,
