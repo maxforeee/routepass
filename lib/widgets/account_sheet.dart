@@ -230,9 +230,11 @@ class _AccountSheetState extends State<AccountSheet> {
                 context,
                 icon: Icons.info_outline,
                 title: '内容版本',
+                // F34 A10：真实内容清单（/content/manifest）的版本对 /
+                // 题库 / 知识库版本与题目总数；回落 Mock 时仍是原常量。
                 subtitle: _contentVersion == null
                     ? null
-                    : '题库 ${_contentVersion!.bank_version} · 知识库 ${_contentVersion!.knowledge_version}',
+                    : '题库 ${_contentVersion!.bank_version} · 知识库 ${_contentVersion!.knowledge_version} · 共 ${_contentVersion!.bank_count} 题（版本对 ${_contentVersion!.pair_seq}）',
               ),
               if (user != null)
                 _item(

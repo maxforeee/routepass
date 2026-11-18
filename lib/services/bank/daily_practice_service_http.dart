@@ -181,6 +181,7 @@ class HttpDailyPracticeService implements DailyPracticeService {
 
   /// 后端题 → [DailyQuestion]：options 纯字符串 → A/B/C/D… key，
   /// answer[0]（0 基下标）→ correctKey。缺选项/答案或下标越界返回 null。
+  /// explanation 原样保留（可空，F34 A1）；没有解析的题为 null，不编造。
   DailyQuestion? _mapQuestion(Map<String, dynamic> json) {
     final options = (json['options'] as List<dynamic>).cast<String>();
     final answer = json['answer'] as List<dynamic>;
@@ -195,6 +196,7 @@ class HttpDailyPracticeService implements DailyPracticeService {
           QuestionOption(key: _letter(i), text: options[i]),
       ],
       correctKey: _letter(index),
+      explanation: json['explanation'] as String?,
     );
   }
 

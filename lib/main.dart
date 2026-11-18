@@ -22,6 +22,7 @@ import 'services/bank/rotation_service.dart';
 import 'services/bank/stats_service.dart';
 import 'services/bank/sync_http_service.dart';
 import 'services/bank/wrong_service.dart';
+import 'services/content/content_service_http.dart';
 import 'services/knowledge/knowledge_repo_http.dart';
 import 'services/knowledge/search_service_http.dart';
 import 'services/mock/mock_cli_service.dart';
@@ -162,7 +163,14 @@ Future<void> main() async {
       tokenProvider: cachedToken,
       localCache: localCache,
     ),
-    contentService: MockContentService(),
+    // F34：内容清单 / 能力声明 / 探活接真实契约（GET /content/manifest +
+    // /meta/capabilities + /meta/health）；未登录 / 离线 / 接口未就绪时
+    // 回落 Mock。升级检查后端无契约字段，恒走 Mock（ok，不编强制升级）。
+    contentService: HttpContentService(
+      fallback: MockContentService(),
+      client: authClient,
+      tokenProvider: cachedToken,
+    ),
   );
   runApp(const RoutePassApp());
 }

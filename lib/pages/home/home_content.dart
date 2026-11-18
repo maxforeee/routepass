@@ -752,6 +752,20 @@ class _DailyPracticeCard extends StatelessWidget {
                   ),
                 ),
               if (_locked) ...[
+                // F34 A1：解析来自后端 explanation；没有解析的题不显示
+                // 任何解析文案（不编造、不放占位）。
+                if ((question.explanation ?? '').isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    '解析：${question.explanation}',
+                    key: const ValueKey('daily-explanation'),
+                    style: TextStyle(
+                      fontSize: AppFontSizes.dailyOption,
+                      height: 1.6,
+                      color: AppColors.cardSecondary(context),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   '已锁定，明天刷新',
