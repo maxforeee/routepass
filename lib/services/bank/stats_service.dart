@@ -68,6 +68,9 @@ class HttpStatsService implements StatsService {
   Future<StatsOverview> getOverview() async {
     final data = await _get('/api/v1/stats/overview');
     if (data == null) {
+      // F30：overview 回落兜底时派生缓存一并失效——否则 getByModule
+      // 仍返回上一次成功的旧模块列表，与兜底 overview 不一致。
+      _byModuleCache = null;
       final local = fallback;
       if (local == null) {
         throw const StatsServiceException('统计总览不可用');

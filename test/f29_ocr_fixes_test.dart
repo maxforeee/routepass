@@ -336,6 +336,9 @@ void main() {
       // 串行旧实现此刻只有 getOverview 在途；并行后两者同时发起。
       expect(stats.overviewCalls, 1);
       expect(stats.dailyCalls, 1);
+      // F30 注：byModule 刻意保持在 overview 之后——它复用 getOverview
+      // warmed 的派生缓存（后端无独立 by-module 接口，不多发请求）。
+      // 本断言锁定该派生缓存契约；若将来改为并行独立请求，应同步更新。
       expect(stats.byModuleCalls, 0);
 
       gate.complete();
@@ -366,8 +369,6 @@ void main() {
         for (final e in skeletonRows.evaluate())
           (e.renderObject! as RenderBox).size.height,
       ];
-      // bodyMedium 16sp × 1.5 = 24px 行盒（加上下各 4 padding 即真实行的 32px）。
-      expect(skeletonRowHeights, everyElement(24.0));
       final skeletonTitle = tester.getSize(
         find
             .descendant(
@@ -376,7 +377,6 @@ void main() {
             )
             .first,
       );
-      expect(skeletonTitle.height, 24.0);
 
       gate.complete();
       await tester.pumpAndSettle();
@@ -390,8 +390,12 @@ void main() {
       ];
       // 无布局位移的核心不变量：骨架行与真实行逐行同高。
       expect(realRowHeights, skeletonRowHeights);
-      // 标题 titleMedium 18sp × 1.4 ≈ 25px，骨架 24 为近似占位（±2px 内）。
-      expect(tester.getSize(find.text('总览')).height, closeTo(24, 2));
+      // F30：标题骨架只与真实标题行盒做容差交叉校验，不再锁死绝对
+      // 字体常量（16sp×1.5=24 之类）——字体度量 / 主题变化不误报。
+      expect(
+        tester.getSize(find.text('总览')).height,
+        closeTo(skeletonTitle.height, 1),
+      );
       expect(tester.takeException(), isNull);
     });
   });
@@ -473,12 +477,15 @@ void main() {
     });
 
     testWidgets('永不完成的 fetch 由兜底超时释放 key；迟到结果不污染新预载', (tester) async {
-      final slot = PreloadSlot<String>();
+      // F30：显式传短超时，不与 30s 默认常量耦合（默认改了本测试不碎）。
+      final slot = PreloadSlot<String>(
+        fetchTimeout: const Duration(seconds: 1),
+      );
       final stuck = Completer<String?>();
       slot.start('k', () => stuck.future);
       expect(slot.pending('k'), isNotNull);
 
-      await tester.pump(const Duration(seconds: 31));
+      await tester.pump(const Duration(seconds: 2));
       expect(slot.pending('k'), isNull);
 
       slot.start('k', () => Future<String?>.value('fresh'));
@@ -489,10 +496,23 @@ void main() {
       slot.debugClear();
     });
 
-    testWidgets('已就绪结果超龄即过期（readyTtl），不再无限期驻留', (tester) async {
-      final slot = PreloadSlot<String>(readyTtl: Duration.zero);
+    testWidgets('已就绪结果 TTL 内可用、超龄过期（readyTtl 新鲜度检查）', (tester) async {
+      // F30：非零 TTL——先验证 TTL 内命中，再验证超龄过期；
+      // Duration.zero 恒过期，只测得到退化情形。
+      final slot = PreloadSlot<String>(
+        readyTtl: const Duration(milliseconds: 100),
+      );
       slot.start('k', () => Future<String?>.value('v'));
       await tester.idle();
+      expect(slot.take('k'), 'v');
+
+      // DateTime.now() 是真实墙钟：fake pump 不推进它，
+      // 用 runAsync 真实等待超过 TTL 再验证过期。
+      slot.start('k', () => Future<String?>.value('v2'));
+      await tester.idle();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 250)),
+      );
       expect(slot.take('k'), isNull);
       expect(await slot.consume('k', () async => 'fallback'), 'fallback');
       slot.debugClear();
@@ -624,6 +644,9 @@ void main() {
         containsAll(<String>['modules', 'manifest', 'setStats', 'overview']),
       );
       expect(SetDetailPreload.pending('VLAN'), isNotNull);
+      // F30：gate 未开——四项全部在途且无一落定（拿不到就绪结果），
+      // 「并行」不只是已发起，而是同时处于 pending。
+      expect(SetDetailPreload.take('VLAN'), isNull);
 
       gate.complete();
       await tester.idle();

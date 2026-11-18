@@ -45,6 +45,8 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Future<void> _load() async {
+    // F30：重试按钮直接接 _load，页面已销毁时不得再 setState。
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _failed = false;
@@ -70,6 +72,11 @@ class _StatsPageState extends State<StatsPage> {
       setState(() {
         _loading = false;
         _failed = true;
+        // F30：失败即清空旧载荷——错误态是唯一事实来源，
+        // 之后的任何重建都不会把上一次的数据当新数据渲染。
+        _overview = null;
+        _byModule = const <ModuleStat>[];
+        _daily = const <DailyStats>[];
       });
     }
   }

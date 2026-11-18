@@ -24,6 +24,9 @@ class KnowledgeDetailPreload {
     if (kpId.isEmpty) return;
     // null = 知识点不存在 / 接口未就绪：槽位不落缓存（也不存失败 Future），
     // 详情页消费时回落重新拉取，失败语义是一个值而不是一次抛错。
+    // F30：有意不做负缓存——null 无法区分「不存在」与「离线 / 未就绪」，
+    // 短 TTL 负缓存会在离线窗口把详情页毒化成「不存在」（F29 修掉的原
+    // bug）；不存在时多一次回落请求是有意代价。
     _slot.start(kpId, () => repository.getPointDetail(kpId));
   }
 

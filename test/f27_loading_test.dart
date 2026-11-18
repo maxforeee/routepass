@@ -614,12 +614,23 @@ void main() {
       // F29：防抖 300ms，pump 留足余量（原 350ms 贴边，计时抖动敏感）。
       await tester.pump(const Duration(milliseconds: 500));
 
-      // F29：断言搜索专用骨架——4 张结果卡 × 2 行 = 8 个且都在 Card 内；
-      // 泛 findsWidgets 会被残留的套卷列表骨架（5 个裸骨架）蒙混过关。
-      expect(find.byType(LoadingSkeleton), findsNWidgets(8));
+      // F30：按卡形断言——4 张结果骨架卡、每卡恰好 2 行；不再依赖
+      // 全局总数 8（套卷骨架 itemCount / 视口裁剪变化不会误伤本断言），
+      // 裸骨架（无 Card）也混不进计数。
+      final skeletonCards = find.byType(Card);
+      expect(skeletonCards, findsNWidgets(4));
+      for (final card in skeletonCards.evaluate()) {
+        expect(
+          find.descendant(
+            of: find.byWidget(card),
+            matching: find.byType(LoadingSkeleton),
+          ),
+          findsNWidgets(2),
+        );
+      }
       expect(
         find.descendant(
-          of: find.byType(Card),
+          of: skeletonCards,
           matching: find.byType(LoadingSkeleton),
         ),
         findsNWidgets(8),
@@ -715,6 +726,8 @@ void main() {
       );
       await tester.pump();
       // F29：直接断言预热状态——考试 setId 从未进入在途标记。
+      // F30 注：_preloadAnswerEntry 对考试直接 return、从不调用 start，
+      // 首帧的 false 是「设计上跳过」，不是「预热尚未开始」。
       expect(AnswerEntryPreload.debugIsWarming('h3cne-2026-01'), isFalse);
       await tester.pumpAndSettle();
       expect(source.calls, 0);
@@ -906,7 +919,9 @@ void main() {
     });
 
     testWidgets('知识详情页：加载中显示骨架，内容到达后淡入', (tester) async {
-      // F29：注入 fake KnowledgeRepository，不再依赖全局 ServiceLocator 单例。
+      // F29：注入 fake KnowledgeRepository，详情拉取本身不再走 ServiceLocator。
+      // F30 更正：本测试仍依赖全局 initTestServices()——页面未注入的
+      // 协作者仍由 ServiceLocator 兜底，并非完全脱离单例。
       final repo = _FakeKnowledgeRepo(_kp('kp-1'));
       final gate = Completer<void>();
       repo.gate = gate;

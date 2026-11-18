@@ -149,7 +149,9 @@ class _AnswerRecordPaperPageState extends State<AnswerRecordPaperPage> {
                   ),
                   // F29：加载中副标题槽位放同字号骨架，卷面到达时页头
                   // 不再突然多出一行（布局稳定）；就绪后照常显示文案。
-                  if (_loading) ...[
+                  // F30：空 sessionId（正文「暂无试卷」）不放骨架，
+                  // 页头与正文状态一致。
+                  if (_loading && _sessionId.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.xs),
                     const LoadingSkeleton(
                       height: AppFontSizes.detailStat,

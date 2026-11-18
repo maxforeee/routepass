@@ -135,7 +135,9 @@ class _SetDetailPageState extends State<SetDetailPage> {
             .then((data) {
               if (!mounted) return;
               if (data == null) {
-                _load();
+                // F30：下方已 _syncRecords，回落 _load 不再重复同步，
+                // 避免记录列表闪两次快照。
+                _load(syncRecords: false);
                 return;
               }
               setState(() {
@@ -144,7 +146,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
               });
             })
             .catchError((Object _) {
-              if (mounted) _load();
+              if (mounted) _load(syncRecords: false);
             });
         _syncRecords(setId);
         _preloadAnswerEntry();
@@ -176,7 +178,9 @@ class _SetDetailPageState extends State<SetDetailPage> {
     } catch (_) {}
   }
 
-  Future<void> _load() async {
+  /// [syncRecords] 为 false 时跳过末尾的记录同步（预加载 pending 分支
+  /// 已先行同步过，回落加载不再重复）。
+  Future<void> _load({bool syncRecords = true}) async {
     try {
       final modules = await _questionRepository.getModules();
       if (!mounted) return;
@@ -203,7 +207,7 @@ class _SetDetailPageState extends State<SetDetailPage> {
       setState(() => _overview = overview);
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
-    await _syncRecords(setId);
+    if (syncRecords) await _syncRecords(setId);
   }
 
   Future<void> _syncRecords(String setId) async {

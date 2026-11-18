@@ -69,6 +69,9 @@ class BankModuleListPageState extends State<BankModuleListPage> {
   /// F29：预测性预加载只在首次加载成功时发起一次；下拉刷新 / 切 tab
   /// 不再重复预测（避免陈旧预加载堆积，也避免 await 期间切 tab 后
   /// 按错误的当前 tab 预测）。
+  /// F30：生命周期内一次是有意契约——首次预测失败（槽位超时 / 出错
+  /// 丢弃）也不重试：预测只是优化，前置页自身骨架兜底；失败重试反而会
+  /// 在刷新 / 切 tab 时重新堆积陈旧预加载。
   bool _predictedFirstSet = false;
 
   late final SearchService _searchService;
