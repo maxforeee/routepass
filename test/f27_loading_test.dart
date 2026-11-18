@@ -622,7 +622,7 @@ void main() {
       for (final card in skeletonCards.evaluate()) {
         expect(
           find.descendant(
-            of: find.byWidget(card),
+            of: find.byWidget(card.widget),
             matching: find.byType(LoadingSkeleton),
           ),
           findsNWidgets(2),

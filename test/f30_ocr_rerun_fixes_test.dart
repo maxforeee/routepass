@@ -43,6 +43,9 @@ class _StatsStub implements StatsService {
     this.overview,
     this.byModule = const <ModuleStat>[],
     this.daily = const <DailyStats>[],
+    this.overviewError,
+    this.byModuleError,
+    this.dailyError,
   });
 
   StatsOverview? overview;
