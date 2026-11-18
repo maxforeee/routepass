@@ -105,9 +105,10 @@ void main() {
         });
       });
       final kv = InMemoryKvStore();
-      final q = await _service(client, kv: kv).questionForDate(
-        DateTime(2026, 11, 18),
-      );
+      final q = await _service(
+        client,
+        kv: kv,
+      ).questionForDate(DateTime(2026, 11, 18));
 
       expect(q.id, 'Q-RANDOM');
       expect(q.correctKey, 'A');
@@ -115,9 +116,9 @@ void main() {
       expect(q.explanation, '后端解析原文');
       expect(paths, <String>[_randomPath]);
 
-      final locked =
-          jsonDecode(kv.getString(KvStore.keyDailyDrawn)!)
-              as Map<String, dynamic>;
+      final locked = jsonDecode(
+        kv.getString(KvStore.keyDailyDrawn)!,
+      ) as Map<String, dynamic>;
       expect(locked['date'], '2026-11-18');
       expect((locked['question'] as Map<String, dynamic>)['id'], 'Q-RANDOM');
     });
@@ -198,7 +199,8 @@ void main() {
       for (final bad in badResponses) {
         final paths = <String>[];
         final client = _routingClient(randomResponse: bad, paths: paths);
-        final q = await _service(client).questionForDate(DateTime(2026, 11, 18));
+        final q = await _service(client)
+            .questionForDate(DateTime(2026, 11, 18));
         expect(q.id, 'Q-FALLBACK');
         expect(paths, <String>[_randomPath, _pagePath]);
       }
@@ -222,7 +224,9 @@ void main() {
       final paths = <String>[];
       final client = _routingClient(
         randomResponse: () => _json(<String, Object?>{
-          'questions': <Map<String, Object?>>[_single(answer: <int>[99])],
+          'questions': <Map<String, Object?>>[
+            _single(answer: <int>[99]),
+          ],
           'count': 1,
         }),
         paths: paths,
@@ -243,9 +247,9 @@ void main() {
       final q = await _service(client, kv: kv).questionForDate(date);
       expect(q.id, 'Q-FALLBACK');
 
-      final locked =
-          jsonDecode(kv.getString(KvStore.keyDailyDrawn)!)
-              as Map<String, dynamic>;
+      final locked = jsonDecode(
+        kv.getString(KvStore.keyDailyDrawn)!,
+      ) as Map<String, dynamic>;
       expect(locked['date'], '2026-11-18');
       expect((locked['question'] as Map<String, dynamic>)['id'], 'Q-FALLBACK');
 
