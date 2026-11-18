@@ -1,11 +1,15 @@
 /// DailyPracticeService 的 HTTP 实现（F17：全库随机抽题，一天一题）。
 ///
-/// 抽题走公开接口 `GET {baseUrl}/api/v1/bank/questions?page=N`（不带 module
-/// 过滤 = 全库）。后端实测（2026-11-13）：limit/pageSize 参数被忽略，固定
-/// pageSize=20，page 从 1 起，响应带 `{page, pageSize, total}`（total=650）。
-/// 抽法：先拉第 1 页拿 total → 客户端 `dart:math` Random 抽一个全库下标 →
-/// 换算页码拉那一页 → 命中单选即返回；命中多选/脏数据就重抽（拒绝采样，
-/// 对全库单选题均匀）。题目内容全部来自后端，失败直接抛
+/// 抽题优先走服务端随机端点
+/// `GET {baseUrl}/api/v1/bank/practice?count=1&type=single`（F34 B10：
+/// 服务端 ORDER BY random() 抽题，type 过滤只抽单选）。该端点任何失败
+/// （部署前 404 / 网络错误 / 形状错误 / 空列表 / 非单选 / 脏数据）都回退
+/// 旧的两步拒绝采样：公开接口 `GET {baseUrl}/api/v1/bank/questions?page=N`
+/// （不带 module 过滤 = 全库）。后端实测（2026-11-13）：limit/pageSize 参数
+/// 被忽略，固定 pageSize=20，page 从 1 起，响应带 `{page, pageSize, total}`
+/// （total=650）。抽法：先拉第 1 页拿 total → 客户端 `dart:math` Random 抽
+/// 一个全库下标 → 换算页码拉那一页 → 命中单选即返回；命中多选/脏数据就重抽
+/// （拒绝采样，对全库单选题均匀）。题目内容全部来自后端，两条路径都失败才抛
 /// [DailyPracticeException]，不回退 Mock、不本地编题。
 ///
 /// 日期锁：抽中的题连同日期存本地 kv `daily.drawn`
@@ -13,12 +17,9 @@
 /// 同一天再调用直接返回存好的题（不发网络请求）；第二天才重新抽题并覆盖
 /// 存储。kv 背后是 shared_preferences（见 main.dart 装配），重启不丢。
 ///
-/// 预留后端契约（尚未实现，后端补齐后切换）：
-/// `GET {baseUrl}/api/v1/bank/questions/random?count=1`
-/// → 200 `{"questions": [<question>]}`：服务端从全库（无 module 过滤）
-/// 随机返回 count 道**单选**题，question 形状与 /bank/questions 完全一致。
-/// 届时把 [_drawFromBank] 的请求换成该端点即可，日期锁与本地存储不变。
-/// 现状：/bank/questions 不支持 offset/random/order，只能整库拉回客户端挑。
+/// 历史：F23 审计曾预留 `GET /bank/questions/random?count=1`，实际后端复用
+/// 已有的 `GET /bank/practice` 并补 `type` 过滤（F34 B10），预留路径不再建。
+/// 后端部署前随机端点 404，自动走两步拒绝采样，日期锁与本地存储不变。
 library;
 
 import 'dart:convert';
@@ -119,9 +120,53 @@ class HttpDailyPracticeService implements DailyPracticeService {
     }
   }
 
-  /// 全库随机抽 1 道单选题：随机下标 → 页码 → 拒绝采样（见文件头）。
-  /// 失败抛异常，不回退 Mock、不本地编题。
+  /// 全库随机抽 1 道单选题：优先服务端随机端点（F34 B10），任何失败回退
+  /// 两步拒绝采样（见文件头）。两条路径都失败才抛异常，不回退 Mock、不本地编题。
   Future<DailyQuestion> _drawFromBank() async {
+    final fromRandom = await _drawFromRandomEndpoint();
+    if (fromRandom != null) return fromRandom;
+    return _drawBySampling();
+  }
+
+  /// 服务端随机抽题：`GET /bank/practice?count=1&type=single`（公开端点，
+  /// 与 [_fetchPage] 同一 client/超时）。任何失败（部署前 404 / 网络错误 /
+  /// 非 200 / 形状错误 / 空列表 / 非单选 / 脏数据）返回 null，由调用方回退
+  /// 拒绝采样——不抛异常。
+  Future<DailyQuestion?> _drawFromRandomEndpoint() async {
+    final uri = Uri.parse('$_baseUrl/api/v1/bank/practice?count=1&type=single');
+    final http.Response response;
+    try {
+      response = await _client.get(uri).timeout(_timeout);
+    } catch (_) {
+      return null;
+    }
+    if (response.statusCode != 200) return null;
+
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    } catch (_) {
+      return null;
+    }
+    if (decoded is! Map<String, dynamic> || decoded['questions'] is! List) {
+      return null;
+    }
+    for (final item in decoded['questions'] as List<dynamic>) {
+      if (item is! Map<String, dynamic> || item['type'] != 'single') continue;
+      try {
+        final mapped = _mapQuestion(item);
+        if (mapped != null) return mapped;
+      } catch (_) {
+        // 单条脏数据跳过；全部不可用则回退拒绝采样。
+        continue;
+      }
+    }
+    return null;
+  }
+
+  /// 两步拒绝采样（旧抽法，随机端点不可用时的兜底）：随机下标 → 页码 →
+  /// 命中单选即返回。失败抛异常，不回退 Mock、不本地编题。
+  Future<DailyQuestion> _drawBySampling() async {
     final first = await _fetchPage(1);
     final total = first.total;
     final pageSize = first.pageSize;
