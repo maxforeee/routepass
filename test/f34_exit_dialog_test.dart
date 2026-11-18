@@ -39,16 +39,10 @@ void main() {
     await _openDialog(tester, (context) => showExitConfirmDialog(context));
 
     expect(find.text('退出答题'), findsOneWidget);
-    expect(
-      find.text('退出后可在套卷详情页「答题记录」的断点行点「继续」恢复作答。'),
-      findsOneWidget,
-    );
+    expect(find.text('退出后可在套卷详情页「答题记录」的断点行点「继续」恢复作答。'), findsOneWidget);
     expect(find.textContaining('首页'), findsNothing);
     expect(find.textContaining('继续学习'), findsNothing);
-    expect(
-      find.widgetWithText(FilledButton, '退出并保留进度'),
-      findsOneWidget,
-    );
+    expect(find.widgetWithText(FilledButton, '退出并保留进度'), findsOneWidget);
   });
 
   testWidgets('旧答题页传入如实文案：进度不保留、确认按钮「退出」', (tester) async {
@@ -62,14 +56,8 @@ void main() {
     );
 
     expect(find.text('退出后本次作答进度不保留。'), findsOneWidget);
-    expect(
-      find.text('退出后可在套卷详情页「答题记录」的断点行点「继续」恢复作答。'),
-      findsNothing,
-    );
+    expect(find.text('退出后可在套卷详情页「答题记录」的断点行点「继续」恢复作答。'), findsNothing);
     expect(find.widgetWithText(FilledButton, '退出'), findsOneWidget);
-    expect(
-      find.widgetWithText(FilledButton, '退出并保留进度'),
-      findsNothing,
-    );
+    expect(find.widgetWithText(FilledButton, '退出并保留进度'), findsNothing);
   });
 }
