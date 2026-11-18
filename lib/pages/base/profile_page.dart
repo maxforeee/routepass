@@ -206,9 +206,7 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               Expanded(
                 child: Text(
-                  device.is_current
-                      ? '${device.name}（当前设备）'
-                      : device.name,
+                  device.is_current ? '${device.name}（当前设备）' : device.name,
                   style: Theme.of(context).textTheme.bodyMedium
                       ?.copyWith(color: AppColors.cardTitle(context)),
                   overflow: TextOverflow.ellipsis,

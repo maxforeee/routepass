@@ -229,10 +229,10 @@ class HttpAuthService extends AuthService {
       final response = await (authClient ?? _client)
           .get(Uri.parse('$_baseUrl/api/v1/auth/devices'))
           .timeout(_timeout);
-      if (response.statusCode != 200) return _fallbackDevices();
+      if (response.statusCode != 200) return await _fallbackDevices();
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       final items = decoded is Map<String, dynamic> ? decoded['devices'] : null;
-      if (items is! List) return _fallbackDevices();
+      if (items is! List) return await _fallbackDevices();
       // 服务端已按 last_active_at 倒序；保持原序，缺字段行丢弃，不编造。
       return items
           .whereType<Map<String, dynamic>>()

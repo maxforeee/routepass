@@ -312,9 +312,7 @@ void main() {
   });
 
   group('个人中心设备列表 (B3)', () {
-    testWidgets('渲染真实设备：名称 / 版本 / 最近活跃 / 当前设备标注', (
-      tester,
-    ) async {
+    testWidgets('渲染真实设备：名称 / 版本 / 最近活跃 / 当前设备标注', (tester) async {
       final auth = _DevicesAuth(<Device>[
         Device(
           id: 'dev-1',
