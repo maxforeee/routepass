@@ -6,8 +6,8 @@ class AppConfig {
 
   /// 与 pubspec.yaml 的 version 保持同步（test/f34_app_version_test.dart
   /// 守卫漂移：发版只改 pubspec 时这里忘了同步会直接挂测试）。
-  static const String version = '0.2.12';
-  static const int buildNumber = 14;
+  static const String version = '0.2.13';
+  static const int buildNumber = 15;
 
   /// 题库后端地址（F10 接入 manifest 接口）。
   static const String baseUrl = 'http://198.23.213.22';
