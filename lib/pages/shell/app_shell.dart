@@ -67,6 +67,15 @@ class _AppShellState extends State<AppShell> {
         (_) => GlobalKey<NavigatorState>(),
       );
 
+  /// F33：每个 tab 的内层 Navigator 各持一个路由观察者——一个
+  /// NavigatorObserver 只能挂在一个 Navigator 上，四个 tab 栈共享一个
+  /// 实例会触发框架断言。答题页订阅时从自己所在栈解析出对应实例。
+  final List<RouteObserver<PageRoute<dynamic>>> _tabRouteObservers =
+      List<RouteObserver<PageRoute<dynamic>>>.generate(
+        4,
+        (_) => RouteObserver<PageRoute<dynamic>>(),
+      );
+
   /// 三个 tab 首页的状态 key（tab 切回时调 refresh）。
   final GlobalKey<HomeContentPageState> _homeKey =
       GlobalKey<HomeContentPageState>();
@@ -211,7 +220,13 @@ class _AppShellState extends State<AppShell> {
       key: _navigatorKeys[index],
       initialRoute: _initialRouteFor(index),
       onGenerateRoute: (settings) => _tabRoute(index, settings),
-      observers: <NavigatorObserver>[_TabObserver(_onTabRouteChanged)],
+      // F33：答题页等子页面在本内层栈里 push / pop，路由观察者必须注册
+      // 在这里才会收到 didPushNext / didPopNext。每个 tab 用自己的实例
+      // （一个观察者只能挂一个 Navigator）。
+      observers: <NavigatorObserver>[
+        _TabObserver(_onTabRouteChanged),
+        _tabRouteObservers[index],
+      ],
     );
   }
 

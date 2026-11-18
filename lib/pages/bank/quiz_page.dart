@@ -76,7 +76,8 @@ class QuizPage extends StatefulWidget {
   State<QuizPage> createState() => _QuizPageState();
 }
 
-class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
+class _QuizPageState extends State<QuizPage>
+    with WidgetsBindingObserver, RouteAware {
   late final PracticeService _practice;
   late final ExamService _exam;
   late final AnswerRecordService _recordService;
@@ -162,6 +163,14 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   DateTime? _pausedAt;
   bool _timerRunning = false;
 
+  /// F33：本页所在 Navigator 的路由观察者（didChangeDependencies 里解析；
+  /// dispose 必须从同一个实例退订）。
+  RouteObserver<PageRoute<dynamic>>? _routeObserver;
+
+  /// F33：是否已订阅路由观察者（didChangeDependencies 可能多次调用，
+  /// 只订阅一次；dispose 里退订）。
+  bool _routeSubscribed = false;
+
   /// 本地进行态当前是否有一条活会话：完成 / 交卷会 clear，此时不能再落盘，
   /// 否则 dispose 里的暂停会把已结算的会话复活。
   bool _sessionPersisted = false;
@@ -210,7 +219,34 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // F33：订阅本页所在 Navigator 自己的路由观察者（每个 tab 内层栈各持
+    // 一个实例，不用全局单例），被其它路由盖住 / 重新露出时暂停 / 续计。
+    // 未注册观察者的宿主（测试里的普通 MaterialApp）静默跳过订阅——
+    // didPushNext / didPopNext 不会触发，即 F33 之前的行为。
+    if (!_routeSubscribed) {
+      final route = ModalRoute.of(context);
+      if (route is PageRoute<dynamic>) {
+        final observer = Navigator.of(context).widget.observers
+            .whereType<RouteObserver<PageRoute<dynamic>>>()
+            .firstOrNull;
+        if (observer != null) {
+          observer.subscribe(this, route);
+          _routeObserver = observer;
+          _routeSubscribed = true;
+        }
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    if (_routeSubscribed) {
+      _routeObserver?.unsubscribe(this);
+      _routeObserver = null;
+      _routeSubscribed = false;
+    }
     WidgetsBinding.instance.removeObserver(this);
     // 页面被销毁（返回 / 被替换）即视为离开：冻结用时并落盘，下次续计。
     _pauseTimer();
@@ -225,6 +261,22 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
     } else {
       _pauseTimer();
     }
+  }
+
+  /// F33：其它路由盖住本页（页面仍活在栈里，不会 dispose）——走与退后台
+  /// 完全相同的暂停路径：冻结累计用时并落盘，绝不从 0 重来。
+  /// `_pauseTimer` 自带 `_timerRunning` 守卫，未开始 / 已暂停时是空操作。
+  @override
+  void didPushNext() {
+    _pauseTimer();
+  }
+
+  /// F33：盖住本页的路由弹出、重新露出——走与回前台完全相同的续计路径：
+  /// 从冻结值继续累计，并把单题起点后移被盖住的时长（durationSec 不含
+  /// 页面外的时间）。`_startTimer` 自带守卫，已在走时是空操作。
+  @override
+  void didPopNext() {
+    _startTimer();
   }
 
   /// 当前累计用时：只在计时器运行时叠加本次在前台的时长。
