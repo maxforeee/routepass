@@ -336,11 +336,9 @@ void main() {
         excludedIds: const <String>{'SESS-1'},
       );
       expect(delegate.drawCalls, 1);
-      expect(
-        delegate.lastExcludedIds,
-        <String>{'SESS-1'},
-        reason: '7 天窗口由服务端执行，客户端只传按套排除',
-      );
+      expect(delegate.lastExcludedIds, <String>{
+        'SESS-1',
+      }, reason: '7 天窗口由服务端执行，客户端只传按套排除');
       expect(next?.question.id, 'VLAN-9', reason: '服务端抽到的题照常采纳');
     });
 
