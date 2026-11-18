@@ -108,6 +108,8 @@ Future<void> main() async {
       delegate: practiceHttp,
       cache: localCache,
       bankSource: HttpBankQuestionBankSource(),
+      // F34 (A12)：离线抽题现读 sync.recent_answered，排除近 7 天已答。
+      kv: ServiceLocator.kvStore,
     ),
     // F28：7 天轮回接真实契约（POST /practice/draw + /sessions/{id}/
     // answers|submit）；未登录 / 离线 / 接口未就绪时回落 Mock（诚实空态，

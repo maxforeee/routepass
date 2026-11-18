@@ -2,6 +2,8 @@
 ///
 /// 抽题读路径：
 /// 1. 先把本次会话已答 `excludedIds` 与本地 `attempts` 合并，排除已答；
+///    离线抽题再并入 kv 里的近 7 天已答集（F34 A12，sync.recent_answered），
+///    该集抽尽本地池时回落按套排除，允许重抽旧题；
 /// 2. 本地 SQLite 题库命中即返回（断网也能继续练）；
 /// 3. 本地题库为空时，用公开的 `/bank/questions` 分页拉真实题库并落库；
 /// 4. 仍取不到才回退 `GET /practice/next`（当前实现为注入的 PracticeService）；
@@ -12,22 +14,30 @@
 /// 读路径从不等待网络。
 library;
 
+import '../../core/kv_store.dart';
 import '../../models/practice.dart';
 import '../../models/question.dart';
 import 'local_cache_service.dart';
 import 'practice_service.dart';
 import 'question_bank_source.dart';
+import 'sync_http_service.dart';
 
 class CachedPracticeService implements PracticeService {
   CachedPracticeService({
     required this.delegate,
     required this.cache,
     this.bankSource,
+    this.kv,
   });
 
   final PracticeService delegate;
   final BankLocalCache cache;
   final BankQuestionBankSource? bankSource;
+
+  /// F34 (A12)：离线抽题的 7 天轮回排除集来源（kv 键 sync.recent_answered，
+  /// 每次 sync pull 覆盖）。只存引用，抽题时现读，不在服务内缓存副本；
+  /// 为 null 或从未同步时排除集为空，本地抽题保持旧行为。
+  final KvStore? kv;
 
   /// F27 预测性预热：前置页在后台把 setId 的整套题库拉进本地缓存，
   /// 首题抽题（drawNextQuestion 冷缓存路径）不再等网络。与抽题共用同一
@@ -56,13 +66,31 @@ class CachedPracticeService implements PracticeService {
   }) async {
     final localAnswered = await cache.answeredQuestionIds(setId);
     final excluded = <String>{...excludedIds, ...localAnswered};
+    // F34 (A12)：离线抽题并入近 7 天已答集（语义由后端 sync.recent_answered
+    // 决定：counted_for_rotation 且 7 天内）。每次抽题现读 kv；在线抽题
+    // 由服务端执行同一窗口，客户端不做额外过滤。
+    final store = kv;
+    final recent = store == null
+        ? const <String>{}
+        : HttpSyncService.recentAnsweredIds(store);
+    final windowExcluded = recent.isEmpty
+        ? excluded
+        : <String>{...excluded, ...recent};
     final session = sessionId ?? await cache.sessionId(setId) ?? '';
 
     var cached = await cache.nextQuestion(
       setId: setId,
       module: module,
-      excludedIds: excluded,
+      excludedIds: windowExcluded,
     );
+    // 7 天集把本地池抽尽时回落按套排除（允许重抽旧题），不留空抽。
+    if (cached == null && recent.isNotEmpty) {
+      cached = await cache.nextQuestion(
+        setId: setId,
+        module: module,
+        excludedIds: excluded,
+      );
+    }
 
     // 本地题库为空（首次使用 / 换设备）才拉公开题库；已缓存但抽尽时
     // 不再重复拉取，交给 /practice/next 兜底。
@@ -75,8 +103,15 @@ class CachedPracticeService implements PracticeService {
           cached = await cache.nextQuestion(
             setId: setId,
             module: module,
-            excludedIds: excluded,
+            excludedIds: windowExcluded,
           );
+          if (cached == null && recent.isNotEmpty) {
+            cached = await cache.nextQuestion(
+              setId: setId,
+              module: module,
+              excludedIds: excluded,
+            );
+          }
         }
       } catch (_) {
         // 公开题库拉取失败不阻断：继续走 /practice/next 兜底。
