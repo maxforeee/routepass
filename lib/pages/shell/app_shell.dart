@@ -173,6 +173,7 @@ class _AppShellState extends State<AppShell> {
   /// 按第 3 章 §22.2.3：作答页、交卷结果、工具全屏 sheet 隐藏底栏，其余显示。
   /// 套卷详情页是做题前置页，同属做题流程（v0.2.3 Q1），一并隐藏。
   /// 知识详情页按 v0.2.4 用户反馈也隐藏底栏（覆盖文档“显示底栏”的旧规则）。
+  /// 答题记录详情 / 试卷页是全屏回顾页（F35），同样隐藏。
   /// 任意 PopupRoute（底部账户面板 / 弹窗）打开时同样隐藏，避免面板被胶囊挡住。
   bool _shouldHideNav(Route<dynamic>? route) {
     if (route is PopupRoute) return true;
@@ -182,6 +183,8 @@ class _AppShellState extends State<AppShell> {
       AppRoutes.bankAnswer ||
       AppRoutes.bankExam ||
       AppRoutes.bankExamResult ||
+      AppRoutes.bankRecordDetail ||
+      AppRoutes.bankRecordPaper ||
       AppRoutes.knowledgePoint ||
       AppRoutes.toolboxSubnet ||
       AppRoutes.toolboxIpConvert ||
