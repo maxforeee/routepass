@@ -56,8 +56,10 @@ abstract class KvStore {
   static String answerSessionKey(String mode, String setId) =>
       '$answerSessionPrefix$mode.$setId';
 
-  /// `auth.session`：登录会话（JSON 对象，含 accessToken / refreshToken /
-  /// tokenType / accessExpiresAt / user）。登出或 refresh 失效时删除。
+  /// `auth.session`：旧版明文登录会话（JSON 对象，含 accessToken /
+  /// refreshToken / tokenType / accessExpiresAt / user）。
+  /// F31 (P2-1)：会话已整体迁入 flutter_secure_storage；本键只作为
+  /// 升级迁移来源读取，迁移成功即删，不再写入。登出时仍一并清除。
   static const String keyAuthSession = 'auth.session';
 
   /// `auth.deviceId`：设备唯一码（v1.2 设备绑定；首次启动生成后不再变化，

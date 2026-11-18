@@ -89,8 +89,8 @@ class RecoverResult {
 /// 本地持久化的登录会话（access + refresh 双 Token + 用户）。
 ///
 /// accessToken 由后端签发，TTL 15 分钟；refreshToken TTL 30 天，刷新时轮换。
-/// 存 kv `auth.session`（JSON）。**注意**：refreshToken 目前与 accessToken
-/// 一样存在 SharedPreferences，后续应迁移到 flutter_secure_storage。
+/// F31 (P2-1)：整体以 JSON 存 flutter_secure_storage（Android Keystore
+/// 加密）；旧版明文 kv `auth.session` 只在恢复时作为迁移来源，迁移后即删。
 class AuthSession {
   const AuthSession({
     required this.accessToken,

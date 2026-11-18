@@ -12,6 +12,7 @@ import 'package:routepass/pages/base/recover_page.dart';
 import 'package:routepass/pages/shell/app_shell.dart';
 import 'package:routepass/router/app_router.dart';
 import 'package:routepass/services/auth/auth_service.dart';
+import 'package:routepass/services/auth/secure_session_store.dart';
 import 'package:routepass/services/base/auth_service.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 
@@ -75,6 +76,7 @@ void main() {
     'recover success parses tokens/user/new code and persists session',
     () async {
       final kv = InMemoryKvStore();
+      final secure = InMemorySecureSessionStore();
       http.Request? recoverRequest;
       final client = MockClient((request) async {
         if (request.url.path == '/api/v1/auth/recover') {
@@ -86,6 +88,7 @@ void main() {
       final auth = HttpAuthService(
         client: client,
         kvStore: kv,
+        secureStore: secure,
         baseUrl: 'http://test',
         deviceId: 'device-abc',
       );
@@ -107,12 +110,14 @@ void main() {
       expect(body['restoreCode'], _oldCode);
       expect(body['newPassword'], 'NewPass123');
 
-      final stored = kv.getString(KvStore.keyAuthSession);
+      // F31：会话整体落加密存储，明文 kv 不再保留。
+      final stored = await secure.read();
       expect(stored, isNotNull);
       expect(stored, contains('access-1'));
       expect(stored, contains('refresh-1'));
       expect(stored, isNot(contains('NewPass123')));
       expect(stored, isNot(contains(_oldCode)));
+      expect(kv.getString(KvStore.keyAuthSession), isNull);
       expect(await auth.getCurrentUser(), isNotNull);
     },
   );
@@ -121,6 +126,7 @@ void main() {
     'recover 401 surfaces the invalid-code message and keeps no session',
     () async {
       final kv = InMemoryKvStore();
+      final secure = InMemorySecureSessionStore();
       final client = MockClient(
         (_) async => _jsonResponse(401, <String, Object?>{
           'error': <String, Object?>{
@@ -132,6 +138,7 @@ void main() {
       final auth = HttpAuthService(
         client: client,
         kvStore: kv,
+        secureStore: secure,
         baseUrl: 'http://test',
       );
 
@@ -146,6 +153,7 @@ void main() {
       expect(result.message, '恢复码无效');
       expect(result.restoreCode, isNull);
       expect(kv.getString(KvStore.keyAuthSession), isNull);
+      expect(await secure.read(), isNull);
       expect(auth.cachedAccessToken, isNull);
     },
   );
@@ -162,6 +170,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: InMemoryKvStore(),
+      secureStore: InMemorySecureSessionStore(),
       baseUrl: 'http://test',
     );
 
@@ -188,6 +197,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: InMemoryKvStore(),
+      secureStore: InMemorySecureSessionStore(),
       baseUrl: 'http://test',
     );
 
@@ -204,10 +214,12 @@ void main() {
 
   test('recover network failure is retry-able and keeps no session', () async {
     final kv = InMemoryKvStore();
+    final secure = InMemorySecureSessionStore();
     final client = MockClient((_) async => throw Exception('offline'));
     final auth = HttpAuthService(
       client: client,
       kvStore: kv,
+      secureStore: secure,
       baseUrl: 'http://test',
     );
 
@@ -221,6 +233,7 @@ void main() {
     expect(result.statusCode, isNull);
     expect(result.message, '网络连接失败，请检查网络后重试');
     expect(kv.getString(KvStore.keyAuthSession), isNull);
+    expect(await secure.read(), isNull);
   });
 
   test(
@@ -232,6 +245,7 @@ void main() {
       final auth = HttpAuthService(
         client: client,
         kvStore: InMemoryKvStore(),
+        secureStore: InMemorySecureSessionStore(),
         baseUrl: 'http://test',
       );
 

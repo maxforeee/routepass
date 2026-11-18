@@ -22,6 +22,7 @@ import 'package:routepass/models/answer_session_state.dart';
 import 'package:routepass/models/question.dart';
 import 'package:routepass/models/stats.dart';
 import 'package:routepass/services/auth/auth_service.dart';
+import 'package:routepass/services/auth/secure_session_store.dart';
 import 'package:routepass/services/bank/answer_record_service.dart';
 import 'package:routepass/services/bank/answer_session_service.dart';
 import 'package:routepass/services/bank/local_cache_service.dart';
@@ -115,10 +116,12 @@ class _RecordingDatabase implements LocalDatabase {
 
 void main() {
   late InMemoryKvStore kv;
+  late InMemorySecureSessionStore secure;
   late InMemoryBankLocalCache cache;
 
   setUp(() {
     kv = InMemoryKvStore();
+    secure = InMemorySecureSessionStore();
     cache = InMemoryBankLocalCache();
     kv.setString(KvStore.keyAuthDeviceId, _deviceId);
   });
@@ -126,6 +129,7 @@ void main() {
   HttpAuthService buildService(http.Client client) => HttpAuthService(
     client: client,
     kvStore: kv,
+    secureStore: secure,
     baseUrl: 'http://localhost',
     deviceModelOverride: 'test-device',
     localCache: cache,
@@ -203,6 +207,8 @@ void main() {
 
   Future<void> expectAccountDataCleared() async {
     expect(kv.getString(KvStore.keyAuthSession), isNull);
+    // F31：加密存储里的双 Token 同样清空，不留孤儿 Token。
+    expect(await secure.read(), isNull);
     expect(kv.getString(KvStore.keyAnswerRecords), isNull);
     expect(kv.getString(KvStore.keyAnswerTarget), isNull);
     expect(kv.getString(KvStore.answerSessionKey('practice', 'VLAN')), isNull);
@@ -240,7 +246,9 @@ void main() {
     );
     await seedLoggedIn(service);
     expect(await service.getCurrentUser(), isNotNull);
-    expect(kv.getString(KvStore.keyAuthSession), isNotNull);
+    // F31：会话在加密存储里，明文 kv 不再写入。
+    expect(await secure.read(), isNotNull);
+    expect(kv.getString(KvStore.keyAuthSession), isNull);
 
     await service.logout();
 

@@ -11,6 +11,7 @@ import 'package:routepass/models/question.dart';
 import 'package:routepass/models/search.dart';
 import 'package:routepass/pages/bank/module_list_page.dart';
 import 'package:routepass/services/auth/auth_service.dart';
+import 'package:routepass/services/auth/secure_session_store.dart';
 import 'package:routepass/services/bank/question_bank_source.dart';
 import 'package:routepass/services/knowledge/search_service.dart';
 import 'package:routepass/services/knowledge/search_service_http.dart';
@@ -417,7 +418,12 @@ void main() {
         }
         return _json(<String, Object?>{}, 404);
       });
-      final auth = HttpAuthService(client: client, kvStore: kv, baseUrl: _base);
+      final auth = HttpAuthService(
+        client: client,
+        kvStore: kv,
+        secureStore: InMemorySecureSessionStore(),
+        baseUrl: _base,
+      );
       await auth.login(phone: '13800138000', password: 'secret123');
       final authed = AuthHttpClient(auth: auth, inner: client);
       final fallback = _FakeSearch();

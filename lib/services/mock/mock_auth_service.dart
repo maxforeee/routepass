@@ -114,13 +114,13 @@ class MockAuthService extends AuthService {
   String? get cachedAccessToken => null;
 
   @override
-  void clearSession() {
+  Future<void> clearSession() async {
     _currentUser = null;
   }
 
   @override
   Future<void> clearAllAccountData() async {
-    clearSession();
+    await clearSession();
     ServiceLocator.kvStore.clearAccountData();
   }
 }

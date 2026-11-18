@@ -14,6 +14,7 @@ import 'package:routepass/pages/base/login_page.dart';
 import 'package:routepass/pages/shell/app_shell.dart';
 import 'package:routepass/router/app_router.dart';
 import 'package:routepass/services/auth/auth_service.dart';
+import 'package:routepass/services/auth/secure_session_store.dart';
 import 'package:routepass/services/base/auth_service.dart';
 import 'package:routepass/services/mock/mock_auth_service.dart';
 
@@ -361,6 +362,7 @@ void main() {
     'HttpAuthService sends deviceId and persists tokens (not password)',
     () async {
       final kv = InMemoryKvStore();
+      final secure = InMemorySecureSessionStore();
       http.Request? loginRequest;
       final client = MockClient((request) async {
         if (request.url.path == '/api/v1/auth/login') {
@@ -375,6 +377,7 @@ void main() {
       final auth = HttpAuthService(
         client: client,
         kvStore: kv,
+        secureStore: secure,
         baseUrl: 'http://test',
         deviceId: 'device-abc',
       );
@@ -396,16 +399,19 @@ void main() {
       expect(body['appVersion'], isNotEmpty);
       expect(body['password'], 'secret123');
 
-      final stored = kv.getString(KvStore.keyAuthSession);
+      // F31：双 Token 落加密存储，明文 kv 不再保留会话。
+      final stored = await secure.read();
       expect(stored, isNotNull);
       expect(stored, contains('access-1'));
       expect(stored, contains('refresh-1'));
       expect(stored, isNot(contains('secret123')));
+      expect(kv.getString(KvStore.keyAuthSession), isNull);
     },
   );
 
   test('deviceId is generated once and reused on later logins', () async {
     final kv = InMemoryKvStore();
+    final secure = InMemorySecureSessionStore();
     final seenIds = <String>[];
     http.Client buildClient() => MockClient((request) async {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
@@ -416,6 +422,7 @@ void main() {
     final first = HttpAuthService(
       client: buildClient(),
       kvStore: kv,
+      secureStore: secure,
       baseUrl: 'http://test',
     );
     await first.login(phone: '13800138000', password: 'secret123');
@@ -427,6 +434,7 @@ void main() {
     final second = HttpAuthService(
       client: buildClient(),
       kvStore: kv,
+      secureStore: secure,
       baseUrl: 'http://test',
     );
     await second.login(phone: '13800138000', password: 'secret123');
@@ -438,6 +446,7 @@ void main() {
 
   test('login 401 surfaces the server message and keeps no session', () async {
     final kv = InMemoryKvStore();
+    final secure = InMemorySecureSessionStore();
     final client = MockClient(
       (_) async => _jsonResponse(401, <String, Object?>{
         'error': <String, Object?>{
@@ -450,6 +459,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: kv,
+      secureStore: secure,
       baseUrl: 'http://test',
     );
 
@@ -462,6 +472,7 @@ void main() {
     expect(result.message, '手机号或密码错误');
     expect(auth.cachedAccessToken, isNull);
     expect(kv.getString(KvStore.keyAuthSession), isNull);
+    expect(await secure.read(), isNull);
   });
 
   test('live error envelope (409 device bound) is surfaced verbatim', () async {
@@ -477,6 +488,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: InMemoryKvStore(),
+      secureStore: InMemorySecureSessionStore(),
       baseUrl: 'http://test',
     );
 
@@ -501,6 +513,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: InMemoryKvStore(),
+      secureStore: InMemorySecureSessionStore(),
       baseUrl: 'http://test',
     );
 
@@ -515,6 +528,7 @@ void main() {
 
   test('expired access token is refreshed before the request', () async {
     final kv = InMemoryKvStore();
+    final secure = InMemorySecureSessionStore();
     var refreshes = 0;
     final client = MockClient((request) async {
       if (request.url.path == '/api/v1/auth/login') {
@@ -532,6 +546,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: kv,
+      secureStore: secure,
       baseUrl: 'http://test',
     );
     await auth.login(phone: '13800138000', password: 'secret123');
@@ -545,6 +560,7 @@ void main() {
 
   test('401 triggers one refresh and retries with the new token', () async {
     final kv = InMemoryKvStore();
+    final secure = InMemorySecureSessionStore();
     final authorization = <String?>[];
     final refreshBodies = <String>[];
     final client = MockClient((request) async {
@@ -575,6 +591,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: kv,
+      secureStore: secure,
       baseUrl: 'http://test',
     );
     await auth.login(phone: '13800138000', password: 'secret123');
@@ -592,6 +609,7 @@ void main() {
 
   test('refresh 401 clears the session and notifies the app', () async {
     final kv = InMemoryKvStore();
+    final secure = InMemorySecureSessionStore();
     var expired = false;
     final client = MockClient((request) async {
       final path = request.url.path;
@@ -606,6 +624,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: kv,
+      secureStore: secure,
       baseUrl: 'http://test',
     );
     auth.onSessionExpired = () => expired = true;
@@ -620,10 +639,13 @@ void main() {
     expect(expired, isTrue);
     expect(auth.cachedAccessToken, isNull);
     expect(kv.getString(KvStore.keyAuthSession), isNull);
+    // F31：会话失效同样清空加密存储，不留孤儿 Token。
+    expect(await secure.read(), isNull);
   });
 
   test('logout posts the bearer token and clears the local session', () async {
     final kv = InMemoryKvStore();
+    final secure = InMemorySecureSessionStore();
     String? logoutAuthorization;
     final client = MockClient((request) async {
       final path = request.url.path;
@@ -639,6 +661,7 @@ void main() {
     final auth = HttpAuthService(
       client: client,
       kvStore: kv,
+      secureStore: secure,
       baseUrl: 'http://test',
     );
     await auth.login(phone: '13800138000', password: 'secret123');
@@ -648,6 +671,8 @@ void main() {
     expect(logoutAuthorization, 'Bearer access-1');
     expect(auth.cachedAccessToken, isNull);
     expect(kv.getString(KvStore.keyAuthSession), isNull);
+    // F31：登出清空加密存储里的双 Token。
+    expect(await secure.read(), isNull);
     expect(await auth.getCurrentUser(), isNull);
   });
 }

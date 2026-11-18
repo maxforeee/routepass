@@ -24,6 +24,7 @@ import '../../models/auth.dart';
 import '../../models/user.dart';
 import '../bank/local_cache_service.dart';
 import '../base/auth_service.dart';
+import 'secure_session_store.dart';
 
 /// 认证接口错误（仅内部使用；登录失败通过 [LoginResult.message] 回给 UI）。
 class AuthException implements Exception {
@@ -40,6 +41,7 @@ class HttpAuthService extends AuthService {
   HttpAuthService({
     http.Client? client,
     KvStore? kvStore,
+    SecureSessionStore? secureStore,
     String? baseUrl,
     String? deviceId,
     String? deviceModelOverride,
@@ -47,6 +49,7 @@ class HttpAuthService extends AuthService {
     this._localCache,
   }) : _client = client ?? http.Client(),
        _kv = kvStore ?? ServiceLocator.kvStore,
+       _secure = secureStore ?? FlutterSecureSessionStore(),
        _baseUrl = baseUrl ?? AppConfig.baseUrl,
        _deviceIdOverride = deviceId,
        _deviceModel = deviceModelOverride,
@@ -54,6 +57,10 @@ class HttpAuthService extends AuthService {
 
   final http.Client _client;
   final KvStore _kv;
+
+  /// F31 (P2-1)：双 Token + 用户整体存加密存储；kv `auth.session`
+  /// 只作为旧版本明文会话的迁移来源，迁移后即删。
+  final SecureSessionStore _secure;
   final String _baseUrl;
 
   /// F25：登出时一并清空的 SQLite 缓存（main.dart 装配同一实例）。
@@ -67,7 +74,7 @@ class HttpAuthService extends AuthService {
   static const Duration _timeout = Duration(seconds: 10);
 
   AuthSession? _session;
-  bool _loaded = false;
+  Future<void>? _loading;
   Future<bool>? _refreshing;
 
   @override
@@ -276,7 +283,7 @@ class HttpAuthService extends AuthService {
       }
       if (response.statusCode == 401 || response.statusCode == 403) {
         // refreshToken 失效 / 被撤销 / 过期：会话结束，回到登录页。
-        _expireSession();
+        await _expireSession();
       }
       return false;
     } catch (_) {
@@ -289,14 +296,15 @@ class HttpAuthService extends AuthService {
   String? get cachedAccessToken => _session?.accessToken;
 
   @override
-  void clearSession() {
+  Future<void> clearSession() async {
     _session = null;
     _kv.remove(KvStore.keyAuthSession);
+    await _secure.delete();
   }
 
   @override
   Future<void> clearAllAccountData() async {
-    clearSession();
+    await clearSession();
     _kv.clearAccountData();
     final cache = _localCache;
     if (cache == null) return;
@@ -307,26 +315,62 @@ class HttpAuthService extends AuthService {
     }
   }
 
-  void _expireSession() {
-    clearSession();
+  Future<void> _expireSession() async {
+    await clearSession();
     onSessionExpired?.call();
   }
 
-  Future<void> _ensureLoaded() async {
-    if (_loaded) return;
-    _loaded = true;
-    final raw = _kv.getString(KvStore.keyAuthSession);
-    if (raw == null || raw.isEmpty) return;
+  Future<void> _ensureLoaded() {
+    // 加密读取是异步的：并发调用共享同一次加载，避免重复迁移。
+    return _loading ??= _loadSession();
+  }
+
+  /// F31 (P2-1)：优先读加密存储；没有则把旧版明文 kv `auth.session`
+  /// 迁移进来（先写加密、成功后再删明文），老用户升级不被登出。
+  Future<void> _loadSession() async {
+    String? secureRaw;
+    try {
+      secureRaw = await _secure.read();
+    } catch (_) {
+      // Keystore 异常（如备份恢复后密钥失效）不阻塞启动：
+      // 回退尝试旧明文会话，仍在登录态。
+    }
+    if (secureRaw != null && secureRaw.isNotEmpty) {
+      final session = _tryDecodeSession(secureRaw);
+      if (session != null) {
+        _session = session;
+        // 清掉可能残留的明文副本（如上次迁移中断）。
+        _kv.remove(KvStore.keyAuthSession);
+        return;
+      }
+      await _secure.delete();
+    }
+    final legacyRaw = _kv.getString(KvStore.keyAuthSession);
+    if (legacyRaw == null || legacyRaw.isEmpty) return;
+    final session = _tryDecodeSession(legacyRaw);
+    if (session == null) {
+      _kv.remove(KvStore.keyAuthSession);
+      return;
+    }
+    _session = session;
+    try {
+      await _secure.write(jsonEncode(session.toJson()));
+      _kv.remove(KvStore.keyAuthSession);
+    } catch (_) {
+      // 迁移写入失败：保留明文副本下次启动重试，本次会话照常可用。
+    }
+  }
+
+  AuthSession? _tryDecodeSession(String raw) {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
-        _session = AuthSession.fromJson(decoded);
-      } else {
-        _kv.remove(KvStore.keyAuthSession);
+        return AuthSession.fromJson(decoded);
       }
     } catch (_) {
-      _kv.remove(KvStore.keyAuthSession);
+      // 损坏的会话按未登录处理，由调用方删除对应存储。
     }
+    return null;
   }
 
   AuthSession _sessionFromLogin(Map<String, dynamic> decoded, String phone) {
@@ -361,7 +405,9 @@ class HttpAuthService extends AuthService {
   }
 
   Future<void> _persist(AuthSession session) async {
-    _kv.setString(KvStore.keyAuthSession, jsonEncode(session.toJson()));
+    await _secure.write(jsonEncode(session.toJson()));
+    // 任何写入后都不允许明文副本残留（含旧版本升级后的首次登录）。
+    _kv.remove(KvStore.keyAuthSession);
   }
 
   Future<String> _deviceId() async {

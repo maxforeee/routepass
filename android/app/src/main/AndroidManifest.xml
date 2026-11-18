@@ -8,7 +8,9 @@
         android:label="routepass"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:fullBackupContent="@xml/secure_storage_backup_rules"
+        android:dataExtractionRules="@xml/secure_storage_data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"
