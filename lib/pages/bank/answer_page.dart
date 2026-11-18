@@ -348,9 +348,15 @@ class _AnswerPageState extends State<AnswerPage> {
   }
 
   Future<void> _onBack() async {
-    final exit = await showExitConfirmDialog(context);
+    // F34：本页不写断点记录，首页「继续学习」也已随 F14c 移除——没有
+    // 续答入口，文案如实说明进度不保留，不再承诺「保留进度」。
+    final exit = await showExitConfirmDialog(
+      context,
+      content: '退出后本次作答进度不保留。',
+      confirmLabel: '退出',
+    );
     if (!exit || !mounted) return;
-    // 退出保留进度：把进度指针写进 kv（home.continue），首页 H-B1 恢复用。
+    // 遗留进度指针（home.continue）：首页已不再渲染它，写入仅为兼容旧清理逻辑。
     try {
       final session = ContinueSession(
         mode: _mode,

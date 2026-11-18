@@ -143,7 +143,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '退出并保留进度'));
+    // F34：旧答题页没有续答入口，确认按钮如实改为「退出」。
+    await tester.tap(find.widgetWithText(FilledButton, '退出'));
     await tester.pumpAndSettle();
     expect(find.byType(AnswerPage), findsNothing);
     expect(find.byType(CapsuleNavBar), findsOneWidget);

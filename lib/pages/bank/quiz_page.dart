@@ -171,6 +171,10 @@ class _QuizPageState extends State<QuizPage>
   /// 只订阅一次；dispose 里退订）。
   bool _routeSubscribed = false;
 
+  /// F34：本页当前是否被其它路由盖住。被盖住期间退后台再回前台时
+  /// 不能续计——等 didPopNext 重新露出才恢复，否则被盖住的时间会计入用时。
+  bool _covered = false;
+
   /// 本地进行态当前是否有一条活会话：完成 / 交卷会 clear，此时不能再落盘，
   /// 否则 dispose 里的暂停会把已结算的会话复活。
   bool _sessionPersisted = false;
@@ -257,7 +261,8 @@ class _QuizPageState extends State<QuizPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _startTimer();
+      // F34：仍被其它路由盖住时不续计，等 didPopNext 露出后再恢复。
+      if (!_covered) _startTimer();
     } else {
       _pauseTimer();
     }
@@ -268,6 +273,7 @@ class _QuizPageState extends State<QuizPage>
   /// `_pauseTimer` 自带 `_timerRunning` 守卫，未开始 / 已暂停时是空操作。
   @override
   void didPushNext() {
+    _covered = true;
     _pauseTimer();
   }
 
@@ -276,6 +282,7 @@ class _QuizPageState extends State<QuizPage>
   /// 页面外的时间）。`_startTimer` 自带守卫，已在走时是空操作。
   @override
   void didPopNext() {
+    _covered = false;
     _startTimer();
   }
 

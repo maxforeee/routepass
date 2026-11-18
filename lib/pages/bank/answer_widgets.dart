@@ -486,15 +486,24 @@ Future<bool> showSubmitDialog(
   return result ?? false;
 }
 
-/// 退出保留进度确认（A-01）：返回 true 表示退出并保留进度。
-Future<bool> showExitConfirmDialog(BuildContext context) async {
+/// 退出确认（A-01）：返回 true 表示确认退出。
+///
+/// F34：文案由宿主按真实恢复路径传入——首页「继续学习」已随 F14c 移除，
+/// 不能再承诺从首页恢复。套卷答题（QuizPage）退出写断点，用默认文案指向
+/// 套卷详情页答题记录的「继续」；旧答题页（AnswerPage）不写断点、没有
+/// 续答入口，传入如实说明进度不保留的文案。
+Future<bool> showExitConfirmDialog(
+  BuildContext context, {
+  String content = '退出后可在套卷详情页「答题记录」的断点行点「继续」恢复作答。',
+  String confirmLabel = '退出并保留进度',
+}) async {
   final result = await showAppDialog<bool>(
     context: context,
     builder: (context) {
       return AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('退出答题'),
-        content: const Text('退出后可在首页“继续学习”恢复作答。'),
+        content: Text(content),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -502,7 +511,7 @@ Future<bool> showExitConfirmDialog(BuildContext context) async {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('退出并保留进度'),
+            child: Text(confirmLabel),
           ),
         ],
       );

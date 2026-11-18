@@ -3,8 +3,11 @@ class AppConfig {
 
   static const String appName = 'RoutePass';
   static const String appNameCn = '路由通';
-  static const String version = '0.2.8';
-  static const int buildNumber = 10;
+
+  /// 与 pubspec.yaml 的 version 保持同步（test/f34_app_version_test.dart
+  /// 守卫漂移：发版只改 pubspec 时这里忘了同步会直接挂测试）。
+  static const String version = '0.2.12';
+  static const int buildNumber = 14;
 
   /// 题库后端地址（F10 接入 manifest 接口）。
   static const String baseUrl = 'http://198.23.213.22';
