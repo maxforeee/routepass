@@ -568,7 +568,7 @@ void main() {
   });
 
   group('SetDetailPage 渲染（真实模块名 + 真实题量，不虚构进度）', () {
-    testWidgets('7 个后端模块原样渲染：题量真实、进度待接口、0% 不出现', (tester) async {
+    testWidgets('7 个后端模块原样渲染：题量不用全库总量、进度待接口、0% 不出现（F35）', (tester) async {
       final client = MockClient((request) async {
         return _json(_modulesPayload());
       });
@@ -608,12 +608,16 @@ void main() {
       expect(find.text('子网划分'), findsNothing);
       expect(find.text('SUBNET'), findsNothing);
 
-      // 题量来自 questionCount；answered 恒 0 = 未知 → 进度待接口，不是 0%。
-      expect(find.text('100 题 · 进度待接口'), findsNWidgets(4));
-      expect(find.text('80 题 · 进度待接口'), findsOneWidget);
-      expect(find.text('50 题 · 进度待接口'), findsOneWidget);
-      expect(find.text('120 题 · 进度待接口'), findsOneWidget);
-      expect(find.textContaining('题量待接口'), findsNothing);
+      // F35：知识点考察题量不再用 GET /bank/modules 的全库总量。本例概览
+      // 未就绪（getSetOverview 委托 Mock 返回 null），且本页是考试卷而非
+      // H3CNE 练习集 → 清单兜底也不适用，7 个模块全待接口。
+      // 全库总量 80/50/120 与 H3CNE 练习池 100 绝不出现。
+      expect(find.text('100 题 · 进度待接口'), findsNothing);
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(7));
+      expect(find.text('80 题 · 进度待接口'), findsNothing);
+      expect(find.text('50 题 · 进度待接口'), findsNothing);
+      expect(find.text('120 题 · 进度待接口'), findsNothing);
+      // answered 恒 0 = 未知 → 进度待接口，不是 0%。
       expect(find.textContaining('%'), findsNothing);
 
       final progressBars = find.descendant(

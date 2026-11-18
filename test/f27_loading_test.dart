@@ -392,7 +392,10 @@ void main() {
 
       expect(find.byType(LoadingSkeleton), findsNothing);
       expect(find.byType(SkeletonToContent), findsWidgets);
-      expect(find.text('100 题 · 进度待接口'), findsNWidgets(5));
+      // F35：概览无 byModule，清单兜底只认本页练习集（VLAN），
+      // 其余模块题量待接口，不借别的练习集题量。
+      expect(find.text('100 题 · 进度待接口'), findsOneWidget);
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
       expect(find.text('已答题数：40'), findsOneWidget);
       expect(find.text('正确率 80.0%'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -449,7 +452,9 @@ void main() {
 
       // 首帧即真实内容：没有骨架，也没有第二次首屏请求。
       expect(find.byType(LoadingSkeleton), findsNothing);
-      expect(find.text('100 题 · 进度待接口'), findsNWidgets(5));
+      // F35：清单兜底只认本页练习集（VLAN），其余模块题量待接口。
+      expect(find.text('100 题 · 进度待接口'), findsOneWidget);
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
       expect(find.text('已答题数：40'), findsOneWidget);
       expect(repo.modulesCalls, 1);
       await tester.pumpAndSettle();
@@ -541,7 +546,9 @@ void main() {
 
       gate.complete();
       await tester.pumpAndSettle();
-      expect(find.text('100 题 · 进度待接口'), findsNWidgets(5));
+      // F35：清单兜底只认本页练习集（VLAN），其余模块题量待接口。
+      expect(find.text('100 题 · 进度待接口'), findsOneWidget);
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
       expect(tester.takeException(), isNull);
     });
 
@@ -586,10 +593,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
 
-      // 前置页正常打开：模块题量回落到清单 practiceByModule 的真实题量，
-      // 进度无真实已答数 → 待接口，不虚构。
+      // 前置页正常打开：本页是 VLAN 练习集，题量兜底只取清单里 VLAN 的
+      // 真实题量（F35），其余模块待接口；进度无真实已答数 → 待接口，不虚构。
       expect(find.byType(SetDetailPage), findsOneWidget);
-      expect(find.text('100 题 · 进度待接口'), findsNWidgets(5));
+      expect(find.text('100 题 · 进度待接口'), findsOneWidget);
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
       expect(tester.takeException(), isNull);
     });
 
@@ -757,7 +765,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // 预热请求仍在途，前置页内容已完整渲染。
-      expect(find.text('100 题 · 进度待接口'), findsNWidgets(5));
+      // F35：清单兜底只认本页练习集（VLAN），其余模块题量待接口。
+      expect(find.text('100 题 · 进度待接口'), findsOneWidget);
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
       // F29：在途标记直接可观测（与考试不预热断言互为正反对照）。
       expect(AnswerEntryPreload.debugIsWarming('VLAN'), isTrue);
       gate.complete();
@@ -786,7 +796,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('100 题 · 进度待接口'), findsNWidgets(5));
+      // F35：清单兜底只认本页练习集（VLAN），其余模块题量待接口。
+      expect(find.text('100 题 · 进度待接口'), findsOneWidget);
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
       expect(tester.takeException(), isNull);
     });
 

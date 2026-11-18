@@ -3,9 +3,11 @@
 /// 从题库页的套卷卡进入，展示套卷规模、模块进度与答题说明；
 /// “开始答题”再进答题页。四套卷（100/200/50/10）共用本模板，
 /// 标题 / 单选多选 / 时长由路由参数 drawCount 推导；知识点考察的
-/// 题量与进度来自真实数据（F16/F26）：优先预留的套卷统计接口，其次
-/// 模块接口（GET /bank/modules）的真实模块与题量，再次题库清单
-/// practiceByModule 的重叠模块，取不到就显示“待接口”。
+/// 题量来自本套卷概览 byModule（F35：在映射 = 真实题量，不在 = 0），
+/// 概览未就绪时仅当本页就是该模块的练习集才回落题库清单
+/// practiceByModule 的该模块题量，其余一律显示“题量待接口”，
+/// 绝不用全题库模块总量或别的套卷的题量；进度无每模块已答数据，
+/// 显示“进度待接口”。
 /// 答题说明卡只在考试（mode=exam）前置页显示（F16）。
 library;
 
@@ -331,17 +333,19 @@ class _SetDetailPageState extends State<SetDetailPage> {
     return null;
   }
 
-  /// 每模块题量（F16/F26）：优先预留套卷统计接口，其次模块接口
-  /// （GET /bank/modules）的真实题量，再次清单 practiceByModule 里与展示
-  /// 模块重叠的真实题量；都取不到返回 null（UI 显示“题量待接口”），
-  /// 不再按 drawCount 均分虚构。
+  /// 每模块题量（F35）：只认本套卷概览的 byModule——在映射里 = 本套卷
+  /// 真实题量，不在映射里 = 本套卷 0 题（服务端数过本套卷的 id，是真 0）。
+  /// 概览未就绪（离线 / 未登录 / 接口失败 / 无 byModule）时保留 F16 的
+  /// 诚实兜底，但仅限本页就是该模块的练习集（练习 setId 即模块代码）：
+  /// 清单 practiceByModule 里该模块的真实题量；其它模块 / 考试卷一律
+  /// 返回 null（UI 显示“题量待接口”），绝不拿别的套卷的题量充数。
+  /// 绝不回退全题库模块总量（GET /bank/modules 的 total 是全库口径，
+  /// F35 前 ACL 练习集曾误显 140），也不按 drawCount 均分虚构。
   int? _moduleCount(String module) {
-    final setStat = _statOf(_setStats, module);
-    if (setStat != null && setStat.total > 0) return setStat.total;
-    final moduleStat = _statOf(_modules, module);
-    if (moduleStat != null && moduleStat.total > 0) return moduleStat.total;
+    final byModule = _overview?.byModule;
+    if (byModule != null) return byModule[module] ?? 0;
     final manifest = _manifest;
-    if (manifest != null) {
+    if (manifest != null && _setId == module) {
       for (final set in manifest.practiceSets) {
         if (set.module == module) return set.questionCount;
       }

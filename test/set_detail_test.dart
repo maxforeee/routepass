@@ -425,7 +425,7 @@ void main() {
     }
   });
 
-  testWidgets('F16 知识点考察题量来自清单重叠模块，缺数据显示待接口', (tester) async {
+  testWidgets('F16/F35 考试卷概览未就绪：不借练习集题量，五行待接口', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
@@ -443,10 +443,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // VLAN / OSPF / ACL 与清单重叠 → 真实题量 100；进度无真实数据 → 待接口。
-    expect(find.text('100 题 · 进度待接口'), findsNWidgets(3));
-    // NAT / 子网划分 清单里没有 → 题量也待接口，绝不均分虚构。
-    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(2));
+    // F35：本页是考试卷 h3cne-2026-01，不是任何模块的练习集——清单里
+    // VLAN / OSPF / ACL 练习池各 100 也绝不借用，五行全待接口，不均分虚构。
+    expect(find.text('100 题 · 进度待接口'), findsNothing);
+    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
     final progressBars = find.descendant(
       of: find.byType(SetDetailPage),
       matching: find.byType(FractionallySizedBox),
@@ -457,7 +457,7 @@ void main() {
     }
   });
 
-  testWidgets('F16 预留套卷统计接口就绪后优先于清单', (tester) async {
+  testWidgets('F16 预留套卷统计接口仅供进度，题量不再取自该接口（F35）', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
@@ -476,11 +476,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // VLAN 用套卷级统计：40 题、10/40 = 25%。
-    expect(find.text('40 题 · 25%'), findsOneWidget);
-    // OSPF / ACL 仍回退清单题量；NAT / 子网划分 仍待接口。
-    expect(find.text('100 题 · 进度待接口'), findsNWidgets(2));
-    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(2));
+    // F35：预留套卷统计接口退役出题量，只供进度——VLAN 进度 10/40 = 25%。
+    // 考试卷概览未就绪时清单兜底不适用（不借练习集题量）→ VLAN 题量也
+    // 待接口，不再是套卷统计的 40，也不是清单练习池的 100。
+    expect(find.text('题量待接口 · 25%'), findsOneWidget);
+    expect(find.text('100 题 · 进度待接口'), findsNothing);
+    expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
     final vlanBar = tester.widget<FractionallySizedBox>(
       find
           .descendant(

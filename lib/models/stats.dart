@@ -187,6 +187,7 @@ class BankSetOverview {
     required this.remaining,
     this.byType,
     this.accuracy,
+    this.byModule,
   });
 
   final String setId;
@@ -203,6 +204,24 @@ class BankSetOverview {
   /// 前置页显示“正确率待接口”，绝不编 0%。
   final double? accuracy;
 
+  /// 本套卷每模块题量（F35，`GET /bank/sets/{setId}/overview` 的
+  /// `byModule`）：只统计本套卷的题目 id，练习集只有自身模块一条，
+  /// 考试卷为各模块真实拆分。字段缺失或值非法时为 null（前置页显示
+  /// “题量待接口”），绝不编造映射，也不回退全题库模块总量。
+  final Map<String, int>? byModule;
+
+  /// 防御性解析：非 Map、或任一键值不是数字 → 整体 null，不造半真映射。
+  static Map<String, int>? _parseByModule(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    final parsed = <String, int>{};
+    for (final entry in raw.entries) {
+      final value = entry.value;
+      if (value is! num) return null;
+      parsed[entry.key] = value.toInt();
+    }
+    return parsed;
+  }
+
   factory BankSetOverview.fromJson(Map<String, dynamic> json) {
     final typeJson = json['byType'];
     final accuracyRaw = json['accuracy'];
@@ -218,6 +237,7 @@ class BankSetOverview {
             })
           : null,
       accuracy: accuracyRaw is num ? accuracyRaw.toDouble() / 100 : null,
+      byModule: _parseByModule(json['byModule']),
     );
   }
 
@@ -229,6 +249,7 @@ class BankSetOverview {
       'remaining': remaining,
       'byType': byType?.toJson(),
       'accuracy': accuracy == null ? null : accuracy! * 100,
+      'byModule': byModule,
     };
   }
 

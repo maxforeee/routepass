@@ -5,7 +5,8 @@
 /// `POST /practice/submit` 就绪后由同步层 flush）。
 ///
 /// 两张核心表：
-/// - `set_overview`：前置页已答 / 剩余 / 题型分布缓存（GET /bank/sets/{id}/overview）。
+/// - `set_overview`：前置页已答 / 剩余 / 题型分布 / 每模块题量缓存
+///   （GET /bank/sets/{id}/overview）。
 /// - `cached_questions` / `attempts`：练习抽题的本地题库与已答集合，
 ///   抽题时优先本地命中并排除已答（GET /practice/next 不可用或断网时兜底）。
 ///
@@ -226,8 +227,8 @@ class SqliteBankLocalCache implements BankLocalCache {
   @override
   Future<BankSetOverview?> readOverview(String setId) async {
     final rows = await _db.rawQuery(
-      'SELECT total, done, remaining, single_count, multiple_count, accuracy '
-      'FROM set_overview WHERE set_id = ?',
+      'SELECT total, done, remaining, single_count, multiple_count, accuracy, '
+      'by_module FROM set_overview WHERE set_id = ?',
       <Object?>[setId],
     );
     if (rows.isEmpty) return null;
@@ -248,7 +249,28 @@ class SqliteBankLocalCache implements BankLocalCache {
           : null,
       // accuracy 列可空：null = 未知（v1 老行 / 数据源无该字段），不编 0。
       accuracy: (row['accuracy'] as num?)?.toDouble(),
+      // by_module 列可空：null = 未知（v2 老行 / 数据源无该字段），不编映射。
+      byModule: _decodeByModule(row['by_module']),
     );
+  }
+
+  /// by_module JSON → 每模块题量映射；null / 脏数据读回 null，不编映射。
+  static Map<String, int>? _decodeByModule(Object? raw) {
+    if (raw is! String || raw.isEmpty) return null;
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      return null;
+    }
+    if (decoded is! Map<String, dynamic>) return null;
+    final parsed = <String, int>{};
+    for (final entry in decoded.entries) {
+      final value = entry.value;
+      if (value is! num) return null;
+      parsed[entry.key] = value.toInt();
+    }
+    return parsed;
   }
 
   @override
@@ -256,8 +278,8 @@ class SqliteBankLocalCache implements BankLocalCache {
     await _db.rawExecute(
       'INSERT OR REPLACE INTO set_overview '
       '(set_id, total, done, remaining, single_count, multiple_count, '
-      'accuracy, updated_at) '
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'accuracy, by_module, updated_at) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       <Object?>[
         overview.setId,
         overview.total,
@@ -267,6 +289,8 @@ class SqliteBankLocalCache implements BankLocalCache {
         overview.byType?.single ?? -1,
         overview.byType?.multiple ?? -1,
         overview.accuracy,
+        // 每模块题量未知时写 null（列可空），读回 null，不编映射。
+        overview.byModule == null ? null : jsonEncode(overview.byModule),
         DateTime.now().millisecondsSinceEpoch,
       ],
     );
