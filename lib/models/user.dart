@@ -56,6 +56,7 @@ class Device {
     required this.name,
     required this.last_active_at,
     required this.is_current,
+    this.app_version,
   });
 
   /// 设备 id。
@@ -70,12 +71,16 @@ class Device {
   /// 是否为当前设备。
   final bool is_current;
 
+  /// 应用版本（F34 B3：GET /auth/devices 下发；旧数据无此字段为 null）。
+  final String? app_version;
+
   factory Device.fromJson(Map<String, dynamic> json) {
     return Device(
       id: json['id'] as String,
       name: json['name'] as String,
       last_active_at: json['last_active_at'] as int,
       is_current: json['is_current'] as bool,
+      app_version: json['app_version'] as String?,
     );
   }
 
@@ -85,6 +90,7 @@ class Device {
       'name': name,
       'last_active_at': last_active_at,
       'is_current': is_current,
+      'app_version': app_version,
     };
   }
 

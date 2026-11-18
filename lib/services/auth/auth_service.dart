@@ -4,6 +4,7 @@
 /// - `POST /api/v1/auth/login`   {phone, password, deviceId, deviceModel, appVersion}
 /// - `POST /api/v1/auth/refresh` {refreshToken}（轮换 refresh token）
 /// - `POST /api/v1/auth/logout`  Bearer accessToken
+/// - `GET  /api/v1/auth/devices` Bearer accessToken（F34 B3：绑定设备列表）
 ///
 /// accessToken TTL 15 分钟，refreshToken 30 天；本服务负责持久化双 Token、
 /// 到期前自动刷新，并把 accessToken 暴露给 [AuthHttpClient] 附加到
@@ -47,6 +48,7 @@ class HttpAuthService extends AuthService {
     String? deviceModelOverride,
     String? appVersion,
     this._localCache,
+    this.fallback,
   }) : _client = client ?? http.Client(),
        _kv = kvStore ?? ServiceLocator.kvStore,
        _secure = secureStore ?? FlutterSecureSessionStore(),
@@ -70,6 +72,15 @@ class HttpAuthService extends AuthService {
   final String? _deviceIdOverride;
   final String? _deviceModel;
   final String _appVersion;
+
+  /// F34 (B3)：未登录 / 离线 / 接口未就绪时的本地兜底（生产为
+  /// MockAuthService：空列表，绝不编造设备）。
+  final AuthService? fallback;
+
+  /// F34 (B3)：getDevices 的已鉴权客户端（AuthHttpClient：附加 Bearer、
+  /// 401 刷新一次并重放）。它依赖本服务，由 main.dart 在构造后赋值
+  ///（与 onSessionExpired 相同的装配顺序）。
+  http.Client? authClient;
 
   static const Duration _timeout = Duration(seconds: 10);
 
@@ -212,8 +223,48 @@ class HttpAuthService extends AuthService {
 
   @override
   Future<List<Device>> getDevices() async {
-    // 后端只做了设备绑定的登录校验，没有下发设备列表的端点；不编造数据。
-    return const <Device>[];
+    await _ensureLoaded();
+    if (_session == null) return _fallbackDevices();
+    try {
+      final response = await (authClient ?? _client)
+          .get(Uri.parse('$_baseUrl/api/v1/auth/devices'))
+          .timeout(_timeout);
+      if (response.statusCode != 200) return _fallbackDevices();
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      final items = decoded is Map<String, dynamic> ? decoded['devices'] : null;
+      if (items is! List) return _fallbackDevices();
+      // 服务端已按 last_active_at 倒序；保持原序，缺字段行丢弃，不编造。
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(_deviceFromJson)
+          .whereType<Device>()
+          .toList();
+    } catch (_) {
+      return _fallbackDevices();
+    }
+  }
+
+  Future<List<Device>> _fallbackDevices() {
+    return fallback?.getDevices() ??
+        Future<List<Device>>.value(const <Device>[]);
+  }
+
+  /// GET /auth/devices 行 → 契约模型 Device（§4.8）：
+  /// device_name → name，ISO 时间 → 毫秒时间戳，is_current 原样。
+  static Device? _deviceFromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final lastActive = DateTime.tryParse(
+      json['last_active_at'] as String? ?? '',
+    );
+    if (id is! String || id.isEmpty || lastActive == null) return null;
+    final name = json['device_name'];
+    return Device(
+      id: id,
+      name: name is String && name.isNotEmpty ? name : '未知设备',
+      last_active_at: lastActive.millisecondsSinceEpoch,
+      is_current: json['is_current'] as bool? ?? false,
+      app_version: json['app_version'] as String?,
+    );
   }
 
   @override

@@ -41,11 +41,12 @@ abstract class AuthService {
   /// 登出：撤销服务端会话 + 清本地 Token。
   Future<void> logout();
 
-  /// 设备列表（G-03 内“设备列表”项）。
+  /// 设备列表（G-03 内“设备列表”项 + 个人中心“其他设备”）。
+  /// F34 (B3)：真实实现走 GET /auth/devices；失败回落 Mock（空列表）。
   Future<List<Device>> getDevices();
 
-  /// 本机设备信息（个人中心“设备”区）。后端没有设备列表端点，
-  /// 这里只返回登录时上送的这台设备；未登录时也返回本机标识。
+  /// 本机设备信息（个人中心“设备”区）。只返回登录时上送的这台设备；
+  /// 未登录时也返回本机标识。
   Future<LocalDeviceInfo?> currentDevice() async => null;
 
   /// 恢复码提示（G-03 内“恢复码”项）。

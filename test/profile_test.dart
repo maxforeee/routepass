@@ -121,8 +121,9 @@ void main() {
       expect(find.text('0.2.8'), findsOneWidget);
       expect(find.text(_phone), findsOneWidget);
       expect(find.text('已绑定'), findsOneWidget);
-      expect(find.text('其他设备列表待接口'), findsOneWidget);
-      expect(find.textContaining('auth/devices'), findsOneWidget);
+      // F34 (B3)：Mock 无真实绑定 → 诚实空态，不再是「待接口」文案。
+      expect(find.text('暂无其他设备'), findsOneWidget);
+      expect(find.textContaining('auth/devices'), findsNothing);
     });
 
     testWidgets('not logged in shows 未登录, login button and disables sync', (

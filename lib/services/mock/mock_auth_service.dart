@@ -79,14 +79,9 @@ class MockAuthService extends AuthService {
 
   @override
   Future<List<Device>> getDevices() async {
-    return <Device>[
-      Device(
-        id: 'local-device',
-        name: '本机',
-        last_active_at: DateTime.now().millisecondsSinceEpoch,
-        is_current: true,
-      ),
-    ];
+    // F34 (B3)：真实设备列表来自 GET /auth/devices；Mock 没有真实绑定，
+    // 诚实空列表，不编造设备。
+    return const <Device>[];
   }
 
   @override

@@ -15,8 +15,9 @@ import '../../widgets/animated_app_bar.dart';
 
 /// 个人中心（头像进入）：设备 + 同步两个区块。
 ///
-/// 设备区只展示登录时上送的这一台设备（后端没有设备列表端点）；同步区
-/// 展示 [SyncService] 的真实状态，并在“立即同步”里执行两向 MERGE。
+/// 设备区展示本机信息与 GET /auth/devices 的真实绑定设备列表
+///（F34 B3；失败回落空列表，不编造设备）；同步区展示 [SyncService]
+/// 的真实状态，并在“立即同步”里执行两向 MERGE。
 /// 两个区块都先读本地缓存，再后台刷新，断网时页面仍可用。
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.authService, this.syncService});
@@ -37,6 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   User? _user;
   LocalDeviceInfo? _device;
+  List<Device> _devices = const <Device>[];
   SyncStatus? _status;
   bool _loading = true;
   bool _syncing = false;
@@ -52,6 +54,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _load() async {
     final user = await _auth.getCurrentUser();
     final device = await _auth.currentDevice();
+    List<Device> devices = const <Device>[];
+    try {
+      devices = await _auth.getDevices();
+    } catch (_) {
+      devices = const <Device>[];
+    }
     SyncStatus? status;
     try {
       status = await _sync.getSyncStatus();
@@ -62,6 +70,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _user = user;
       _device = device;
+      _devices = devices;
       _status = status ?? _status;
       _loading = false;
     });
@@ -175,16 +184,44 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
         const Divider(height: AppSpacing.lg),
-        _InfoRow(label: '其他设备', value: '其他设备列表待接口'),
-        Padding(
-          padding: const EdgeInsets.only(top: AppSpacing.xxs),
-          child: Text(
-            '后端尚未提供设备列表接口（GET /api/v1/auth/devices），暂不展示其他设备。',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(color: AppColors.cardCaption(context)),
-          ),
-        ),
+        if (_devices.isEmpty)
+          _InfoRow(label: '其他设备', value: '暂无其他设备')
+        else
+          for (final device in _devices) _buildDeviceRow(context, device),
       ],
+    );
+  }
+
+  /// F34 (B3)：真实绑定设备行（名称 + 版本 + 最近活跃；当前设备显式标注）。
+  Widget _buildDeviceRow(BuildContext context, Device device) {
+    final captionStyle = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: AppColors.cardCaption(context));
+    final version = device.app_version;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  device.is_current
+                      ? '${device.name}（当前设备）'
+                      : device.name,
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: AppColors.cardTitle(context)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(_formatMillis(device.last_active_at), style: captionStyle),
+            ],
+          ),
+          if (version != null && version.isNotEmpty)
+            Text('版本 $version', style: captionStyle),
+        ],
+      ),
     );
   }
 

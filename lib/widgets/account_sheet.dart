@@ -86,13 +86,26 @@ class _AccountSheetState extends State<AccountSheet> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final d in devices)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.smartphone_outlined),
-                  title: Text(d.name),
-                  subtitle: Text(d.is_current ? '当前设备' : '其他设备'),
-                ),
+              if (devices.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text('暂无设备'),
+                )
+              else
+                for (final d in devices)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.smartphone_outlined),
+                    title: Text(d.name),
+                    subtitle: Text(
+                      <String>[
+                        d.is_current ? '当前设备' : '其他设备',
+                        if (d.app_version != null && d.app_version!.isNotEmpty)
+                          '版本 ${d.app_version}',
+                        _formatDeviceTime(d.last_active_at),
+                      ].join(' · '),
+                    ),
+                  ),
             ],
           ),
           actions: [
@@ -104,6 +117,13 @@ class _AccountSheetState extends State<AccountSheet> {
         );
       },
     );
+  }
+
+  static String _formatDeviceTime(int ms) {
+    final time = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${time.year}-${two(time.month)}-${two(time.day)} '
+        '${two(time.hour)}:${two(time.minute)}';
   }
 
   Future<void> _showRecoveryCode() async {

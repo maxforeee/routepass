@@ -25,6 +25,7 @@ import 'services/bank/wrong_service.dart';
 import 'services/content/content_service_http.dart';
 import 'services/knowledge/knowledge_repo_http.dart';
 import 'services/knowledge/search_service_http.dart';
+import 'services/mock/mock_auth_service.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
 import 'services/mock/mock_exam_service.dart';
@@ -53,7 +54,11 @@ Future<void> main() async {
   // F19：登录接真实后端；accessToken 只活 15 分钟，AuthHttpClient 负责
   // 附加 Bearer、401 时刷新一次并重放。
   // F25：登出时同一份 SQLite 缓存随账号数据一并清空。
-  final authService = HttpAuthService(localCache: localCache);
+  final authService = HttpAuthService(
+    localCache: localCache,
+    // F34 (B3)：设备列表接口未就绪 / 失败时回落 Mock（空列表，不编造）。
+    fallback: MockAuthService(),
+  );
   authService.onSessionExpired = () {
     appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
       AppRoutes.login,
@@ -61,6 +66,8 @@ Future<void> main() async {
     );
   };
   final authClient = AuthHttpClient(auth: authService);
+  // F34 (B3)：getDevices 走已鉴权客户端（Bearer + 401 刷新一次重放）。
+  authService.authClient = authClient;
   String? cachedToken() => authService.cachedAccessToken;
   // S11：练习会话 / 抽题 / 判分 / 记录 / 进度走真实契约；接口未上线
   // （404）或未鉴权（401）时由 HttpPracticeService 内部回落到 Mock。
