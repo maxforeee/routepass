@@ -67,55 +67,67 @@ class _FailingWriteSecureStore implements SecureSessionStore {
 }
 
 void main() {
-  test('legacy plaintext session migrates into secure storage on restore', () async {
-    final kv = InMemoryKvStore();
-    final secure = InMemorySecureSessionStore();
-    kv.setString(KvStore.keyAuthSession, jsonEncode(_session().toJson()));
-    final auth = HttpAuthService(
-      client: MockClient((_) async => _jsonResponse(404, <String, Object?>{})),
-      kvStore: kv,
-      secureStore: secure,
-      baseUrl: 'http://test',
-    );
+  test(
+    'legacy plaintext session migrates into secure storage on restore',
+    () async {
+      final kv = InMemoryKvStore();
+      final secure = InMemorySecureSessionStore();
+      kv.setString(KvStore.keyAuthSession, jsonEncode(_session().toJson()));
+      final auth = HttpAuthService(
+        client: MockClient(
+          (_) async => _jsonResponse(404, <String, Object?>{}),
+        ),
+        kvStore: kv,
+        secureStore: secure,
+        baseUrl: 'http://test',
+      );
 
-    final user = await auth.getCurrentUser();
+      final user = await auth.getCurrentUser();
 
-    // 老用户升级后仍是登录态，Token 原样保留。
-    expect(user?.username, _phone);
-    expect(auth.cachedAccessToken, 'access-1');
-    final migrated = await secure.read();
-    expect(migrated, isNotNull);
-    expect(migrated, contains('access-1'));
-    expect(migrated, contains('refresh-1'));
-    // 明文副本必须删除。
-    expect(kv.getString(KvStore.keyAuthSession), isNull);
+      // 老用户升级后仍是登录态，Token 原样保留。
+      expect(user?.username, _phone);
+      expect(auth.cachedAccessToken, 'access-1');
+      final migrated = await secure.read();
+      expect(migrated, isNotNull);
+      expect(migrated, contains('access-1'));
+      expect(migrated, contains('refresh-1'));
+      // 明文副本必须删除。
+      expect(kv.getString(KvStore.keyAuthSession), isNull);
 
-    // 再次“重启”（新实例、同一存储）：直接从加密存储恢复，不再依赖明文。
-    final restarted = HttpAuthService(
-      client: MockClient((_) async => _jsonResponse(404, <String, Object?>{})),
-      kvStore: kv,
-      secureStore: secure,
-      baseUrl: 'http://test',
-    );
-    expect((await restarted.getCurrentUser())?.username, _phone);
-    expect(restarted.cachedAccessToken, 'access-1');
-  });
+      // 再次“重启”（新实例、同一存储）：直接从加密存储恢复，不再依赖明文。
+      final restarted = HttpAuthService(
+        client: MockClient(
+          (_) async => _jsonResponse(404, <String, Object?>{}),
+        ),
+        kvStore: kv,
+        secureStore: secure,
+        baseUrl: 'http://test',
+      );
+      expect((await restarted.getCurrentUser())?.username, _phone);
+      expect(restarted.cachedAccessToken, 'access-1');
+    },
+  );
 
-  test('restore reads the session from secure storage without any plaintext', () async {
-    final kv = InMemoryKvStore();
-    final secure = InMemorySecureSessionStore();
-    await secure.write(jsonEncode(_session().toJson()));
-    final auth = HttpAuthService(
-      client: MockClient((_) async => _jsonResponse(404, <String, Object?>{})),
-      kvStore: kv,
-      secureStore: secure,
-      baseUrl: 'http://test',
-    );
+  test(
+    'restore reads the session from secure storage without any plaintext',
+    () async {
+      final kv = InMemoryKvStore();
+      final secure = InMemorySecureSessionStore();
+      await secure.write(jsonEncode(_session().toJson()));
+      final auth = HttpAuthService(
+        client: MockClient(
+          (_) async => _jsonResponse(404, <String, Object?>{}),
+        ),
+        kvStore: kv,
+        secureStore: secure,
+        baseUrl: 'http://test',
+      );
 
-    expect((await auth.getCurrentUser())?.username, _phone);
-    expect(auth.cachedAccessToken, 'access-1');
-    expect(kv.getString(KvStore.keyAuthSession), isNull);
-  });
+      expect((await auth.getCurrentUser())?.username, _phone);
+      expect(auth.cachedAccessToken, 'access-1');
+      expect(kv.getString(KvStore.keyAuthSession), isNull);
+    },
+  );
 
   test('logout after migration clears secure storage and kv', () async {
     final kv = InMemoryKvStore();
@@ -144,69 +156,76 @@ void main() {
     expect(await auth.getCurrentUser(), isNull);
   });
 
-  test('refresh 401 expiry clears secure storage (no orphaned tokens)', () async {
-    final kv = InMemoryKvStore();
-    final secure = InMemorySecureSessionStore();
-    await secure.write(jsonEncode(_session().toJson()));
-    var expired = false;
-    final auth = HttpAuthService(
-      client: MockClient(
-        (_) async => _jsonResponse(401, <String, Object?>{'detail': '登录会话已失效'}),
-      ),
-      kvStore: kv,
-      secureStore: secure,
-      baseUrl: 'http://test',
-    );
-    auth.onSessionExpired = () => expired = true;
+  test(
+    'refresh 401 expiry clears secure storage (no orphaned tokens)',
+    () async {
+      final kv = InMemoryKvStore();
+      final secure = InMemorySecureSessionStore();
+      await secure.write(jsonEncode(_session().toJson()));
+      var expired = false;
+      final auth = HttpAuthService(
+        client: MockClient(
+          (_) async =>
+              _jsonResponse(401, <String, Object?>{'detail': '登录会话已失效'}),
+        ),
+        kvStore: kv,
+        secureStore: secure,
+        baseUrl: 'http://test',
+      );
+      auth.onSessionExpired = () => expired = true;
 
-    final token = await auth.accessToken(forceRefresh: true);
+      final token = await auth.accessToken(forceRefresh: true);
 
-    expect(token, isNull);
-    expect(expired, isTrue);
-    expect(await secure.read(), isNull);
-    expect(kv.getString(KvStore.keyAuthSession), isNull);
-  });
+      expect(token, isNull);
+      expect(expired, isTrue);
+      expect(await secure.read(), isNull);
+      expect(kv.getString(KvStore.keyAuthSession), isNull);
+    },
+  );
 
-  test('refresh rotation persists the rotated tokens to secure storage only', () async {
-    final kv = InMemoryKvStore();
-    final secure = InMemorySecureSessionStore();
-    final client = MockClient((request) async {
-      if (request.url.path == '/api/v1/auth/login') {
-        return _jsonResponse(200, <String, Object?>{
-          'accessToken': 'access-1',
-          'refreshToken': 'refresh-1',
-          'tokenType': 'Bearer',
-          'expiresIn': 30,
-          'user': <String, Object?>{'id': 7, 'nickname': 'Max'},
-        });
-      }
-      if (request.url.path == '/api/v1/auth/refresh') {
-        return _jsonResponse(200, <String, Object?>{
-          'accessToken': 'access-2',
-          'refreshToken': 'refresh-2',
-          'tokenType': 'Bearer',
-          'expiresIn': 900,
-        });
-      }
-      return _jsonResponse(404, <String, Object?>{});
-    });
-    final auth = HttpAuthService(
-      client: client,
-      kvStore: kv,
-      secureStore: secure,
-      baseUrl: 'http://test',
-    );
-    await auth.login(phone: _phone, password: 'secret123');
+  test(
+    'refresh rotation persists the rotated tokens to secure storage only',
+    () async {
+      final kv = InMemoryKvStore();
+      final secure = InMemorySecureSessionStore();
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/auth/login') {
+          return _jsonResponse(200, <String, Object?>{
+            'accessToken': 'access-1',
+            'refreshToken': 'refresh-1',
+            'tokenType': 'Bearer',
+            'expiresIn': 30,
+            'user': <String, Object?>{'id': 7, 'nickname': 'Max'},
+          });
+        }
+        if (request.url.path == '/api/v1/auth/refresh') {
+          return _jsonResponse(200, <String, Object?>{
+            'accessToken': 'access-2',
+            'refreshToken': 'refresh-2',
+            'tokenType': 'Bearer',
+            'expiresIn': 900,
+          });
+        }
+        return _jsonResponse(404, <String, Object?>{});
+      });
+      final auth = HttpAuthService(
+        client: client,
+        kvStore: kv,
+        secureStore: secure,
+        baseUrl: 'http://test',
+      );
+      await auth.login(phone: _phone, password: 'secret123');
 
-    final token = await auth.accessToken();
+      final token = await auth.accessToken();
 
-    expect(token, 'access-2');
-    final stored = await secure.read();
-    expect(stored, contains('access-2'));
-    expect(stored, contains('refresh-2'));
-    expect(stored, isNot(contains('refresh-1')));
-    expect(kv.getString(KvStore.keyAuthSession), isNull);
-  });
+      expect(token, 'access-2');
+      final stored = await secure.read();
+      expect(stored, contains('access-2'));
+      expect(stored, contains('refresh-2'));
+      expect(stored, isNot(contains('refresh-1')));
+      expect(kv.getString(KvStore.keyAuthSession), isNull);
+    },
+  );
 
   test('corrupt legacy plaintext is dropped without a session', () async {
     final kv = InMemoryKvStore();
@@ -241,36 +260,46 @@ void main() {
     expect(kv.getString(KvStore.keyAuthSession), isNull);
   });
 
-  test('secure session wins over a leftover plaintext copy, which is removed', () async {
-    final kv = InMemoryKvStore();
-    final secure = InMemorySecureSessionStore();
-    await secure.write(jsonEncode(_session(access: 'access-2').toJson()));
-    kv.setString(KvStore.keyAuthSession, jsonEncode(_session().toJson()));
-    final auth = HttpAuthService(
-      client: MockClient((_) async => _jsonResponse(404, <String, Object?>{})),
-      kvStore: kv,
-      secureStore: secure,
-      baseUrl: 'http://test',
-    );
+  test(
+    'secure session wins over a leftover plaintext copy, which is removed',
+    () async {
+      final kv = InMemoryKvStore();
+      final secure = InMemorySecureSessionStore();
+      await secure.write(jsonEncode(_session(access: 'access-2').toJson()));
+      kv.setString(KvStore.keyAuthSession, jsonEncode(_session().toJson()));
+      final auth = HttpAuthService(
+        client: MockClient(
+          (_) async => _jsonResponse(404, <String, Object?>{}),
+        ),
+        kvStore: kv,
+        secureStore: secure,
+        baseUrl: 'http://test',
+      );
 
-    expect(await auth.getCurrentUser(), isNotNull);
-    expect(auth.cachedAccessToken, 'access-2');
-    expect(kv.getString(KvStore.keyAuthSession), isNull);
-  });
+      expect(await auth.getCurrentUser(), isNotNull);
+      expect(auth.cachedAccessToken, 'access-2');
+      expect(kv.getString(KvStore.keyAuthSession), isNull);
+    },
+  );
 
-  test('failed migration write keeps plaintext for retry and stays logged in', () async {
-    final kv = InMemoryKvStore();
-    final secure = _FailingWriteSecureStore();
-    kv.setString(KvStore.keyAuthSession, jsonEncode(_session().toJson()));
-    final auth = HttpAuthService(
-      client: MockClient((_) async => _jsonResponse(404, <String, Object?>{})),
-      kvStore: kv,
-      secureStore: secure,
-      baseUrl: 'http://test',
-    );
+  test(
+    'failed migration write keeps plaintext for retry and stays logged in',
+    () async {
+      final kv = InMemoryKvStore();
+      final secure = _FailingWriteSecureStore();
+      kv.setString(KvStore.keyAuthSession, jsonEncode(_session().toJson()));
+      final auth = HttpAuthService(
+        client: MockClient(
+          (_) async => _jsonResponse(404, <String, Object?>{}),
+        ),
+        kvStore: kv,
+        secureStore: secure,
+        baseUrl: 'http://test',
+      );
 
-    // Keystore 写入失败不登出：本次会话可用，明文保留待下次启动重试。
-    expect((await auth.getCurrentUser())?.username, _phone);
-    expect(kv.getString(KvStore.keyAuthSession), isNotNull);
-  });
+      // Keystore 写入失败不登出：本次会话可用，明文保留待下次启动重试。
+      expect((await auth.getCurrentUser())?.username, _phone);
+      expect(kv.getString(KvStore.keyAuthSession), isNotNull);
+    },
+  );
 }
