@@ -13,7 +13,9 @@
 ///   绝不借练习集题量；ACL 练习集仅 ACL 行取清单 100，其余模块待接口；
 /// - 模型防御性解析：缺字段 / 非法值 → null，toJson 往返；
 /// - HttpPracticeProgressOverviewSource：byModule 从 fallback 概览合并；
-/// - SQLite 缓存 v3：byModule 读写往返（cache-first 命中不丢字段）。
+/// - SQLite 缓存 v3：byModule 读写往返（cache-first 命中不丢字段）；
+/// - F39：进度与题量同口径（M1/M2）、标签全集守卫（M9）、
+///   空映射 → null（L2）、共享解析器键值防御（L3）。
 library;
 
 import 'dart:convert';
@@ -90,6 +92,55 @@ class _CountsRepo extends MockQuestionRepository {
       overview;
 }
 
+/// F39 M1/M2 回归替身：全库 modules 带真实 answered（诱饵），套卷级
+/// setStats 与概览可注入——验证进度绝不回落全库、且与 byModule 同口径。
+class _ProgressGateRepo extends MockQuestionRepository {
+  _ProgressGateRepo({this.overview, this.setStats = const <ModuleStat>[]});
+
+  final BankSetOverview? overview;
+  final List<ModuleStat> setStats;
+
+  @override
+  Future<List<ModuleStat>> getModules() async => const <ModuleStat>[
+    ModuleStat(module: 'VLAN', total: 120, answered: 30, correctRate: 0.5),
+    ModuleStat(module: 'OSPF', total: 130, answered: 40, correctRate: 0.5),
+    ModuleStat(module: 'ACL', total: 140, answered: 50, correctRate: 0.5),
+    ModuleStat(module: 'NAT', total: 90, answered: 20, correctRate: 0.5),
+    ModuleStat(module: 'SUBNET', total: 110, answered: 10, correctRate: 0.5),
+  ];
+
+  @override
+  Future<List<ModuleStat>> getSetModuleStats({required String setId}) async =>
+      setStats;
+
+  @override
+  Future<BankSetOverview?> getSetOverview({required String setId}) async =>
+      overview;
+}
+
+/// F39 M9：模块行「题量 · 进度」标签全集——格式无关：任何
+/// “140 题 · 25%”式渲染都会进入全集被比对捕获，不只精确匹配
+/// “N 题 · 进度待接口”字符串。
+List<String> _moduleRowLabels(WidgetTester tester) {
+  final labelPattern = RegExp(r'^(题量待接口|\d+ 题) · (进度待接口|\d+%)$');
+  return tester
+      .widgetList<Text>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.data != null &&
+              labelPattern.hasMatch(widget.data!),
+        ),
+      )
+      .map((text) => text.data!)
+      .toList();
+}
+
+/// F39 M9：全库总量（120/130/140/90/110）绝不出现在任何“N 题”标签里，
+/// 无论进度段渲染成什么。
+Finder get _wholeBankCountLeak =>
+    find.textContaining(RegExp(r'(120|130|140|90|110) 题'));
+
 Widget _host(
   BankSetOverview? overview, {
   String mode = 'practice',
@@ -151,6 +202,18 @@ void main() {
       expect(find.text('110 题 · 进度待接口'), findsNothing);
       // 无每模块已答数据 → 进度待接口，进度条不填充，不虚构 0%。
       expect(find.textContaining('%'), findsNothing);
+      // F39 M9：模块行标签全集比对 + 格式无关的全库泄漏守卫。
+      expect(
+        _moduleRowLabels(tester),
+        unorderedEquals(<String>[
+          '100 题 · 进度待接口',
+          '0 题 · 进度待接口',
+          '0 题 · 进度待接口',
+          '0 题 · 进度待接口',
+          '0 题 · 进度待接口',
+        ]),
+      );
+      expect(_wholeBankCountLeak, findsNothing);
       final bars = find.descendant(
         of: find.byType(SetDetailPage),
         matching: find.byType(FractionallySizedBox),
@@ -190,6 +253,18 @@ void main() {
       expect(find.text('130 题 · 进度待接口'), findsNothing);
       expect(find.text('90 题 · 进度待接口'), findsNothing);
       expect(find.text('110 题 · 进度待接口'), findsNothing);
+      // F39 M9：标签全集比对 + 格式无关的全库泄漏守卫。
+      expect(
+        _moduleRowLabels(tester),
+        unorderedEquals(<String>[
+          '20 题 · 进度待接口',
+          '20 题 · 进度待接口',
+          '20 题 · 进度待接口',
+          '20 题 · 进度待接口',
+          '20 题 · 进度待接口',
+        ]),
+      );
+      expect(_wholeBankCountLeak, findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -204,6 +279,18 @@ void main() {
       expect(find.text('130 题 · 进度待接口'), findsNothing);
       expect(find.text('90 题 · 进度待接口'), findsNothing);
       expect(find.text('110 题 · 进度待接口'), findsNothing);
+      // F39 M9：标签全集比对 + 格式无关的全库泄漏守卫。
+      expect(
+        _moduleRowLabels(tester),
+        unorderedEquals(<String>[
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+        ]),
+      );
+      expect(_wholeBankCountLeak, findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -224,6 +311,18 @@ void main() {
       expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
       expect(find.text('100 题 · 进度待接口'), findsNothing);
       expect(find.textContaining('140'), findsNothing);
+      // F39 M9：标签全集比对 + 格式无关的全库泄漏守卫。
+      expect(
+        _moduleRowLabels(tester),
+        unorderedEquals(<String>[
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+        ]),
+      );
+      expect(_wholeBankCountLeak, findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -253,6 +352,85 @@ void main() {
       // NAT / SUBNET 清单无数据 → 同样待接口。全库总量绝不出现。
       expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
       expect(find.textContaining('140'), findsNothing);
+      // F39 M9：标签全集比对 + 格式无关的全库泄漏守卫。
+      expect(
+        _moduleRowLabels(tester),
+        unorderedEquals(<String>[
+          '100 题 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+        ]),
+      );
+      expect(_wholeBankCountLeak, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('F39 M1/M2：进度与题量同一套卷口径', () {
+    testWidgets('byModule 不含 VLAN（真 0 题）：setStats 有已答也不显示进度', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SetDetailPage(
+            args: <String, Object?>{
+              'mode': 'practice',
+              'drawCount': 100,
+              'setId': 'ACL',
+            },
+            questionRepository: _ProgressGateRepo(
+              overview: const BankSetOverview(
+                setId: 'ACL',
+                total: 100,
+                done: 0,
+                remaining: 100,
+                byModule: <String, int>{'ACL': 100},
+              ),
+              setStats: const <ModuleStat>[
+                ModuleStat(
+                  module: 'VLAN',
+                  total: 40,
+                  answered: 10,
+                  correctRate: 0.8,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // VLAN 不在 byModule → 本套卷真 0 题；setStats 的 10/40 绝不
+      // 泄漏成 “0 题 · 25%”（修复前会）。ACL 无套卷级已答 → 进度待接口。
+      expect(find.text('0 题 · 进度待接口'), findsNWidgets(4));
+      expect(find.text('100 题 · 进度待接口'), findsOneWidget);
+      expect(find.textContaining('%'), findsNothing);
+      expect(_wholeBankCountLeak, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('全题库 modules 带已答数也绝不进进度（M1 回落已移除）', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SetDetailPage(
+            args: <String, Object?>{
+              'mode': 'practice',
+              'drawCount': 100,
+              'setId': 'ACL',
+            },
+            questionRepository: _ProgressGateRepo(overview: null),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 默认清单仅 H3CNE → 五行题量待接口；全库 answered 是诱饵，
+      // 进度必须全待接口（修复前 _modules 回落会渲染 25% 等）。
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
+      expect(find.textContaining('%'), findsNothing);
+      expect(_wholeBankCountLeak, findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
@@ -313,6 +491,44 @@ void main() {
       );
       expect(withoutMap.toJson()['byModule'], isNull);
       expect(BankSetOverview.fromJson(withoutMap.toJson()).byModule, isNull);
+    });
+
+    test('F39 M7/L2：空映射 → null（未知，不是每模块真 0）', () {
+      final overview = BankSetOverview.fromJson(<String, dynamic>{
+        'setId': 'ACL',
+        'total': 100,
+        'byModule': <String, dynamic>{},
+      });
+      expect(overview.byModule, isNull);
+    });
+
+    test('F39 L3：Map<dynamic, dynamic> 键为 String 也解析；非 String 键 → null', () {
+      final overview = BankSetOverview.fromJson(<String, dynamic>{
+        'setId': 'ACL',
+        'total': 100,
+        'byModule': <dynamic, dynamic>{'ACL': 100},
+      });
+      expect(overview.byModule, <String, int>{'ACL': 100});
+      final badKey = BankSetOverview.fromJson(<String, dynamic>{
+        'setId': 'ACL',
+        'total': 100,
+        'byModule': <dynamic, dynamic>{1: 100},
+      });
+      expect(badKey.byModule, isNull);
+    });
+
+    test('F39 L3：jsonEncode/jsonDecode 往返不丢 byModule', () {
+      const overview = BankSetOverview(
+        setId: 'ACL',
+        total: 100,
+        done: 0,
+        remaining: 100,
+        byModule: <String, int>{'ACL': 100},
+      );
+      final roundTrip = BankSetOverview.fromJson(
+        jsonDecode(jsonEncode(overview.toJson())) as Map<String, dynamic>,
+      );
+      expect(roundTrip.byModule, <String, int>{'ACL': 100});
     });
   });
 
@@ -417,6 +633,27 @@ void main() {
         ),
       );
       final value = await cache.readOverview('VLAN');
+      expect(value!.byModule, isNull);
+    });
+
+    test('F39 L2：空 byModule 映射写 null 读回 null（不是每模块真 0）', () async {
+      final db = SqfliteLocalDatabase(
+        dbPath: inMemoryDatabasePath,
+        factory: databaseFactoryFfi,
+      );
+      addTearDown(db.close);
+      final cache = SqliteBankLocalCache(db);
+
+      await cache.writeOverview(
+        const BankSetOverview(
+          setId: 'ACL',
+          total: 100,
+          done: 0,
+          remaining: 100,
+          byModule: <String, int>{},
+        ),
+      );
+      final value = await cache.readOverview('ACL');
       expect(value!.byModule, isNull);
     });
   });

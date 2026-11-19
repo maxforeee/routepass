@@ -47,13 +47,15 @@ void main() {
     expect(await favorites.getFavoriteIds(), isEmpty);
   });
 
-  test('(a) addWrong + toggleFavorite 重启不丢：同库第二个 store 实例读回', () async {
+  test('(a) addWrong + toggleFavorite 落 SQLite：同库第二个 store 实例读回', () async {
     await wrong.addWrong('VLAN-1');
     await wrong.addWrong('VLAN-1');
     await favorites.toggleFavorite('VLAN-1', true);
     await favorites.toggleFavorite('OSPF-1', true);
 
-    // “重启”：同一个数据库上的全新 store 实例，没有任何同步。
+    // F39 L7：内存库上的“重启”实为同库重读——全新 store 实例、没有任何
+    // 同步，证明写入已落 SQLite（服务无状态、直接查库）；不证明跨进程
+    // 重启的持久性（那需要真实文件库）。
     final wrong2 = SqliteWrongService(db);
     final favorites2 = SqliteFavoriteService(db);
 
@@ -64,13 +66,43 @@ void main() {
     expect(items.first.mastered, isFalse);
     expect(items.first.removed_at, isNull);
 
-    expect(await favorites2.getFavoriteIds(), <String>['VLAN-1', 'OSPF-1']);
+    // F39 L5：排序契约是 created_at ASC（question_id 打破平局），不再是
+    // rowid 插入序；两次收藏可能落在同一毫秒，断言无序成员 + 时间非递减。
+    expect(
+      await favorites2.getFavoriteIds(),
+      unorderedEquals(<String>['VLAN-1', 'OSPF-1']),
+    );
     final favs = await favorites2.getFavorites();
     expect(favs, hasLength(2));
     expect(favs.first.created_at, greaterThan(0));
+    for (var i = 1; i < favs.length; i++) {
+      expect(favs[i].created_at, greaterThanOrEqualTo(favs[i - 1].created_at));
+    }
   });
 
-  test('(a) 取消收藏重启后仍为取消态', () async {
+  test('(g) F39 M3：重复收藏已收藏的题保留原 created_at', () async {
+    // 服务端物化写入一个确定的 created_at。
+    expect(
+      await favorites.mergeFromServer(<Favorite>[
+        const Favorite(question_id: 'VLAN-1', created_at: 2000),
+      ]),
+      1,
+    );
+    // 再收藏（INSERT OR IGNORE）不得把 created_at 顶成 now，
+    // 否则后续 LWW 会拿被顶高的本地时间压掉更新的服务端条目。
+    await favorites.toggleFavorite('VLAN-1', true);
+    expect((await favorites.getFavorites()).single.created_at, 2000);
+    // 更新的服务端条目仍能正常覆盖。
+    expect(
+      await favorites.mergeFromServer(<Favorite>[
+        const Favorite(question_id: 'VLAN-1', created_at: 3000),
+      ]),
+      1,
+    );
+    expect((await favorites.getFavorites()).single.created_at, 3000);
+  });
+
+  test('(a) 取消收藏同库重读仍为取消态', () async {
     await favorites.toggleFavorite('VLAN-1', true);
     await favorites.toggleFavorite('VLAN-1', false);
     final favorites2 = SqliteFavoriteService(db);
@@ -96,7 +128,10 @@ void main() {
   });
 
   test('(b) 错题 mergeFromServer：last-write-wins，服务端更旧保留本地', () async {
-    expect(await wrong.mergeFromServer(<WrongItem>[_wrong('VLAN-1', count: 3)]), 1);
+    expect(
+      await wrong.mergeFromServer(<WrongItem>[_wrong('VLAN-1', count: 3)]),
+      1,
+    );
     // 更旧的服务端条目：不覆盖。
     expect(
       await wrong.mergeFromServer(<WrongItem>[
@@ -116,12 +151,17 @@ void main() {
     expect(item.wrong_count, 5);
     expect(item.last_wrong_at, 3000);
     expect(item.mastered, isTrue);
-    // 服务端独有 → 新增；空 id 跳过。
+    // F39 M8：时间戳相等 → 覆盖（LWW 是 < 比较，相等不保留本地）。
     expect(
       await wrong.mergeFromServer(<WrongItem>[
-        _wrong('OSPF-1'),
-        _wrong(''),
+        _wrong('VLAN-1', count: 6, lastWrongAt: 3000),
       ]),
+      1,
+    );
+    expect((await wrong.getWrongBook()).single.wrong_count, 6);
+    // 服务端独有 → 新增；空 id 跳过。
+    expect(
+      await wrong.mergeFromServer(<WrongItem>[_wrong('OSPF-1'), _wrong('')]),
       1,
     );
     expect(await wrong.getWrongBook(), hasLength(2));
@@ -135,6 +175,14 @@ void main() {
         const Favorite(question_id: 'VLAN-1', created_at: 1000),
       ]),
       0,
+    );
+    expect((await favorites.getFavorites()).single.created_at, 2000);
+    // F39 M8/L7：created_at 相等 → 覆盖，返回 1（确定性结果）。
+    expect(
+      await favorites.mergeFromServer(<Favorite>[
+        const Favorite(question_id: 'VLAN-1', created_at: 2000),
+      ]),
+      1,
     );
     expect((await favorites.getFavorites()).single.created_at, 2000);
     expect(
@@ -153,6 +201,8 @@ void main() {
       1,
     );
     expect(await favorites.getFavoriteIds(), hasLength(2));
+    // F39 L5：排序按 created_at ASC，不是插入序（OSPF-1@500 在前）。
+    expect(await favorites.getFavoriteIds(), <String>['OSPF-1', 'VLAN-1']);
   });
 
   test('(c) removeWrong 写墓碑：列表隐藏，更旧的服务端数据不复活', () async {
@@ -168,11 +218,21 @@ void main() {
     expect(rows, hasLength(1));
     expect(rows.first['removed_at'], isNotNull);
 
-    // 重启后墓碑仍在，且更旧的服务端条目不复活。
+    // F39 L7：同库重读证明墓碑已落 SQLite；更旧的服务端条目不复活。
     final wrong2 = SqliteWrongService(db);
     expect(
       await wrong2.mergeFromServer(<WrongItem>[
         _wrong('VLAN-1', lastWrongAt: 1),
+      ]),
+      0,
+    );
+    expect(await wrong2.getWrongBook(), isEmpty);
+
+    // F39 M8：服务端时间恰好等于墓碑 → 不复活（<= 比较）。
+    final tombstone = (rows.first['removed_at'] as num).toInt();
+    expect(
+      await wrong2.mergeFromServer(<WrongItem>[
+        _wrong('VLAN-1', lastWrongAt: tombstone),
       ]),
       0,
     );

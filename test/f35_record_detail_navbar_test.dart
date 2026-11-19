@@ -78,9 +78,14 @@ void main() {
     expect(find.byType(CapsuleNavBar), findsNothing);
 
     // 走真实入口：详情页「查看试卷」push 试卷页（本地记录 → 暂无试卷空态）。
-    await tester.ensureVisible(find.text('查看试卷'));
+    // F39 L9：finder 限定在详情页内，树里别处出现同名文字也不歧义。
+    final viewPaper = find.descendant(
+      of: find.byType(AnswerRecordDetailPage),
+      matching: find.text('查看试卷'),
+    );
+    await tester.ensureVisible(viewPaper);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('查看试卷'));
+    await tester.tap(viewPaper);
     await tester.pumpAndSettle();
     expect(find.byType(AnswerRecordPaperPage), findsOneWidget);
     expect(find.text('暂无试卷'), findsOneWidget);

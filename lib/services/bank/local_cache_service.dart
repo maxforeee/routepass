@@ -256,6 +256,9 @@ class SqliteBankLocalCache implements BankLocalCache {
   }
 
   /// by_module JSON → 每模块题量映射；null / 脏数据读回 null，不编映射。
+  /// F39 M7/L2：与 BankSetOverview.fromJson 共用 [BankSetOverview.parseByModule]
+  /// 的单一契约——空 JSON 映射 `{}` 同样读回 null（未知，前置页显示
+  /// “题量待接口”），不是“每模块真 0”。
   static Map<String, int>? _decodeByModule(Object? raw) {
     if (raw is! String || raw.isEmpty) return null;
     final Object? decoded;
@@ -264,14 +267,7 @@ class SqliteBankLocalCache implements BankLocalCache {
     } catch (_) {
       return null;
     }
-    if (decoded is! Map<String, dynamic>) return null;
-    final parsed = <String, int>{};
-    for (final entry in decoded.entries) {
-      final value = entry.value;
-      if (value is! num) return null;
-      parsed[entry.key] = value.toInt();
-    }
-    return parsed;
+    return BankSetOverview.parseByModule(decoded);
   }
 
   @override
@@ -291,7 +287,11 @@ class SqliteBankLocalCache implements BankLocalCache {
         overview.byType?.multiple ?? -1,
         overview.accuracy,
         // 每模块题量未知时写 null（列可空），读回 null，不编映射。
-        overview.byModule == null ? null : jsonEncode(overview.byModule),
+        // F39 L2：空映射同样是未知（不是“每模块真 0”），写 null，
+        // 与读侧 parseByModule 的空→null 契约一致。
+        overview.byModule == null || overview.byModule!.isEmpty
+            ? null
+            : jsonEncode(overview.byModule),
         DateTime.now().millisecondsSinceEpoch,
       ],
     );

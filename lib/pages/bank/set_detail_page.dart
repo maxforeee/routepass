@@ -6,8 +6,9 @@
 /// 题量来自本套卷概览 byModule（F35：在映射 = 真实题量，不在 = 0），
 /// 概览未就绪时仅当本页就是该模块的练习集才回落题库清单
 /// practiceByModule 的该模块题量，其余一律显示“题量待接口”，
-/// 绝不用全题库模块总量或别的套卷的题量；进度无每模块已答数据，
-/// 显示“进度待接口”。
+/// 绝不用全题库模块总量或别的套卷的题量；进度只认本套卷预留统计
+/// 接口（F39：绝不回落全题库模块统计；byModule 就绪时不在映射的
+/// 模块同样无进度），无真实已答数据显示“进度待接口”。
 /// 答题说明卡只在考试（mode=exam）前置页显示（F16）。
 library;
 
@@ -345,6 +346,11 @@ class _SetDetailPageState extends State<SetDetailPage> {
     final byModule = _overview?.byModule;
     if (byModule != null) return byModule[module] ?? 0;
     final manifest = _manifest;
+    // F39 L6：练习 setId 即模块代码是清单契约的结构性事实，不是猜测——
+    // practiceByModule 是「模块 → 题量」映射，PracticeSetRecord 没有
+    // 独立 id 字段，题库页进练习集就以模块代码作 setId。因此按
+    // _setId == module 匹配，并在 practiceSets 里确认该模块练习集
+    // 真实存在后才借用题量（双重校验）；考试卷 id 永不等于模块代码。
     if (manifest != null && _setId == module) {
       for (final set in manifest.practiceSets) {
         if (set.module == module) return set.questionCount;
@@ -353,17 +359,20 @@ class _SetDetailPageState extends State<SetDetailPage> {
     return null;
   }
 
-  /// 模块进度（0–1，F16/F26）：只有 total>0 才计算 answered/total；
-  /// 模块接口只给题量（answered 恒 0 = 未知），不能把 0% 当真实进度，
-  /// 无真实已答数返回 null（UI 显示“进度待接口”），不虚构 0%。
+  /// 模块进度（0–1，F16/F26/F39）：与 [_moduleCount] 同一套卷口径——
+  /// 只认本套卷预留统计接口（_setStats 的 answered/total，total>0 才算）。
+  /// F39 M2：byModule 就绪且本模块不在映射里（本套卷真 0 题）时进度
+  /// 必为 null，同一行绝不出现“0 题 · 40%”；byModule 未就绪时保留
+  /// F16「预留统计接口仅供进度」行为（题量待接口、进度可真实）。
+  /// F39 M1：绝不回落全题库 _modules（GET /bank/modules 是全库口径，
+  /// answered 恒 0 = 未知），无真实已答数返回 null（UI 显示“进度待接口”），
+  /// 不虚构 0%。
   double? _moduleProgress(String module) {
+    final byModule = _overview?.byModule;
+    if (byModule != null && !byModule.containsKey(module)) return null;
     final setStat = _statOf(_setStats, module);
-    if (setStat != null && setStat.total > 0) {
-      return (setStat.answered / setStat.total).clamp(0.0, 1.0);
-    }
-    final stat = _statOf(_modules, module);
-    if (stat == null || stat.total <= 0 || stat.answered <= 0) return null;
-    return (stat.answered / stat.total).clamp(0.0, 1.0);
+    if (setStat == null || setStat.total <= 0) return null;
+    return (setStat.answered / setStat.total).clamp(0.0, 1.0);
   }
 
   @override

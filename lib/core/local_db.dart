@@ -7,6 +7,27 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 
+/// F36：错题本本地持久表（§4.8.5）。removed_at 为移除墓碑（null = 未移除）。
+/// 裸 CREATE TABLE：onCreate 只在全新库执行，v3→v4 升级时表必然不存在，
+/// 与其余五张表保持一致（F39 M6）。
+const String _wrongBookTableDdl = '''
+CREATE TABLE wrong_book (
+  question_id TEXT PRIMARY KEY,
+  wrong_count INTEGER NOT NULL,
+  last_wrong_at INTEGER NOT NULL,
+  mastered INTEGER NOT NULL,
+  removed_at INTEGER
+)
+''';
+
+/// F36：收藏本地持久表（§4.8.5）。收藏没有墓碑字段。
+const String _favoritesTableDdl = '''
+CREATE TABLE favorites (
+  question_id TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL
+)
+''';
+
 /// 客户端 SQLite 表结构（v4）。
 ///
 /// 与 v1.2 设计一致：服务端 PostgreSQL 为准，客户端 SQLite 只做本地缓存
@@ -74,25 +95,6 @@ const List<String> localDbSchema = <String>[
   _wrongBookTableDdl,
   _favoritesTableDdl,
 ];
-
-/// F36：错题本本地持久表（§4.8.5）。removed_at 为移除墓碑（null = 未移除）。
-const String _wrongBookTableDdl = '''
-CREATE TABLE IF NOT EXISTS wrong_book (
-  question_id TEXT PRIMARY KEY,
-  wrong_count INTEGER NOT NULL,
-  last_wrong_at INTEGER NOT NULL,
-  mastered INTEGER NOT NULL,
-  removed_at INTEGER
-)
-''';
-
-/// F36：收藏本地持久表（§4.8.5）。收藏没有墓碑字段。
-const String _favoritesTableDdl = '''
-CREATE TABLE IF NOT EXISTS favorites (
-  question_id TEXT PRIMARY KEY,
-  created_at INTEGER NOT NULL
-)
-''';
 
 /// 最小本地数据库接口：执行写语句 / 查询行。
 abstract class LocalDatabase {

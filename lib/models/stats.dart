@@ -210,14 +210,20 @@ class BankSetOverview {
   /// “题量待接口”），绝不编造映射，也不回退全题库模块总量。
   final Map<String, int>? byModule;
 
-  /// 防御性解析：非 Map、或任一键值不是数字 → 整体 null，不造半真映射。
-  static Map<String, int>? _parseByModule(Object? raw) {
-    if (raw is! Map<String, dynamic>) return null;
+  /// byModule 共享解析入口（F39 M7/L2/L3）：[BankSetOverview.fromJson] 与
+  /// SQLite 缓存（SqliteBankLocalCache._decodeByModule）共用同一契约：
+  /// null、非 Map、空映射、任一键非 String 或值非 num → 整体 null
+  /// （前置页显示“题量待接口”），不造半真映射，也不把空映射当“全模块真 0”。
+  /// 接受任意 Map 类型（jsonDecode / toJson 往返可能给出
+  /// `Map<String, Object?>` 等），键值逐一防御性校验。
+  static Map<String, int>? parseByModule(Object? raw) {
+    if (raw is! Map || raw.isEmpty) return null;
     final parsed = <String, int>{};
     for (final entry in raw.entries) {
+      final key = entry.key;
       final value = entry.value;
-      if (value is! num) return null;
-      parsed[entry.key] = value.toInt();
+      if (key is! String || value is! num) return null;
+      parsed[key] = value.toInt();
     }
     return parsed;
   }
@@ -237,7 +243,7 @@ class BankSetOverview {
             })
           : null,
       accuracy: accuracyRaw is num ? accuracyRaw.toDouble() / 100 : null,
-      byModule: _parseByModule(json['byModule']),
+      byModule: parseByModule(json['byModule']),
     );
   }
 

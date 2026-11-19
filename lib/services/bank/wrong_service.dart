@@ -20,6 +20,13 @@ import '../../models/wrong_favorite.dart';
 
 abstract class WrongService {
   /// 错题列表。HTTP：GET /wrong-book；Mock：本地内存列表。
+  ///
+  /// [module] 过滤由 HTTP 层对服务端 question.module 做；本地实现
+  /// （生产 SqliteWrongService）没有模块列，显式不支持 module 过滤——
+  /// 网络失败兜底时返回未过滤的本地全量列表（不过滤、不抛错），
+  /// 调用方不得依赖本地实现做 module 过滤（F39 M5）。
+  /// F39 L1：网络失败时只返回本地已缓存条目；服务端独有条目要等
+  /// 下次 sync pull（[mergeFromServer]）物化后才可见，读路径不触发合并。
   Future<List<WrongItem>> getWrongBook({String? module, bool? masteredOnly});
 
   /// 用户显式「加入错题本」（F25 考试评分页）。HTTP：POST /wrong-book
@@ -36,8 +43,12 @@ abstract class WrongService {
 
   /// F26 同步物化：把服务端条目按 question_id + last_wrong_at
   /// last-write-wins 并入本地 store，返回实际新增 / 更新的条数。
-  /// 服务端独有 → 新增；本地更新 → 保留本地；本地墓碑（removed_at）
-  /// 不被更旧的服务端数据复活。默认 no-op（测试 fake 无需实现）。
+  /// 服务端独有 → 新增；本地更新 → 保留本地（时间戳相等 → 覆盖）；
+  /// 本地墓碑（removed_at）不被不晚于移除时刻的服务端数据复活
+  /// （相等也不复活）。
+  /// F39 L1：HTTP 实现（[HttpWrongService]）把本方法委托给 [local]——
+  /// 生产 local 是 SqliteWrongService，因此这是真实落 SQLite 的持久
+  /// 合并，不是 no-op；默认 no-op 实现仅适用于未覆写本方法的测试 fake。
   Future<int> mergeFromServer(List<WrongItem> items) async => 0;
 }
 
