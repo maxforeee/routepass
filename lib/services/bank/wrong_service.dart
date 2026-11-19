@@ -50,6 +50,16 @@ abstract class WrongService {
   /// 生产 local 是 SqliteWrongService，因此这是真实落 SQLite 的持久
   /// 合并，不是 no-op；默认 no-op 实现仅适用于未覆写本方法的测试 fake。
   Future<int> mergeFromServer(List<WrongItem> items) async => 0;
+
+  /// F43 服务端删除传播：[liveQuestionIds] 是服务端**完整**列表
+  /// （所有页拉全、total 已知）里的全部存活题号；本地存活条目缺席
+  /// 该集合 → 视为服务端已删除，写本地墓碑（removed_at），返回墓碑
+  /// 条数。已有墓碑不重写时间戳。
+  ///
+  /// 契约：调用方必须保证拉取完整——部分 / 截断 / 失败的拉取绝不
+  /// 调用本方法（缺席不等于删除，可能只是没拉到）。默认 no-op 仅适用
+  /// 于未覆写的测试 fake；HTTP 实现委托 [local]。
+  Future<int> tombstoneAbsentFromServer(Set<String> liveQuestionIds) async => 0;
 }
 
 /// 错题本接口的 HTTP 实现；请求失败 / 接口未就绪时兜底委托 [local]。
@@ -135,6 +145,10 @@ class HttpWrongService implements WrongService {
   @override
   Future<int> mergeFromServer(List<WrongItem> items) =>
       local.mergeFromServer(items);
+
+  @override
+  Future<int> tombstoneAbsentFromServer(Set<String> liveQuestionIds) =>
+      local.tombstoneAbsentFromServer(liveQuestionIds);
 
   /// 逐页拉全错题列表；任一页失败返回 null，由调用方整体回落本地。
   Future<List<Map<String, dynamic>>?> _fetchAll() async {

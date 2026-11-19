@@ -99,6 +99,9 @@ class _FakeFavoriteService implements FavoriteService {
 
   @override
   Future<int> mergeFromServer(List<Favorite> items) async => 0;
+
+  @override
+  Future<int> tombstoneAbsentFromServer(Set<String> liveQuestionIds) async => 0;
 }
 
 class _FakeWrongService implements WrongService {
@@ -128,6 +131,9 @@ class _FakeWrongService implements WrongService {
 
   @override
   Future<int> mergeFromServer(List<WrongItem> items) async => 0;
+
+  @override
+  Future<int> tombstoneAbsentFromServer(Set<String> liveQuestionIds) async => 0;
 }
 
 class _FakePracticeService implements PracticeService {

@@ -101,6 +101,9 @@ class MockWrongService implements WrongService {
   }
 
   @override
+  Future<int> tombstoneAbsentFromServer(Set<String> liveQuestionIds) async => 0;
+
+  @override
   Future<int> mergeFromServer(List<WrongItem> items) async {
     var changed = 0;
     for (final item in items) {

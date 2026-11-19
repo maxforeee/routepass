@@ -5,7 +5,9 @@
 /// `LocalDatabase` / `routepass.db`），重启不丢；不预置演示数据，
 /// 空库读回空（诚实空态）。合并语义与 Mock 一字不差：
 /// last-write-wins（服务端更旧保留本地，时间戳相等 → 覆盖），错题墓碑
-/// （removed_at）不被更旧的服务端数据复活。读路径按需查 SQLite，不做
+/// （removed_at）不被更旧的服务端数据复活。F43 起收藏也有同一墓碑契约
+/// （取消收藏写墓碑而非删行——这一点刻意偏离 Mock 的内存删行行为，
+/// 否则服务端合并会复活本地已移除的收藏）。读路径按需查 SQLite，不做
 /// 启动阻塞加载。收藏排序契约（F39 L5）：created_at ASC，question_id
 /// 打破平局——rowid 会被重写，不是稳定契约。
 library;
@@ -141,6 +143,38 @@ class SqliteWrongService implements WrongService {
     return changed;
   }
 
+  @override
+  Future<int> tombstoneAbsentFromServer(Set<String> liveQuestionIds) async {
+    // F43 服务端删除传播：调用方（HttpSyncService._materialize）只在
+    // 完整拉取（所有页、total 已知且 items.length >= total）后才调用。
+    // 本地存活条目不在服务端全量列表里 → 视为服务端已删除，写墓碑。
+    // 只动 removed_at IS NULL 的行：已有墓碑的时间戳不重写（LWW 复活
+    // 守卫依赖原移除时刻）。读本地 id 后在 Dart 里求差集，再按 500
+    // 分块 UPDATE——避免 NOT IN 带上全量服务端 id（可达 5000）超出
+    // 老版本 SQLite 宿主参数上限（999，F41 H1/H2 同一约束）。
+    final rows = await _db.rawQuery(
+      'SELECT question_id FROM wrong_book WHERE removed_at IS NULL',
+    );
+    final absent = <String>[
+      for (final row in rows)
+        if (!liveQuestionIds.contains(row['question_id'] as String))
+          row['question_id'] as String,
+    ];
+    if (absent.isEmpty) return 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    const chunkSize = 500;
+    for (var i = 0; i < absent.length; i += chunkSize) {
+      final part = absent.sublist(i, (i + chunkSize).clamp(0, absent.length));
+      final placeholders = List<String>.filled(part.length, '?').join(', ');
+      await _db.rawExecute(
+        'UPDATE wrong_book SET removed_at = ? '
+        'WHERE question_id IN ($placeholders)',
+        <Object?>[now, ...part],
+      );
+    }
+    return absent.length;
+  }
+
   Future<void> _write(WrongItem item) async {
     // F39 L5：与 addWrong 对称——ON CONFLICT DO UPDATE 原地改行，
     // 不用 INSERT OR REPLACE 的删后重插（会改 rowid）。
@@ -172,7 +206,9 @@ class SqliteWrongService implements WrongService {
   }
 }
 
-/// 收藏持久实现：`favorites` 表，一行一题；没有墓碑字段（与契约一致）。
+/// 收藏持久实现：`favorites` 表，一行一题。F43：removed_at 墓碑与
+/// 错题本同一契约——取消收藏写墓碑而不是删行，mergeFromServer 不让
+/// 不晚于移除时刻的服务端条目复活；重新收藏清墓碑但保留原 created_at。
 class SqliteFavoriteService implements FavoriteService {
   SqliteFavoriteService(this._db);
 
@@ -182,8 +218,9 @@ class SqliteFavoriteService implements FavoriteService {
   Future<List<String>> getFavoriteIds() async {
     // F39 L5：created_at ASC 是稳定排序契约，question_id 打破平局；
     // rowid 会被重写（历史 INSERT OR REPLACE），不是契约。
+    // F43：过滤墓碑行（与错题本 getWrongBook 同一规则）。
     final rows = await _db.rawQuery(
-      'SELECT question_id FROM favorites '
+      'SELECT question_id FROM favorites WHERE removed_at IS NULL '
       'ORDER BY created_at ASC, question_id ASC',
     );
     return rows.map((row) => row['question_id'] as String).toList();
@@ -193,6 +230,7 @@ class SqliteFavoriteService implements FavoriteService {
   Future<List<Favorite>> getFavorites() async {
     final rows = await _db.rawQuery(
       'SELECT question_id, created_at FROM favorites '
+      'WHERE removed_at IS NULL '
       'ORDER BY created_at ASC, question_id ASC',
     );
     return rows
@@ -208,18 +246,25 @@ class SqliteFavoriteService implements FavoriteService {
   @override
   Future<void> toggleFavorite(String questionId, bool on) async {
     if (on) {
-      // F39 M3：INSERT OR IGNORE——已收藏的题重复收藏保留原 created_at
-      // 与排序，不重写行、不把时间戳顶成 now（否则后续 mergeFromServer
-      // 的 LWW 会拿被顶高的本地时间去压更新的服务端 created_at）。
+      // F39 M3：已收藏的题重复收藏保留原 created_at 与排序，不把时间戳
+      // 顶成 now（否则后续 mergeFromServer 的 LWW 会拿被顶高的本地时间
+      // 去压更新的服务端 created_at）。F43：INSERT OR IGNORE 改为
+      // ON CONFLICT DO UPDATE SET removed_at = NULL——冲突时只清墓碑、
+      // 不碰 created_at（excluded.created_at 不写入），重新收藏复活
+      // 已移除的收藏且保留原收藏时间；存活行重复收藏仍是语义 no-op。
       await _db.rawExecute(
-        'INSERT OR IGNORE INTO favorites (question_id, created_at) '
-        'VALUES (?, ?)',
+        'INSERT INTO favorites (question_id, created_at, removed_at) '
+        'VALUES (?, ?, NULL) '
+        'ON CONFLICT(question_id) DO UPDATE SET removed_at = NULL',
         <Object?>[questionId, DateTime.now().millisecondsSinceEpoch],
       );
     } else {
+      // F43：写墓碑而不是删行（与 removeWrong 同一规则）——列表过滤
+      // removed_at，mergeFromServer 不让更旧的服务端数据复活。
+      // 行不存在则 no-op（UPDATE 影响 0 行，与旧 DELETE 行为一致）。
       await _db.rawExecute(
-        'DELETE FROM favorites WHERE question_id = ?',
-        <Object?>[questionId],
+        'UPDATE favorites SET removed_at = ? WHERE question_id = ?',
+        <Object?>[DateTime.now().millisecondsSinceEpoch, questionId],
       );
     }
   }
@@ -241,7 +286,7 @@ class SqliteFavoriteService implements FavoriteService {
       final placeholders = List<String>.filled(part.length, '?').join(', ');
       rows.addAll(
         await _db.rawQuery(
-          'SELECT question_id, created_at FROM favorites '
+          'SELECT question_id, created_at, removed_at FROM favorites '
           'WHERE question_id IN ($placeholders)',
           part,
         ),
@@ -251,21 +296,65 @@ class SqliteFavoriteService implements FavoriteService {
       for (final row in rows)
         (row['question_id'] as String): (row['created_at'] as num).toInt(),
     };
+    final tombstoneById = <String, int?>{
+      for (final row in rows)
+        (row['question_id'] as String): (row['removed_at'] as num?)?.toInt(),
+    };
     var changed = 0;
     for (final item in valid) {
       final existing = createdAtById[item.question_id];
-      // last-write-wins：服务端更旧则保留本地（相等 → 覆盖，见 F39 M8/L7）。
-      if (existing != null && item.created_at < existing) continue;
+      if (existing != null) {
+        // F43 墓碑守卫（与错题本 mergeFromServer 一字不差）：移除之后
+        // 服务端没有更新（created_at 不晚于移除时刻）就不复活
+        // （相等也不复活，<= 比较）。严格更新的服务端条目复活并清墓碑
+        // ——这是文档化的复活契约（F41 M1 判定），不是 bug。
+        final tombstone = tombstoneById[item.question_id];
+        if (tombstone != null && item.created_at <= tombstone) continue;
+        // last-write-wins：服务端更旧则保留本地（相等 → 覆盖，见 F39 M8/L7）。
+        if (item.created_at < existing) continue;
+      }
       // F39 L5：ON CONFLICT DO UPDATE 原地改行，rowid 保持稳定。
+      // F43：服务端条目不带墓碑，写入即清 removed_at（复活契约）。
       await _db.rawExecute(
-        'INSERT INTO favorites (question_id, created_at) VALUES (?, ?) '
+        'INSERT INTO favorites (question_id, created_at, removed_at) '
+        'VALUES (?, ?, NULL) '
         'ON CONFLICT(question_id) DO UPDATE SET '
-        'created_at = excluded.created_at',
+        'created_at = excluded.created_at, removed_at = NULL',
         <Object?>[item.question_id, item.created_at],
       );
       createdAtById[item.question_id] = item.created_at;
+      tombstoneById[item.question_id] = null;
       changed++;
     }
     return changed;
+  }
+
+  @override
+  Future<int> tombstoneAbsentFromServer(Set<String> liveQuestionIds) async {
+    // F43 服务端删除传播：规则与 SqliteWrongService 同名方法一致——
+    // 只在完整拉取后调用；本地存活条目缺席服务端全量列表 → 写墓碑；
+    // 已有墓碑不重写时间戳；差集在 Dart 里求，UPDATE 按 500 分块
+    // （F41 H1/H2 宿主参数上限约束）。
+    final rows = await _db.rawQuery(
+      'SELECT question_id FROM favorites WHERE removed_at IS NULL',
+    );
+    final absent = <String>[
+      for (final row in rows)
+        if (!liveQuestionIds.contains(row['question_id'] as String))
+          row['question_id'] as String,
+    ];
+    if (absent.isEmpty) return 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    const chunkSize = 500;
+    for (var i = 0; i < absent.length; i += chunkSize) {
+      final part = absent.sublist(i, (i + chunkSize).clamp(0, absent.length));
+      final placeholders = List<String>.filled(part.length, '?').join(', ');
+      await _db.rawExecute(
+        'UPDATE favorites SET removed_at = ? '
+        'WHERE question_id IN ($placeholders)',
+        <Object?>[now, ...part],
+      );
+    }
+    return absent.length;
   }
 }

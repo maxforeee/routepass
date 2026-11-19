@@ -418,6 +418,12 @@ class HttpSyncService implements SyncService {
   /// id + 时间戳 last-write-wins 并入本地 store；答题记录复用既有
   /// [AnswerRecordService.syncFromServer]，不另写第二条合并路径。
   ///
+  /// F43：列表接口只返回存活条目（后端没有删除标记），完整拉取
+  /// （_PagedList.complete）后按缺席传播服务端删除——本地存活条目不在
+  /// 服务端全量列表里 → tombstoneAbsentFromServer 写墓碑；部分 / 截断
+  /// 拉取绝不删除本地数据。墓碑条数不计入「已更新 X 条」文案（该计数
+  /// 仍是合并新增 / 更新条数）。
+  ///
   /// store 未注入也未注册 → 该类别跳过（不计入文案）；拉取失败 → 该类别
   /// 如实报「未更新」，绝不把失败算成已应用。
   Future<_Materialized> _materialize() async {
@@ -430,15 +436,15 @@ class HttpSyncService implements SyncService {
         _tryLocate(() => ServiceLocator.answerRecordService);
 
     _CategoryResult? wrong;
-    final wrongItems = wrongStore == null
+    final wrongList = wrongStore == null
         ? null
         : await _fetchPaged('/api/v1/wrong-book');
     if (wrongStore != null) {
-      if (wrongItems == null) {
+      if (wrongList == null) {
         wrong = const _CategoryResult.failed();
       } else {
         final parsed = <WrongItem>[];
-        for (final item in wrongItems) {
+        for (final item in wrongList.items) {
           final id = item['questionId'];
           if (id is! String || id.isEmpty) continue;
           parsed.add(
@@ -452,6 +458,17 @@ class HttpSyncService implements SyncService {
         }
         try {
           wrong = _CategoryResult.ok(await wrongStore.mergeFromServer(parsed));
+          // F43 服务端删除传播规则（GET /wrong-book 只返回存活条目，
+          // 没有删除标记——见后端 wrong.py）：完整拉取（所有页、total
+          // 已知且拉够）后，本地存活条目缺席服务端全量列表 → 判定为
+          // 服务端已删除，写本地墓碑。部分 / 截断拉取（complete=false）
+          // 绝不删除本地数据——缺席可能只是没拉到。先合并再墓碑：
+          // 本次合并写入 / 复活的条目都在 liveIds 里，不会被误埋。
+          if (wrongList.complete) {
+            await wrongStore.tombstoneAbsentFromServer(
+              parsed.map((item) => item.question_id).toSet(),
+            );
+          }
         } catch (_) {
           wrong = const _CategoryResult.failed();
         }
@@ -459,15 +476,15 @@ class HttpSyncService implements SyncService {
     }
 
     _CategoryResult? favorites;
-    final favoriteItems = favoriteStore == null
+    final favoriteList = favoriteStore == null
         ? null
         : await _fetchPaged('/api/v1/favorites');
     if (favoriteStore != null) {
-      if (favoriteItems == null) {
+      if (favoriteList == null) {
         favorites = const _CategoryResult.failed();
       } else {
         final parsed = <Favorite>[];
-        for (final item in favoriteItems) {
+        for (final item in favoriteList.items) {
           final id = item['questionId'];
           if (id is! String || id.isEmpty) continue;
           parsed.add(
@@ -481,6 +498,13 @@ class HttpSyncService implements SyncService {
           favorites = _CategoryResult.ok(
             await favoriteStore.mergeFromServer(parsed),
           );
+          // F43：与错题本同一删除传播规则（GET /favorites 同样只返回
+          // 存活条目，见后端 favorite.py）；只在完整拉取后执行。
+          if (favoriteList.complete) {
+            await favoriteStore.tombstoneAbsentFromServer(
+              parsed.map((item) => item.question_id).toSet(),
+            );
+          }
         } catch (_) {
           favorites = const _CategoryResult.failed();
         }
@@ -510,8 +534,15 @@ class HttpSyncService implements SyncService {
 
   /// 逐页拉全列表接口（与 HttpWrongService / HttpFavoriteService 同一分页
   /// 契约 `{items, page, pageSize, total}`）；任一页失败返回 null。
-  Future<List<Map<String, dynamic>>?> _fetchPaged(String path) async {
+  ///
+  /// F43：返回 complete 标记——只有服务端声明了 total 且已拉够
+  /// （items.length >= total）才算完整。页数上限（_maxListPages ×
+  /// _listPageSize = 5000）耗尽或 total 缺失都按不完整处理：
+  /// 缺席服务端列表的本地条目只有在完整拉取下才能判定为「服务端已
+  /// 删除」，部分 / 截断拉取绝不触发本地删除（见 _materialize）。
+  Future<_PagedList?> _fetchPaged(String path) async {
     final items = <Map<String, dynamic>>[];
+    var complete = false;
     for (var page = 1; page <= _maxListPages; page++) {
       final response = await _get('$path?page=$page&page_size=$_listPageSize');
       if (response == null || response.statusCode != 200) return null;
@@ -520,10 +551,13 @@ class HttpSyncService implements SyncService {
       for (final item in raw) {
         if (item is Map<String, dynamic>) items.add(item);
       }
-      final total = (response.body['total'] as num?)?.toInt() ?? items.length;
-      if (raw.isEmpty || items.length >= total) break;
+      final total = (response.body['total'] as num?)?.toInt();
+      if (raw.isEmpty || items.length >= (total ?? items.length)) {
+        complete = total != null && items.length >= total;
+        break;
+      }
     }
-    return items;
+    return _PagedList(items: items, complete: complete);
   }
 
   /// ServiceLocator 是 late final 字段，未注册（单测直接注入）时读取会抛
@@ -798,6 +832,17 @@ class _HttpResponse {
 
   final int statusCode;
   final Map<String, dynamic> body;
+}
+
+/// F43：列表接口拉取结果 + 完整性标记。complete=true 当且仅当服务端
+/// 声明了 total 且 items.length >= total（所有页拉全）；页数上限耗尽
+/// 或 total 缺失都为 false。只有 complete 的拉取才允许按缺席判定
+/// 服务端删除（_materialize → tombstoneAbsentFromServer）。
+class _PagedList {
+  const _PagedList({required this.items, required this.complete});
+
+  final List<Map<String, dynamic>> items;
+  final bool complete;
 }
 
 class _Pulled {

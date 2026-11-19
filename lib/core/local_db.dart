@@ -20,15 +20,18 @@ CREATE TABLE wrong_book (
 )
 ''';
 
-/// F36：收藏本地持久表（§4.8.5）。收藏没有墓碑字段。
+/// F36：收藏本地持久表（§4.8.5）。F43：removed_at 为移除墓碑
+/// （null = 未移除），与错题本同一契约——取消收藏写墓碑而不是删行，
+/// 更旧的服务端数据不复活已移除条目。
 const String _favoritesTableDdl = '''
 CREATE TABLE favorites (
   question_id TEXT PRIMARY KEY,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  removed_at INTEGER
 )
 ''';
 
-/// 客户端 SQLite 表结构（v4）。
+/// 客户端 SQLite 表结构（v5）。
 ///
 /// 与 v1.2 设计一致：服务端 PostgreSQL 为准，客户端 SQLite 只做本地缓存
 /// 与待同步队列；缓存表以 `set_id` 为本地分区键。
@@ -37,6 +40,8 @@ CREATE TABLE favorites (
 /// null = 未知，读回 null，前置页显示“题量待接口”，不编映射）。
 /// v4（F36）：新增 wrong_book / favorites 两张本地持久表（§4.8.5），
 /// 错题本与收藏重启不丢；不预置演示数据，空库读回空（诚实空态）。
+/// v5（F43）：favorites 增加可空 removed_at 墓碑列，取消收藏不再删行，
+/// 服务端更旧的收藏条目不会复活本地已移除的收藏（与错题本同一契约）。
 const List<String> localDbSchema = <String>[
   '''
   CREATE TABLE set_overview (
@@ -113,7 +118,7 @@ class SqfliteLocalDatabase implements LocalDatabase {
   SqfliteLocalDatabase({this.dbPath, DatabaseFactory? factory})
     : dbFactory = factory ?? databaseFactory;
 
-  static const int schemaVersion = 4;
+  static const int schemaVersion = 5;
   static const String defaultFileName = 'routepass.db';
 
   final String? dbPath;
@@ -150,6 +155,15 @@ class SqfliteLocalDatabase implements LocalDatabase {
           if (oldVersion < 4) {
             await db.execute(_wrongBookTableDdl);
             await db.execute(_favoritesTableDdl);
+          }
+          // v4 → v5（F43）：v4 老库的 favorites 补墓碑列，既有行保持
+          // null（未移除）。只对 oldVersion == 4 执行：oldVersion < 4 的
+          // 库在上面分支里已用当前（v5）DDL 建表，自带 removed_at，
+          // 再 ALTER 会抛 duplicate column name。
+          if (oldVersion == 4) {
+            await db.execute(
+              'ALTER TABLE favorites ADD COLUMN removed_at INTEGER',
+            );
           }
         },
       ),

@@ -57,6 +57,9 @@ class MockFavoriteService implements FavoriteService {
   }
 
   @override
+  Future<int> tombstoneAbsentFromServer(Set<String> liveQuestionIds) async => 0;
+
+  @override
   Future<int> mergeFromServer(List<Favorite> items) async {
     var changed = 0;
     for (final item in items) {
