@@ -271,6 +271,8 @@ class PracticeSessionInfo {
 ///
 /// 契约字段：`{id, module, status, answeredCount, correctCount, startedAt,
 /// completedAt}`；服务端没有批量上传接口，记录由会话流程在服务端生成。
+/// F48 新增 `bankId` / `isRotation`：7 天轮回批次与模块练习同为
+/// kind='practice'，服务端按 bank_id 非空且 module 为空在接口边界判别。
 class PracticeRecordSummary {
   const PracticeRecordSummary({
     required this.id,
@@ -280,6 +282,8 @@ class PracticeRecordSummary {
     required this.correctCount,
     required this.startedAt,
     this.completedAt,
+    this.bankId,
+    this.isRotation = false,
   });
 
   final String id;
@@ -290,7 +294,17 @@ class PracticeRecordSummary {
   final int startedAt;
   final int? completedAt;
 
-  bool get isCompleted => status == PracticeSessionInfo.statusCompleted;
+  /// F48：轮回批次所属题库 id；模块练习为 null。
+  final String? bankId;
+
+  /// F48：是否 7 天轮回批次（服务端计算，客户端不自行推断）。
+  final bool isRotation;
+
+  /// F48：轮回批次交卷后服务端状态是 'submitted'（answer_sessions 里
+  /// 只有轮回会产生该状态），展示上等同已完成。
+  bool get isCompleted =>
+      status == PracticeSessionInfo.statusCompleted ||
+      (isRotation && status == 'submitted');
 
   factory PracticeRecordSummary.fromJson(Map<String, dynamic> json) {
     return PracticeRecordSummary(
@@ -301,6 +315,8 @@ class PracticeRecordSummary {
       correctCount: (json['correctCount'] as num?)?.toInt() ?? 0,
       startedAt: epochMillisFromJson(json['startedAt']) ?? 0,
       completedAt: epochMillisFromJson(json['completedAt']),
+      bankId: json['bankId'] as String?,
+      isRotation: json['isRotation'] as bool? ?? false,
     );
   }
 

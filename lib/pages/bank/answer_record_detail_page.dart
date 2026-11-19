@@ -7,6 +7,9 @@
 /// 摘要优先取 `GET /practice/records/{id}` 的真实 attempts 统计；未登录 /
 /// 离线 / 本地未同步记录回落本地 kv 摘要（薄弱点显示“待接口”，不虚构）。
 /// 删除同时清服务端与本地 kv；断点记录另清进行态，「继续练习」不再续答。
+/// F48：7 天轮回批次（mode 'rotation'）标题固定「7天轮回」（无模块名），
+/// 且不可删除——不渲染删除按钮（服务端 DELETE 同样以 409 拒绝，
+/// 保护 7 天轮回窗口内的题目不被解锁）。
 library;
 
 import 'package:flutter/material.dart';
@@ -129,6 +132,16 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
     return '${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
   }
 
+  /// F48：轮回批次没有模块，标题固定「7天轮回」，不显示套卷名。
+  String _subtitle(AnswerRecord record) {
+    final status = record.isBreakpoint ? '断点' : '已完成';
+    if (record.mode == 'rotation') {
+      return '7天轮回 · $status · $_dateText';
+    }
+    final mode = record.mode == 'exam' ? '考试' : '练习';
+    return '$mode · ${record.setTitle} · $status · $_dateText';
+  }
+
   Future<void> _confirmDelete() async {
     final confirmed = await showAppDialog<bool>(
       context: context,
@@ -241,12 +254,14 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
                       ),
                       Expanded(
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(
+                          padding: EdgeInsets.fromLTRB(
                             AppSpacing.md,
                             AppSpacing.xs,
                             AppSpacing.md,
-                            // 底部为钉住的删除按钮留位。
-                            AppSizes.buttonHeight + AppSpacing.md * 2,
+                            // 底部为钉住的删除按钮留位；轮回记录无删除按钮。
+                            record.mode == 'rotation'
+                                ? AppSpacing.md
+                                : AppSizes.buttonHeight + AppSpacing.md * 2,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,10 +276,7 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               Text(
-                                '${record.mode == 'exam' ? '考试' : '练习'} · '
-                                '${record.setTitle} · '
-                                '${record.isBreakpoint ? '断点' : '已完成'} · '
-                                '$_dateText',
+                                _subtitle(record),
                                 style: TextStyle(
                                   fontSize: AppFontSizes.detailStat,
                                   color: AppColors.cardCaption(context),
@@ -306,32 +318,35 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
                       ),
                     ],
                   ),
-                  Positioned(
-                    left: AppSpacing.md,
-                    right: AppSpacing.md,
-                    bottom: AppSpacing.md,
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: AppSizes.buttonHeight,
-                      child: OutlinedButton(
-                        onPressed: _deleting ? null : _confirmDelete,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: theme.colorScheme.error,
-                          side: BorderSide(color: theme.colorScheme.error),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppRadii.setDetailStartButton,
+                  // F48：轮回记录不可删除（删除会解锁 7 天窗口内的题目），
+                  // 不渲染删除按钮；服务端 DELETE 另以 409 兜底。
+                  if (record.mode != 'rotation')
+                    Positioned(
+                      left: AppSpacing.md,
+                      right: AppSpacing.md,
+                      bottom: AppSpacing.md,
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: AppSizes.buttonHeight,
+                        child: OutlinedButton(
+                          onPressed: _deleting ? null : _confirmDelete,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.error,
+                            side: BorderSide(color: theme.colorScheme.error),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppRadii.setDetailStartButton,
+                              ),
+                            ),
+                            textStyle: theme.textTheme.bodyLarge?.copyWith(
+                              fontSize: AppFontSizes.detailButton,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          textStyle: theme.textTheme.bodyLarge?.copyWith(
-                            fontSize: AppFontSizes.detailButton,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          child: Text(_deleting ? '删除中…' : '删除记录'),
                         ),
-                        child: Text(_deleting ? '删除中…' : '删除记录'),
                       ),
                     ),
-                  ),
                 ],
               ),
       ),
@@ -482,9 +497,7 @@ class _WeakPoints extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    point.module.isEmpty
-                        ? '全部模块'
-                        : moduleLabel(point.module),
+                    point.module.isEmpty ? '全部模块' : moduleLabel(point.module),
                     style: TextStyle(
                       fontSize: AppFontSizes.detailBody,
                       fontWeight: FontWeight.w600,

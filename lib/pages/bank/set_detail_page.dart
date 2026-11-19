@@ -68,6 +68,10 @@ class _SetDetailPageState extends State<SetDetailPage> {
   BankManifest? _manifest;
   BankSetOverview? _overview;
   List<AnswerRecord> _records = const <AnswerRecord>[];
+
+  /// F48：7 天轮回批次记录（全局 setId '' + mode 'rotation'），仅练习
+  /// 前置页加载，在答题记录卡的「7天轮回」分组展示。
+  List<AnswerRecord> _rotationRecords = const <AnswerRecord>[];
   AnswerRecord? _breakpoint;
   int _practiceTarget = 20;
 
@@ -228,9 +232,14 @@ class _SetDetailPageState extends State<SetDetailPage> {
       final records = _recordService.recordsFor(setId: setId, mode: mode);
       final breakpoint = _recordService.breakpointOf(setId: setId, mode: mode);
       final session = _sessionService.load(setId: setId, mode: mode);
+      // F48：轮回批次是全局记录（setId ''），只在练习前置页展示。
+      final rotationRecords = _isExam
+          ? const <AnswerRecord>[]
+          : _recordService.recordsFor(setId: '', mode: 'rotation');
       if (!mounted) return;
       setState(() {
         _records = records;
+        _rotationRecords = rotationRecords;
         _breakpoint = breakpoint;
         if (!_isExam &&
             session != null &&
@@ -590,6 +599,9 @@ class _SetDetailPageState extends State<SetDetailPage> {
                             ),
                             child: AnswerRecordsCard(
                               records: _records.take(10).toList(),
+                              rotationRecords: _rotationRecords
+                                  .take(10)
+                                  .toList(),
                               onContinue: _records.any((r) => r.isBreakpoint)
                                   ? _start
                                   : null,

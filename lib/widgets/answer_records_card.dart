@@ -3,6 +3,8 @@
 /// 卡面透明无填充，边框复用 [DailyCardBorderPainter]（与首页每日一练 /
 /// 错题本方块同一算法：标题坐在上边框缺口里）。高度 = 72 + 行数×56，
 /// 下限 200、上限可视高 × [maxHeightFactor]；超过上限时卡内滚动。
+/// F48：可选 [rotationRecords] 在模块记录之后渲染「7天轮回」分组
+/// （组标题 + 轮回批次行）；不传时与旧形态完全一致。
 library;
 
 import 'dart:math';
@@ -18,6 +20,7 @@ class AnswerRecordsCard extends StatelessWidget {
   const AnswerRecordsCard({
     super.key,
     required this.records,
+    this.rotationRecords = const <AnswerRecord>[],
     this.currentSummary,
     this.onContinue,
     this.onRecordTap,
@@ -25,6 +28,10 @@ class AnswerRecordsCard extends StatelessWidget {
   });
 
   final List<AnswerRecord> records;
+
+  /// F48：7 天轮回批次（mode 'rotation' 的完成记录），在模块记录之后
+  /// 以「7天轮回」分组渲染；空列表时不出现分组，卡面与旧形态一致。
+  final List<AnswerRecord> rotationRecords;
 
   /// 答题页「本次」摘要；前置页 null。
   final String? currentSummary;
@@ -39,6 +46,9 @@ class AnswerRecordsCard extends StatelessWidget {
   final double maxHeightFactor;
 
   static const String title = '答题记录';
+
+  /// F48：轮回分组标题行高（文本 + 上下留白），计入卡高。
+  static const double _rotationHeaderHeight = 28;
 
   static double _titleWidth() {
     final painter = TextPainter(
@@ -62,11 +72,16 @@ class AnswerRecordsCard extends StatelessWidget {
         ? AppSizes.recordsCardMinHeight
         : configuredMax;
 
-    final hasContent = records.isNotEmpty || currentSummary != null;
+    final hasContent =
+        records.isNotEmpty ||
+        rotationRecords.isNotEmpty ||
+        currentSummary != null;
+    final rowCount = records.length + rotationRecords.length;
     final target =
         72.0 +
         (currentSummary == null ? 0 : 36) +
-        records.length * AppSizes.recordsRowHeight;
+        rowCount * AppSizes.recordsRowHeight +
+        (rotationRecords.isEmpty ? 0 : _rotationHeaderHeight);
     final height = hasContent
         ? target.clamp(AppSizes.recordsCardMinHeight, maxH).toDouble()
         : AppSizes.recordsCardMinHeight;
@@ -88,7 +103,7 @@ class AnswerRecordsCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
           ],
           Expanded(
-            child: records.isEmpty
+            child: records.isEmpty && rotationRecords.isEmpty
                 ? Center(
                     child: Text(
                       '暂无答题记录',
@@ -100,16 +115,46 @@ class AnswerRecordsCard extends StatelessWidget {
                   )
                 : ListView.separated(
                     padding: EdgeInsets.zero,
-                    itemCount: records.length,
+                    // 模块记录 + （轮回组标题 + 轮回记录）；无轮回时与旧
+                    // 形态逐项一致。
+                    itemCount:
+                        records.length +
+                        (rotationRecords.isEmpty
+                            ? 0
+                            : 1 + rotationRecords.length),
                     separatorBuilder: (_, _) => Container(
                       height: AppSizes.divider,
                       color: AppColors.cardBorder(context),
                     ),
-                    itemBuilder: (context, index) => _RecordRow(
-                      record: records[index],
-                      onContinue: onContinue,
-                      onRecordTap: onRecordTap,
-                    ),
+                    itemBuilder: (context, index) {
+                      if (index < records.length) {
+                        return _RecordRow(
+                          record: records[index],
+                          onContinue: onContinue,
+                          onRecordTap: onRecordTap,
+                        );
+                      }
+                      if (index == records.length) {
+                        return SizedBox(
+                          height: _rotationHeaderHeight,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '7天轮回',
+                              style: TextStyle(
+                                fontSize: AppFontSizes.detailStat,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.cardTitle(context),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return _RecordRow(
+                        record: rotationRecords[index - records.length - 1],
+                        onRecordTap: onRecordTap,
+                      );
+                    },
                   ),
           ),
         ],
@@ -252,7 +297,10 @@ class _RecordRow extends StatelessWidget {
               ],
             ),
             Text(
-              '${record.mode == 'exam' ? '考试' : '练习'} · ${record.setTitle} · $_dateText · 用时 $_durationText',
+              // F48：轮回行已在「7天轮回」分组下，副标题不再重复套卷名。
+              record.mode == 'rotation'
+                  ? '7天轮回 · $_dateText · 用时 $_durationText'
+                  : '${record.mode == 'exam' ? '考试' : '练习'} · ${record.setTitle} · $_dateText · 用时 $_durationText',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

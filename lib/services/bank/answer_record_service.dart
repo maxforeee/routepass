@@ -215,6 +215,9 @@ class KvAnswerRecordService implements AnswerRecordService {
       );
 
       if (!item.isCompleted) {
+        // F48：进行中的轮回批次不造展示记录，也不标记任何本地断点
+        // （轮回没有模块可匹配，setId '' 的断点属于全模块练习）。
+        if (item.isRotation) continue;
         // 进行中的服务端会话：只把同模块的本地断点标记已同步，不造展示记录。
         final localIndex = records.indexWhere(
           (r) => r.isBreakpoint && r.setId == item.module && r.serverId == null,
@@ -230,11 +233,15 @@ class KvAnswerRecordService implements AnswerRecordService {
       }
 
       final updatedAt = item.completedAt ?? item.startedAt;
+      // F48：已交卷的轮回批次（status 'submitted'）映射为完成记录，
+      // 挂在全局 setId '' + mode 'rotation' 下，由练习前置页轮回分组展示。
       final mapped = AnswerRecord(
         id: serverId,
-        setId: item.module,
-        setTitle: item.module.isEmpty ? '全部' : item.module,
-        mode: 'practice',
+        setId: item.isRotation ? '' : item.module,
+        setTitle: item.isRotation
+            ? '7天轮回'
+            : (item.module.isEmpty ? '全部' : item.module),
+        mode: item.isRotation ? 'rotation' : 'practice',
         kind: 'completion',
         // 服务端完成记录只给最终题数（>= 20），它就是这次会话的目标。
         targetCount: item.answeredCount,
