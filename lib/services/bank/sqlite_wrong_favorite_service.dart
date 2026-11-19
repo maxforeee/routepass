@@ -93,18 +93,29 @@ class SqliteWrongService implements WrongService {
 
   @override
   Future<int> mergeFromServer(List<WrongItem> items) async {
-    // F39 L4：批量读已有行（单条 WHERE question_id IN (...)），消除
-    // 逐条 SELECT 的 N+1。LocalDatabase 没有事务 API，写仍逐条执行，
+    // F39 L4：批量读已有行（WHERE question_id IN (...)），消除逐条
+    // SELECT 的 N+1。LocalDatabase 没有事务 API，写仍逐条执行，
     // 属 best-effort：中途失败会留下半合并状态，但每条的合并是幂等的
     // （墓碑 + LWW），重试同一份服务端列表会收敛到同一结果。
     final valid = items.where((item) => item.question_id.isNotEmpty).toList();
     if (valid.isEmpty) return 0;
     final ids = valid.map((item) => item.question_id).toSet().toList();
-    final placeholders = List<String>.filled(ids.length, '?').join(', ');
-    final rows = await _db.rawQuery(
-      'SELECT $_columns FROM wrong_book WHERE question_id IN ($placeholders)',
-      ids,
-    );
+    // F41 H1：IN 列表按 500 分块——同步一次最多物化 5000 条，而老版本
+    // Android 的 SQLite 宿主参数上限只有 999，整表一条 IN 会抛
+    // too many SQL variables，整份错题本同步静默失败。
+    final rows = <Map<String, Object?>>[];
+    const chunkSize = 500;
+    for (var i = 0; i < ids.length; i += chunkSize) {
+      final part = ids.sublist(i, (i + chunkSize).clamp(0, ids.length));
+      final placeholders = List<String>.filled(part.length, '?').join(', ');
+      rows.addAll(
+        await _db.rawQuery(
+          'SELECT $_columns FROM wrong_book '
+          'WHERE question_id IN ($placeholders)',
+          part,
+        ),
+      );
+    }
     final existingById = <String, WrongItem>{
       for (final row in rows) (row['question_id'] as String): _fromRow(row),
     };
@@ -215,18 +226,27 @@ class SqliteFavoriteService implements FavoriteService {
 
   @override
   Future<int> mergeFromServer(List<Favorite> items) async {
-    // F39 L4：批量读已有行（单条 WHERE question_id IN (...)）。
+    // F39 L4：批量读已有行（WHERE question_id IN (...)）。
     // LocalDatabase 没有事务 API，写仍逐条执行，属 best-effort：
     // 每条合并幂等（LWW），重试同一份服务端列表会收敛到同一结果。
     final valid = items.where((item) => item.question_id.isNotEmpty).toList();
     if (valid.isEmpty) return 0;
     final ids = valid.map((item) => item.question_id).toSet().toList();
-    final placeholders = List<String>.filled(ids.length, '?').join(', ');
-    final rows = await _db.rawQuery(
-      'SELECT question_id, created_at FROM favorites '
-      'WHERE question_id IN ($placeholders)',
-      ids,
-    );
+    // F41 H2：与错题本合并同样按 500 分块，避免超出老版本 SQLite
+    // 宿主参数上限（999）导致整份收藏同步失败。
+    final rows = <Map<String, Object?>>[];
+    const chunkSize = 500;
+    for (var i = 0; i < ids.length; i += chunkSize) {
+      final part = ids.sublist(i, (i + chunkSize).clamp(0, ids.length));
+      final placeholders = List<String>.filled(part.length, '?').join(', ');
+      rows.addAll(
+        await _db.rawQuery(
+          'SELECT question_id, created_at FROM favorites '
+          'WHERE question_id IN ($placeholders)',
+          part,
+        ),
+      );
+    }
     final createdAtById = <String, int>{
       for (final row in rows)
         (row['question_id'] as String): (row['created_at'] as num).toInt(),

@@ -138,8 +138,11 @@ List<String> _moduleRowLabels(WidgetTester tester) {
 
 /// F39 M9：全库总量（120/130/140/90/110）绝不出现在任何“N 题”标签里，
 /// 无论进度段渲染成什么。
+/// F41 L2：\b 排除更长数字里的子串误报（如 “1120 题”）；数值集合专属
+/// 于本文件诱饵仓储（_wholeBankModules / _ProgressGateRepo）的全库总量，
+/// 若别的测试真实产出这些数字（如某套卷真有 120 题），不得复用本守卫。
 Finder get _wholeBankCountLeak =>
-    find.textContaining(RegExp(r'(120|130|140|90|110) 题'));
+    find.textContaining(RegExp(r'\b(120|130|140|90|110) 题'));
 
 Widget _host(
   BankSetOverview? overview, {
@@ -431,6 +434,55 @@ void main() {
       expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(5));
       expect(find.textContaining('%'), findsNothing);
       expect(_wholeBankCountLeak, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('F41 M3：byModule 未就绪（null）+ setStats 有已答：进度可真实，题量待接口', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: SetDetailPage(
+            args: <String, Object?>{
+              'mode': 'practice',
+              'drawCount': 100,
+              'setId': 'ACL',
+            },
+            questionRepository: _ProgressGateRepo(
+              overview: null,
+              setStats: const <ModuleStat>[
+                ModuleStat(
+                  module: 'VLAN',
+                  total: 40,
+                  answered: 10,
+                  correctRate: 0.8,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // byModule null → 题量保留 F16 诚实兜底（默认清单仅 H3CNE，与五
+      // 模块无重叠 → 五行全题量待接口）；进度走套卷级预留统计接口：
+      // VLAN 10/40 = 25% 真实渲染，其余四模块无已答 → 进度待接口。
+      // 锁定 _moduleProgress 文档契约：byModule 未就绪时「题量待接口、
+      // 进度可真实」，M1 扁平化不得把该分支回归成进度待接口。
+      expect(find.text('题量待接口 · 25%'), findsOneWidget);
+      expect(find.text('题量待接口 · 进度待接口'), findsNWidgets(4));
+      expect(_wholeBankCountLeak, findsNothing);
+      expect(
+        _moduleRowLabels(tester),
+        unorderedEquals(<String>[
+          '题量待接口 · 25%',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+          '题量待接口 · 进度待接口',
+        ]),
+      );
       expect(tester.takeException(), isNull);
     });
   });
