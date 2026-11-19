@@ -93,6 +93,7 @@ abstract class BankLocalCache {
   Future<void> markSyncOpSynced(String opId);
 
   /// F25：登出清空全部本地缓存（概览 / 题库 / 作答 / 会话 / 待同步队列）。
+  /// F36：SQLite 实现同时清空错题本 / 收藏持久表（wrong_book / favorites）。
   Future<void> clearAll();
 }
 
@@ -457,6 +458,9 @@ class SqliteBankLocalCache implements BankLocalCache {
       'attempts',
       'sync_queue',
       'set_meta',
+      // F36：错题本 / 收藏与缓存同库，登出一并清空。
+      'wrong_book',
+      'favorites',
     ]) {
       await _db.rawExecute('DELETE FROM $table');
     }

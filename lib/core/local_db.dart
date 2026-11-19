@@ -7,13 +7,15 @@ library;
 
 import 'package:sqflite/sqflite.dart';
 
-/// 客户端 SQLite 表结构（v3）。
+/// 客户端 SQLite 表结构（v4）。
 ///
 /// 与 v1.2 设计一致：服务端 PostgreSQL 为准，客户端 SQLite 只做本地缓存
-/// 与待同步队列；所有表都以 `set_id` 为本地分区键。
+/// 与待同步队列；缓存表以 `set_id` 为本地分区键。
 /// v2（F26）：set_overview 增加可空 accuracy 列（null = 未知，不写假 0）。
 /// v3（F35）：set_overview 增加可空 by_module 列（每模块题量映射的 JSON；
 /// null = 未知，读回 null，前置页显示“题量待接口”，不编映射）。
+/// v4（F36）：新增 wrong_book / favorites 两张本地持久表（§4.8.5），
+/// 错题本与收藏重启不丢；不预置演示数据，空库读回空（诚实空态）。
 const List<String> localDbSchema = <String>[
   '''
   CREATE TABLE set_overview (
@@ -69,7 +71,28 @@ const List<String> localDbSchema = <String>[
     bank_synced_at INTEGER
   )
   ''',
+  _wrongBookTableDdl,
+  _favoritesTableDdl,
 ];
+
+/// F36：错题本本地持久表（§4.8.5）。removed_at 为移除墓碑（null = 未移除）。
+const String _wrongBookTableDdl = '''
+CREATE TABLE IF NOT EXISTS wrong_book (
+  question_id TEXT PRIMARY KEY,
+  wrong_count INTEGER NOT NULL,
+  last_wrong_at INTEGER NOT NULL,
+  mastered INTEGER NOT NULL,
+  removed_at INTEGER
+)
+''';
+
+/// F36：收藏本地持久表（§4.8.5）。收藏没有墓碑字段。
+const String _favoritesTableDdl = '''
+CREATE TABLE IF NOT EXISTS favorites (
+  question_id TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL
+)
+''';
 
 /// 最小本地数据库接口：执行写语句 / 查询行。
 abstract class LocalDatabase {
@@ -88,7 +111,7 @@ class SqfliteLocalDatabase implements LocalDatabase {
   SqfliteLocalDatabase({this.dbPath, DatabaseFactory? factory})
     : dbFactory = factory ?? databaseFactory;
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
   static const String defaultFileName = 'routepass.db';
 
   final String? dbPath;
@@ -120,6 +143,11 @@ class SqfliteLocalDatabase implements LocalDatabase {
             await db.execute(
               'ALTER TABLE set_overview ADD COLUMN by_module TEXT',
             );
+          }
+          // v3 → v4（F36）：老库补错题本 / 收藏持久表（空表，不预置数据）。
+          if (oldVersion < 4) {
+            await db.execute(_wrongBookTableDdl);
+            await db.execute(_favoritesTableDdl);
           }
         },
       ),

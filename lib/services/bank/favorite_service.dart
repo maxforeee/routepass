@@ -6,7 +6,7 @@
 ///   条目 `{questionId, createdAt, question}`；
 /// - `POST   /api/v1/favorites`：body `{questionId}`，幂等（重复收藏返回原条目）；
 /// - `DELETE /api/v1/favorites/{questionId}`：返回 `{success, questionId}`。
-/// 网络失败 / 接口未就绪（非 200）回落 [local]（生产为 MockFavoriteService）。
+/// 网络失败 / 接口未就绪（非 200）回落 [local]（生产为 SqliteFavoriteService）。
 library;
 
 import 'dart:convert';
@@ -48,7 +48,7 @@ class HttpFavoriteService implements FavoriteService {
   }) : _client = client ?? http.Client(),
        _baseUrl = baseUrl ?? AppConfig.baseUrl;
 
-  /// 本地兜底实现（生产为 MockFavoriteService）。
+  /// 本地兜底实现（生产为 SqliteFavoriteService）。
   final FavoriteService local;
 
   final http.Client _client;

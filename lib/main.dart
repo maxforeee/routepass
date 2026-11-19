@@ -19,6 +19,7 @@ import 'services/bank/practice_service.dart';
 import 'services/bank/question_bank_source.dart';
 import 'services/bank/question_repo_http.dart';
 import 'services/bank/rotation_service.dart';
+import 'services/bank/sqlite_wrong_favorite_service.dart';
 import 'services/bank/stats_service.dart';
 import 'services/bank/sync_http_service.dart';
 import 'services/bank/wrong_service.dart';
@@ -29,7 +30,6 @@ import 'services/mock/mock_auth_service.dart';
 import 'services/mock/mock_cli_service.dart';
 import 'services/mock/mock_content_service.dart';
 import 'services/mock/mock_exam_service.dart';
-import 'services/mock/mock_favorite_service.dart';
 import 'services/mock/mock_knowledge_repository.dart';
 import 'services/mock/mock_ping_service.dart';
 import 'services/mock/mock_port_scan_service.dart';
@@ -38,7 +38,6 @@ import 'services/mock/mock_question_repository.dart';
 import 'services/mock/mock_rotation_service.dart';
 import 'services/mock/mock_search_service.dart';
 import 'services/mock/mock_stats_service.dart';
-import 'services/mock/mock_wrong_service.dart';
 import 'services/toolbox/ip_convert_service_impl.dart';
 import 'services/toolbox/subnet_calc_service_impl.dart';
 
@@ -50,7 +49,9 @@ Future<void> main() async {
   // 题库清单 / 每日一练已接 HTTP，其余仍是 Mock / 本地实现；以后接后端
   // 只改这里的装配与 config.dart 的 baseUrl，UI 文件不动。
   // F19：SQLite 本地缓存是读取的第一层（overview 计数、练习题库、作答）。
-  final localCache = SqliteBankLocalCache(SqfliteLocalDatabase());
+  // F36：错题本 / 收藏持久表与缓存共用同一个 routepass.db 连接。
+  final localDb = SqfliteLocalDatabase();
+  final localCache = SqliteBankLocalCache(localDb);
   // F19：登录接真实后端；accessToken 只活 15 分钟，AuthHttpClient 负责
   // 附加 Bearer、401 时刷新一次并重放。
   // F25：登出时同一份 SQLite 缓存随账号数据一并清空。
@@ -126,14 +127,15 @@ Future<void> main() async {
     ),
     dailyPracticeService: HttpDailyPracticeService(),
     // F25：收藏 / 错题本接真实契约（GET/POST/DELETE）；接口未上线（404）
-    // 或未鉴权（401）时回落 Mock。「已掌握」服务端暂无接口，仍走本地。
+    // 或未鉴权（401）时回落本地。「已掌握」服务端暂无接口，仍走本地。
+    // F36：本地兜底换成 SQLite 持久实现（重启不丢，不预置演示数据）。
     wrongService: HttpWrongService(
-      local: MockWrongService(),
+      local: SqliteWrongService(localDb),
       client: authClient,
       tokenProvider: cachedToken,
     ),
     favoriteService: HttpFavoriteService(
-      local: MockFavoriteService(),
+      local: SqliteFavoriteService(localDb),
       client: authClient,
       tokenProvider: cachedToken,
     ),

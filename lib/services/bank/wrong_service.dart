@@ -7,7 +7,7 @@
 /// - `POST   /api/v1/wrong-book`：body `{questionId}`，幂等（已存在返回原条目）；
 /// - `DELETE /api/v1/wrong-book/{questionId}`：返回 `{success, questionId}`。
 /// 服务端没有「已掌握」接口，[WrongService.markMastered] 仍委托本地实现。
-/// 网络失败 / 接口未就绪（非 200）回落 [local]（生产为 MockWrongService）。
+/// 网络失败 / 接口未就绪（非 200）回落 [local]（生产为 SqliteWrongService）。
 library;
 
 import 'dart:convert';
@@ -51,7 +51,7 @@ class HttpWrongService implements WrongService {
   }) : _client = client ?? http.Client(),
        _baseUrl = baseUrl ?? AppConfig.baseUrl;
 
-  /// 本地兜底实现（生产为 MockWrongService）。
+  /// 本地兜底实现（生产为 SqliteWrongService）。
   final WrongService local;
 
   final http.Client _client;
