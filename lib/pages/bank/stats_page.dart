@@ -5,6 +5,8 @@
 /// 后端 byModule 不提供模块题目总数，模块卡只展示“已答 N 题”与正确率。
 /// F27：加载中显示与内容同构的骨架（不再用居中进度圈），数据到达淡入。
 /// F29：加载失败显示错误 + 重试（诚实态），不再把失败折叠成 0 / “暂无数据”。
+/// F45：AppBar 刷新按钮 + 内容下拉刷新；刷新保留旧内容不闪骨架，
+/// 刷新失败落入诚实错误态（成功 → 失败 → 重试路径可达），在途重入被忽略。
 library;
 
 import 'dart:async';
@@ -31,6 +33,10 @@ class StatsPage extends StatefulWidget {
 class _StatsPageState extends State<StatsPage> {
   bool _loading = true;
   bool _failed = false;
+
+  /// F45：在途守卫——刷新按钮让并发 _load 变得可达（F30 复评发现 2：
+  /// 并发完成可能乱序落定），在途期间的第二次加载 / 刷新一律忽略。
+  bool _inFlight = false;
   StatsOverview? _overview;
   List<ModuleStat> _byModule = const <ModuleStat>[];
   List<DailyStats> _daily = const <DailyStats>[];
@@ -44,11 +50,16 @@ class _StatsPageState extends State<StatsPage> {
     _load();
   }
 
-  Future<void> _load() async {
+  /// [refresh] 为 true 时是刷新路径：保留旧内容不闪骨架（同题库页
+  /// “刷新期间保留旧清单”的做法），由刷新指示器自带 spinner；
+  /// 首次加载与错误态重试仍走骨架。失败分支不变（F30：清空旧载荷）。
+  Future<void> _load({bool refresh = false}) async {
     // F30：重试按钮直接接 _load，页面已销毁时不得再 setState。
-    if (!mounted) return;
+    // F45：在途重入直接忽略，避免并发 _load 乱序落定。
+    if (_inFlight || !mounted) return;
+    _inFlight = true;
     setState(() {
-      _loading = true;
+      if (!refresh) _loading = true;
       _failed = false;
     });
     try {
@@ -78,6 +89,8 @@ class _StatsPageState extends State<StatsPage> {
         _byModule = const <ModuleStat>[];
         _daily = const <DailyStats>[];
       });
+    } finally {
+      _inFlight = false;
     }
   }
 
@@ -87,7 +100,17 @@ class _StatsPageState extends State<StatsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('学习统计')),
+      appBar: AppBar(
+        title: const Text('学习统计'),
+        actions: [
+          // F45：刷新按钮（同个人中心页），在途期间禁用。
+          IconButton(
+            tooltip: '刷新',
+            onPressed: _inFlight ? null : () => _load(refresh: true),
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: SkeletonToContent(
         loaded: !_loading,
         skeleton: const _StatsSkeleton(),
@@ -98,8 +121,9 @@ class _StatsPageState extends State<StatsPage> {
 
   /// F29：加载失败的诚实态——错误提示 + 重试（同题库页清单失败的做法），
   /// 绝不渲染伪造的 0 / “暂无数据”。
+  /// F45：错误态也放进可滚动容器，确保下拉刷新可用（同题库页）。
   Widget _buildErrorState(ThemeData theme) {
-    return Center(
+    final error = Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -115,131 +139,140 @@ class _StatsPageState extends State<StatsPage> {
         ],
       ),
     );
+    return RefreshIndicator(
+      onRefresh: () => _load(refresh: true),
+      child: LayoutBuilder(
+        builder: (context, constraints) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [SizedBox(height: constraints.maxHeight, child: error)],
+        ),
+      ),
+    );
   }
 
   Widget _buildContent(ThemeData theme) {
     final ov = _overview;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('总览', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 12),
-                _StatRow(
-                  label: '累计答题',
-                  value: '${ov?.answeredTotal ?? 0} 题',
-                ),
-                _StatRow(
-                  label: '总正确率',
-                  value: ov == null || ov.answeredTotal == 0
-                      ? '暂无数据'
-                      : '${(ov.correctRate * 100).toStringAsFixed(1)}%',
-                ),
-                _StatRow(
-                  label: '连续学习',
-                  value: '${ov?.streakDays ?? 0} 天',
-                ),
-                _StatRow(
-                  label: '今日答题',
-                  value:
-                      '${ov?.todayAnswered ?? 0} 题 · 答对 ${ov?.todayCorrect ?? 0} 题',
-                ),
-              ],
+    // F45：下拉刷新（同题库页）；刷新期间保留旧内容不闪骨架，
+    // AlwaysScrollableScrollPhysics 保证内容短于视口时也能下拉。
+    return RefreshIndicator(
+      onRefresh: () => _load(refresh: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('总览', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  _StatRow(label: '累计答题', value: '${ov?.answeredTotal ?? 0} 题'),
+                  _StatRow(
+                    label: '总正确率',
+                    value: ov == null || ov.answeredTotal == 0
+                        ? '暂无数据'
+                        : '${(ov.correctRate * 100).toStringAsFixed(1)}%',
+                  ),
+                  _StatRow(label: '连续学习', value: '${ov?.streakDays ?? 0} 天'),
+                  _StatRow(
+                    label: '今日答题',
+                    value:
+                        '${ov?.todayAnswered ?? 0} 题 · 答对 ${ov?.todayCorrect ?? 0} 题',
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Text('按模块', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        if (_byModule.isEmpty)
-          Text(
-            '暂无数据',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          )
-        else
-          ..._byModule.indexed.map((entry) {
-            final (index, m) = entry;
-            // 后端不提供模块题目总数（total 恒 0）：进度条展示正确率，
-            // 计数只写“已答 N 题”，绝不拿 answered 冒充 answered/total。
-            final progress = m.correctRate;
-            // F29：骨架 → 内容切换保留文档约定的交错入场（同题库页）。
-            return StaggeredListAppear(
-              index: index,
-              slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
-              child: Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _moduleLabel(m.module),
-                              style: theme.textTheme.titleSmall,
+          const SizedBox(height: 16),
+          Text('按模块', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (_byModule.isEmpty)
+            Text(
+              '暂无数据',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            ..._byModule.indexed.map((entry) {
+              final (index, m) = entry;
+              // 后端不提供模块题目总数（total 恒 0）：进度条展示正确率，
+              // 计数只写“已答 N 题”，绝不拿 answered 冒充 answered/total。
+              final progress = m.correctRate;
+              // F29：骨架 → 内容切换保留文档约定的交错入场（同题库页）。
+              return StaggeredListAppear(
+                index: index,
+                slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
+                child: Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _moduleLabel(m.module),
+                                style: theme.textTheme.titleSmall,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '已答 ${m.answered} 题',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(value: progress),
-                      const SizedBox(height: 4),
-                      Text(
-                        m.answered == 0
-                            ? '暂无数据'
-                            : '正确率 ${(m.correctRate * 100).toStringAsFixed(1)}%',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                            Text(
+                              '已答 ${m.answered} 题',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(value: progress),
+                        const SizedBox(height: 4),
+                        Text(
+                          m.answered == 0
+                              ? '暂无数据'
+                              : '正确率 ${(m.correctRate * 100).toStringAsFixed(1)}%',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+              );
+            }),
+          const SizedBox(height: 16),
+          Text('每日记录', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (_daily.isEmpty)
+            Text(
+              '暂无数据',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-            );
-          }),
-        const SizedBox(height: 16),
-        Text('每日记录', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        if (_daily.isEmpty)
-          Text(
-            '暂无数据',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          )
-        else
-          ..._daily.indexed.map((entry) {
-            final (index, d) = entry;
-            return StaggeredListAppear(
-              index: index,
-              slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
-              child: Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(d.stat_date),
-                  subtitle: Text(
-                    '答题 ${d.answered} · 答对 ${d.correct} · 用时 ${d.duration_sec ~/ 60} 分钟',
+            )
+          else
+            ..._daily.indexed.map((entry) {
+              final (index, d) = entry;
+              return StaggeredListAppear(
+                index: index,
+                slideOffsetDp: StaggeredListAppear.listSlideOffsetDp,
+                child: Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(d.stat_date),
+                    subtitle: Text(
+                      '答题 ${d.answered} · 答对 ${d.correct} · 用时 ${d.duration_sec ~/ 60} 分钟',
+                    ),
                   ),
                 ),
-              ),
-            );
-          }),
-      ],
+              );
+            }),
+        ],
+      ),
     );
   }
 }
