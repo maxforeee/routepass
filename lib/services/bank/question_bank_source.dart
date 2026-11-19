@@ -298,9 +298,10 @@ class HttpPracticeProgressOverviewSource implements BankSetOverviewSource {
       for (final item in progress) {
         if (item is! Map<String, dynamic>) continue;
         if (item['module'] != setId) continue;
-        // progress 不含题型分布 / 每模块题量：byType 与 byModule（F35）
-        // 从 fallback 的套卷概览取，取不到保持 null（前置页“题型待接口 /
-        // 题量待接口”），绝不按比例推算。
+        // progress 不含题型分布 / 每模块题量 / 正确率：byType、byModule
+        // （F35）与 accuracy（F37）从 fallback 的套卷概览取，取不到保持
+        // null（前置页“题型待接口 / 题量待接口 / 正确率待接口”），绝不按
+        // 比例推算。
         final overview = await fallback?.fetchOverview(setId);
         return BankSetOverview(
           setId: setId,
@@ -309,6 +310,7 @@ class HttpPracticeProgressOverviewSource implements BankSetOverviewSource {
           remaining: (item['remaining'] as num?)?.toInt() ?? 0,
           byType: overview?.byType,
           byModule: overview?.byModule,
+          accuracy: overview?.accuracy,
         );
       }
     }
