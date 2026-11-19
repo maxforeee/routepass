@@ -100,6 +100,18 @@ const double _clusterFloatRange = 6;
 const double _bubbleBobRange = 5;
 const double _bubbleBobPeriod = 4;
 
+/// 漂移动画周期：浅色 blob 上下浮动（repeat(reverse)）。
+const Duration _blobFloatDuration = Duration(milliseconds: 2500);
+
+/// 漂移动画周期：浅色 blob 圆角形变（repeat(reverse)）。
+const Duration _blobMorphDuration = Duration(milliseconds: 3500);
+
+/// 漂移动画周期：深色气泡簇整体浮动（repeat(reverse)）。
+const Duration _clusterFloatDuration = Duration(milliseconds: 3000);
+
+/// 漂移动画周期：深色气泡逐个起伏（repeat）。
+const Duration _bubbleBobDuration = Duration(milliseconds: 4000);
+
 class _BubbleSpec {
   const _BubbleSpec(this.size, this.left, this.top, this.delay);
 
@@ -160,22 +172,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     _phoneFocus.addListener(_onFocusChange);
     _passwordFocus.addListener(_onFocusChange);
     // CSS 关键帧 0%/100% 同值、50% 到峰值：用 repeat(reverse) 的半周期表达。
-    _blobFloat = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    )..repeat(reverse: true);
-    _blobMorph = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3500),
-    )..repeat(reverse: true);
+    _blobFloat = AnimationController(vsync: this, duration: _blobFloatDuration)
+      ..repeat(reverse: true);
+    _blobMorph = AnimationController(vsync: this, duration: _blobMorphDuration)
+      ..repeat(reverse: true);
     _clusterFloat = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: _clusterFloatDuration,
     )..repeat(reverse: true);
-    _bubbleBob = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 4000),
-    )..repeat();
+    _bubbleBob = AnimationController(vsync: this, duration: _bubbleBobDuration)
+      ..repeat();
     _blobFloatCurve = CurvedAnimation(
       parent: _blobFloat,
       curve: Curves.easeInOut,
