@@ -6,6 +6,8 @@
 /// 旧 import 路径的测试与调用点继续编译，视觉零变化。
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class DailyCardBorderPainter extends CustomPainter {
@@ -40,9 +42,12 @@ class DailyCardBorderPainter extends CustomPainter {
         ..color = color,
     );
     // 擦掉标题覆盖段的上边框，形成 fieldset-legend 式缺口。
+    // F44 P1-5：大字号缩放下标题可能宽过卡面，缺口右端夹到
+    // size.width - radius，保住右上角圆角弧线不被 clear 线擦掉。
+    final clampedGapEnd = math.min(gapEnd, size.width - radius);
     canvas.drawLine(
       Offset(gapStart, 0),
-      Offset(gapEnd, 0),
+      Offset(clampedGapEnd, 0),
       Paint()
         ..blendMode = BlendMode.clear
         ..strokeWidth = strokeWidth * 3,
