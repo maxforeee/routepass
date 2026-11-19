@@ -1,6 +1,6 @@
 /// 答题记录详情页（F25 Chunk 2a）。
 ///
-/// 前置页点记录行进入：只显示摘要（答题数 / 答对 / 正确率）与薄弱点，
+/// 前置页点记录行进入：只显示摘要（答题数 / 答对 / 正确率 / 用时）与薄弱点，
 /// 加「查看试卷」入口和删除按钮；不渲染题目列表（试卷页由 Chunk 2b
 /// 装配，路由名 [AppRoutes.bankRecordPaper] 已预留）。
 ///
@@ -106,6 +106,19 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
       return null;
     }
     return (correct / record.answeredCount * 100).round();
+  }
+
+  /// F42：用时毫秒，服务端详情优先，其次本地记录；都没有返回 null。
+  int? get _durationMs => _detail?.durationMs ?? _record?.durationMs;
+
+  /// 与记录卡 `_durationText` 同格式 mm:ss；null / ≤0 显示 '--'（未知）。
+  String get _durationText {
+    final ms = _durationMs;
+    if (ms == null || ms <= 0) return '--';
+    final total = ms ~/ 1000;
+    final m = (total ~/ 60).toString().padLeft(2, '0');
+    final s = (total % 60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   String get _dateText {
@@ -265,6 +278,7 @@ class _AnswerRecordDetailPageState extends State<AnswerRecordDetailPage> {
                                     : null,
                                 correct: _correct,
                                 scorePercent: _scorePercent,
+                                durationText: _durationText,
                                 examScore: record.mode == 'exam'
                                     ? record.score
                                     : null,
@@ -334,6 +348,7 @@ class _SummaryCard extends StatelessWidget {
     required this.targetCount,
     required this.correct,
     required this.scorePercent,
+    required this.durationText,
     required this.examScore,
     this.loading = false,
   });
@@ -344,6 +359,9 @@ class _SummaryCard extends StatelessWidget {
   final int? targetCount;
   final int? correct;
   final int? scorePercent;
+
+  /// F42：用时 mm:ss；未知为 '--'。
+  final String durationText;
   final int? examScore;
   final bool loading;
 
@@ -376,6 +394,8 @@ class _SummaryCard extends StatelessWidget {
             valueColor: AppColors.success(context),
             loading: loading,
           ),
+          const SizedBox(height: AppSpacing.xs),
+          _SummaryRow(label: '用时', value: durationText, loading: loading),
           if (examScore != null) ...[
             const SizedBox(height: AppSpacing.xs),
             _SummaryRow(label: '得分', value: '$examScore 分'),

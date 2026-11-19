@@ -338,8 +338,9 @@ class PracticeWeakPoint {
 /// F25 答题记录详情（`GET /practice/records/{id}`）。
 ///
 /// 契约字段：`{sessionId, module, status, answered, total, correct, score,
-/// weakPoints}`；全部由服务端 attempts 真实数据计算。`score` 是正确率
-/// 百分数（correct / answered），`total` 无卷面题数时等于 answered。
+/// weakPoints, durationMs}`；全部由服务端 attempts 真实数据计算。`score` 是
+/// 正确率百分数（correct / answered），`total` 无卷面题数时等于 answered。
+/// `durationMs` 是真实累计用时毫秒（F40 新增），缺失 / null 解析为 null。
 class PracticeRecordDetail {
   const PracticeRecordDetail({
     required this.sessionId,
@@ -350,6 +351,7 @@ class PracticeRecordDetail {
     required this.correct,
     required this.score,
     this.weakPoints = const <PracticeWeakPoint>[],
+    this.durationMs,
   });
 
   final String sessionId;
@@ -360,6 +362,10 @@ class PracticeRecordDetail {
   final int correct;
   final int score;
   final List<PracticeWeakPoint> weakPoints;
+
+  /// F42：真实累计用时毫秒；缺失 / null 为 null，不得落到 0（0 会被当成
+  /// 真实的 0 秒会话）。
+  final int? durationMs;
 
   factory PracticeRecordDetail.fromJson(Map<String, dynamic> json) {
     return PracticeRecordDetail(
@@ -374,6 +380,7 @@ class PracticeRecordDetail {
           .whereType<Map<String, dynamic>>()
           .map(PracticeWeakPoint.fromJson)
           .toList(),
+      durationMs: (json['durationMs'] as num?)?.toInt(),
     );
   }
 
