@@ -63,7 +63,12 @@ class SharedAxisPageRoute<T> extends PageRouteBuilder<T> {
                opacity: enter,
                child: AnimatedBuilder(
                  animation: enter,
-                 child: child,
+                 // F49：阴影装饰每帧随 enter.value 变化，DecoratedBox 不是
+                 // repaint boundary，脏标记会冒泡到祖先边界、把整页显示列表
+                 // 每帧重录（120Hz 下 300ms 转场 = 36 次整页重绘）。页面内容
+                 // 在转场中是静态的，包一层边界让引擎缓存整页 picture，
+                 // 每帧只重录阴影本身。
+                 child: RepaintBoundary(child: child),
                  builder: (context, child) => DecoratedBox(
                    decoration: BoxDecoration(
                      boxShadow: <BoxShadow>[

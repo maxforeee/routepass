@@ -1079,7 +1079,11 @@ Widget _fadeSlideTransform(
 }) {
   return AnimatedBuilder(
     animation: animation,
-    child: child,
+    // F49：FadeTransition 的 RenderAnimatedOpacity 在动画期间自身是 repaint
+    // boundary，透明度每帧变化会重录自己的 picture；child 不是边界时卡片
+    // 内容（文字/标签）跟着每帧重录。列表交错入场与页面 push 转场并行
+    // （前 6 项 250ms + 错峰），包一层边界让卡片 picture 缓存、每帧只合成。
+    child: RepaintBoundary(child: child),
     builder: (context, child) {
       final double remain = 1.0 - animation.value;
       final Widget faded = FadeTransition(opacity: animation, child: child!);

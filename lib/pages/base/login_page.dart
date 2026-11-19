@@ -425,57 +425,63 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   Widget _buildBlob() {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_blobFloatCurve, _blobMorphCurve]),
-      builder: (context, _) {
-        final float = _blobFloatCurve.value;
-        final radius = BorderRadius.lerp(
-          _blobRadiusA,
-          _blobRadiusB,
-          _blobMorphCurve.value,
-        )!;
-        return Transform.translate(
-          offset: Offset(0, -_blobFloatRange * float),
-          child: Transform.rotate(
-            angle: _blobTilt * float,
-            // F15（P1-3）：居中 blob 本体，凸起挂在左缘外（left: -18），
-            // 与参考稿一致；旧实现居中 265 宽容器导致 blob 右偏 15px。
-            child: SizedBox(
-              width: _blobWidth,
-              height: _blobHeight,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    child: Container(
-                      width: _blobWidth,
-                      height: _blobHeight,
-                      decoration: BoxDecoration(
-                        color: AppColors.loginBlobViolet,
-                        borderRadius: radius,
+    // F49：环境漂移每帧改变 borderRadius/位移，AnimatedBuilder 无缓存 child，
+    // 重绘脏标记会冒泡到路由级边界、把整张登录页（渐变底、输入框、文字）
+    // 每帧重录；转场期间登录页作为被压栈页同样被牵连。包一层 repaint
+    // boundary 把每帧重绘隔离在 141x123 的图形层内，页面其余部分保持缓存。
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_blobFloatCurve, _blobMorphCurve]),
+        builder: (context, _) {
+          final float = _blobFloatCurve.value;
+          final radius = BorderRadius.lerp(
+            _blobRadiusA,
+            _blobRadiusB,
+            _blobMorphCurve.value,
+          )!;
+          return Transform.translate(
+            offset: Offset(0, -_blobFloatRange * float),
+            child: Transform.rotate(
+              angle: _blobTilt * float,
+              // F15（P1-3）：居中 blob 本体，凸起挂在左缘外（left: -18），
+              // 与参考稿一致；旧实现居中 265 宽容器导致 blob 右偏 15px。
+              child: SizedBox(
+                width: _blobWidth,
+                height: _blobHeight,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      child: Container(
+                        width: _blobWidth,
+                        height: _blobHeight,
+                        decoration: BoxDecoration(
+                          color: AppColors.loginBlobViolet,
+                          borderRadius: radius,
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: -_blobBumpOverhang,
-                    top: _blobBumpTop,
-                    child: Container(
-                      width: _blobBumpSize,
-                      height: _blobBumpSize,
-                      decoration: const BoxDecoration(
-                        color: AppColors.loginBlobViolet,
-                        shape: BoxShape.circle,
+                    Positioned(
+                      left: -_blobBumpOverhang,
+                      top: _blobBumpTop,
+                      child: Container(
+                        width: _blobBumpSize,
+                        height: _blobBumpSize,
+                        decoration: const BoxDecoration(
+                          color: AppColors.loginBlobViolet,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -486,50 +492,54 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   Widget _buildBubbles() {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_clusterFloatCurve, _bubbleBob]),
-      builder: (context, _) {
-        return Transform.translate(
-          offset: Offset(0, -_clusterFloatRange * _clusterFloatCurve.value),
-          child: SizedBox(
-            width: _clusterWidth,
-            height: _clusterHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (final bubble in _bubbleSpecs)
-                  Positioned(
-                    left: bubble.left,
-                    top:
-                        bubble.top +
-                        _bobOffset(
-                          _bubbleBob.value + bubble.delay / _bubbleBobPeriod,
-                        ),
-                    child: Container(
-                      width: bubble.size,
-                      height: bubble.size,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: _bubbleGradient,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.loginBubbleShadow,
-                            offset: Offset(0, 4),
-                            blurRadius: 8,
+    // F49：同 _buildBlob——7 个渐变 + 模糊阴影气泡每帧重建重绘，用 repaint
+    // boundary 把脏区隔离在 126x108 的气泡簇层内，不牵连整页与转场。
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_clusterFloatCurve, _bubbleBob]),
+        builder: (context, _) {
+          return Transform.translate(
+            offset: Offset(0, -_clusterFloatRange * _clusterFloatCurve.value),
+            child: SizedBox(
+              width: _clusterWidth,
+              height: _clusterHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (final bubble in _bubbleSpecs)
+                    Positioned(
+                      left: bubble.left,
+                      top:
+                          bubble.top +
+                          _bobOffset(
+                            _bubbleBob.value + bubble.delay / _bubbleBobPeriod,
                           ),
-                        ],
-                      ),
-                      foregroundDecoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: _bubbleInnerLight,
+                      child: Container(
+                        width: bubble.size,
+                        height: bubble.size,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: _bubbleGradient,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.loginBubbleShadow,
+                              offset: Offset(0, 4),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        foregroundDecoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: _bubbleInnerLight,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
