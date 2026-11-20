@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- F31: flutter_secure_storage 的加密文件用本机 Keystore 密钥加密，
-     备份恢复到别的设备后密钥不存在会抛 InvalidKeyException。
-     按插件官方建议把它排除在 auto backup 之外（其余数据照常备份）。 -->
-<full-backup-content>
-    <exclude domain="sharedpref" path="FlutterSecureStorage.xml"/>
-</full-backup-content>
