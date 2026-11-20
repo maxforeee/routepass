@@ -2,10 +2,14 @@
 ///
 /// 只暴露最小的 raw SQL 接口，缓存语义集中在
 /// `lib/services/bank/local_cache_service.dart`。测试不碰真实 SQLite，
-/// 用同一接口的内存实现；生产装配 `SqfliteLocalDatabase`（Android / iOS）。
+/// 用同一接口的内存实现；生产装配 `SqfliteLocalDatabase`
+/// （Android / iOS 走 sqflite，web 走 sqflite_common_ffi_web，W1）。
 library;
 
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
+
+import 'db_platform_io.dart'
+    if (dart.library.js_interop) 'db_platform_web.dart';
 
 /// F36：错题本本地持久表（§4.8.5）。removed_at 为移除墓碑（null = 未移除）。
 /// 裸 CREATE TABLE：onCreate 只在全新库执行，v3→v4 升级时表必然不存在，
@@ -116,7 +120,7 @@ abstract class LocalDatabase {
 /// sqflite 实现：懒打开 `routepass.db`，首次打开时建表。
 class SqfliteLocalDatabase implements LocalDatabase {
   SqfliteLocalDatabase({this.dbPath, DatabaseFactory? factory})
-    : dbFactory = factory ?? databaseFactory;
+    : dbFactory = factory ?? platformDatabaseFactory;
 
   static const int schemaVersion = 5;
   static const String defaultFileName = 'routepass.db';
@@ -128,7 +132,7 @@ class SqfliteLocalDatabase implements LocalDatabase {
   Future<Database> get _db => _opening ??= _open();
 
   Future<Database> _open() async {
-    final path = dbPath ?? '${await getDatabasesPath()}/$defaultFileName';
+    final path = dbPath ?? await platformDatabasePath(defaultFileName);
     final db = await dbFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(

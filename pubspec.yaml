@@ -29,6 +29,11 @@ dependencies:
 
   # F19: 客户端 SQLite（cache-first / offline-first 数据层）。
   sqflite: ^2.4.6
+  # W1: web 端 SQLite。local_db.dart 条件导入：Android/iOS 仍走 sqflite，
+  # web 走 sqflite_common_ffi_web（sqlite3 wasm + IndexedDB）。
+  # sqflite_common 提供平台无关的 Database/DatabaseFactory 类型。
+  sqflite_common: ^2.4.0
+  sqflite_common_ffi_web: ^1.2.2
   connectivity_plus: ^7.3.2
 
   # F31 (P2-1): 双 Token 迁出明文 SharedPreferences，落 Keystore 加密存储。
