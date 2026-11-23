@@ -9,6 +9,7 @@ import '../../core/app_animations.dart';
 import '../../core/app_snackbar.dart';
 import '../../core/service_locator.dart';
 import '../../core/theme.dart';
+import '../../models/auth.dart';
 import '../../router/app_router.dart';
 import '../../services/base/auth_service.dart';
 import 'recover_page.dart';
@@ -250,12 +251,22 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     }
     setState(() => _submitting = true);
     final auth = widget.authService ?? ServiceLocator.authService;
-    final result = await auth.login(
-      phone: _phoneController.text.trim(),
-      password: _passwordController.text,
-    );
+    // W2：login 意外抛异常时也要复位按钮并提示，绝不无限转圈。
+    final LoginResult result;
+    try {
+      result = await auth.login(
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+      );
+    } catch (_) {
+      if (mounted) {
+        showAppSnackBar(context, '网络连接失败，请检查网络后重试', aboveNav: false);
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
     if (!mounted) return;
-    setState(() => _submitting = false);
     if (!result.success) {
       // 服务端文案（401 / 422 / 409）或网络错误；留在登录页，不导航。
       showAppSnackBar(context, result.message ?? '登录失败', aboveNav: false);

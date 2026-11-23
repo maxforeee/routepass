@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/config.dart';
@@ -99,14 +100,16 @@ class HttpAuthService extends AuthService {
     required String phone,
     required String password,
   }) async {
-    final body = <String, String>{
-      'phone': phone,
-      'password': password,
-      'deviceId': await _deviceId(),
-      'deviceModel': _deviceModel ?? _defaultDeviceModel(),
-      'appVersion': _appVersion,
-    };
     try {
+      // W2：请求体组装也放进 try——组装失败要变成登录失败文案，
+      // 而不是未捕获异常把登录按钮卡死在转圈。
+      final body = <String, String>{
+        'phone': phone,
+        'password': password,
+        'deviceId': await _deviceId(),
+        'deviceModel': _deviceModel ?? _defaultDeviceModel(),
+        'appVersion': _appVersion,
+      };
       final response = await _client
           .post(
             Uri.parse('$_baseUrl/api/v1/auth/login'),
@@ -472,6 +475,9 @@ class HttpAuthService extends AuthService {
   }
 
   String _defaultDeviceModel() {
+    // W2：web 上 dart:io 的 Platform 一触即抛 UnsupportedError，
+    // 必须在碰它之前显式分流，否则登录请求体都建不出来。
+    if (kIsWeb) return 'Web';
     final version = Platform.operatingSystemVersion;
     return version.isEmpty
         ? Platform.operatingSystem
